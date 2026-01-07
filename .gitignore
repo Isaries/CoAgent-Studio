@@ -1,0 +1,31 @@
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# IDEs
+.vscode/
+.idea/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build
+dist/
+build/
+coverage/
+
+# CoAgent/Agent Artifacts
+.gemini/
