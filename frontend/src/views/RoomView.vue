@@ -45,7 +45,7 @@ const connectWebSocket = () => {
     // In dev: proxy /api/v1 -> backend:8000.
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = 'localhost:8000' // Direct to backend
-    const url = `${protocol}//${host}/api/v1/ws/${roomId}?token=${authStore.token}`
+    const url = `${protocol}//${host}/api/v1/chat/ws/${roomId}?token=${authStore.token}`
     
     ws.value = new WebSocket(url)
     

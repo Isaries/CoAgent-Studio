@@ -81,6 +81,18 @@ router.beforeEach(async (to, _from, next) => {
         return
     }
 
+    // Ensure user is loaded if token exists
+    if (authStore.token && !authStore.user) {
+        try {
+            await authStore.fetchUser()
+        } catch (e) {
+            // Token might be invalid
+            authStore.logout()
+            next('/login')
+            return
+        }
+    }
+
     // Check admin role
     if (to.meta.requiresAdmin && !authStore.isAdmin) {
         next('/courses') // Redirect non-admins to courses
