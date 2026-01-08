@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import iconUser from '../assets/iconUser.png'
 import api from '../api'
 
 const authStore = useAuthStore()
+const route = useRoute()
 // const router = useRouter()
 
 const logout = () => {
@@ -69,8 +71,12 @@ const updateProfile = async () => {
       </div>
       
       <!-- Page Content -->
-      <main class="flex-1 p-6 overflow-y-auto">
-        <router-view></router-view>
+      <main class="flex-1 overflow-y-auto" :class="{ 'p-6': !route.name?.toString().includes('room'), 'overflow-y-hidden': route.name?.toString().includes('room') }">
+        <router-view v-slot="{ Component }">
+           <transition name="fade" mode="out-in">
+             <component :is="Component" />
+           </transition>
+        </router-view>
       </main>
 
        <!-- Profile Modal -->
@@ -132,11 +138,15 @@ const updateProfile = async () => {
           
           <li v-if="authStore.isAdmin"><router-link to="/dashboard" active-class="active">Dashboard</router-link></li>
           <li v-if="authStore.isAdmin"><router-link to="/admin/users" active-class="active">User Management</router-link></li>
-          <li v-if="authStore.isAdmin"><router-link to="/admin/database" active-class="active">Database</router-link></li>
-          <li v-if="authStore.isAdmin"><router-link to="/admin/system-agents" active-class="active">System Agents</router-link></li>
           <li><router-link to="/courses" active-class="active">My Courses</router-link></li>
           <li><router-link to="/analytics" active-class="active">Analytics</router-link></li>
           
+          <template v-if="authStore.isAdmin">
+            <div class="divider text-xs opacity-50 uppercase tracking-widest">Admin Tools</div>
+            <li><router-link to="/admin/database" active-class="active">Database</router-link></li>
+            <li><router-link to="/admin/system-agents" active-class="active">System Agents</router-link></li>
+          </template>
+
           <div class="divider"></div>
           
           <li><a @click="openProfileModal">Settings</a></li>

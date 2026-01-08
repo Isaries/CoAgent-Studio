@@ -31,3 +31,13 @@ class CourseRead(CourseBase):
 class CourseUpdate(SQLModel):
     title: Optional[str] = None
     description: Optional[str] = None
+
+class CourseMember(SQLModel):
+    user_id: UUID
+    email: str
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    role: str # student, ta
+
+class CourseMemberUpdate(SQLModel):
+    role: str

@@ -9,7 +9,7 @@ from sqlmodel import select
 from app.api import deps
 from app.core import security
 from app.core.config import settings
-from app.models.user import User
+from app.models.user import User, UserRead
 
 router = APIRouter()
 
@@ -47,7 +47,7 @@ async def login_access_token(
         "token_type": "bearer",
     }
 
-@router.post("/login/test-token", response_model=User)
+@router.post("/login/test-token", response_model=UserRead)
 async def test_token(current_user: User = Depends(deps.get_current_user)) -> Any:
     """
     Test access token

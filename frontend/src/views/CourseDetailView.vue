@@ -17,11 +17,21 @@ interface Room {
     is_ai_active: boolean
 }
 
+interface CourseMember {
+    user_id: string
+    email: string
+    full_name?: string
+    avatar_url?: string
+    role: 'student' | 'ta'
+}
+
 const route = useRoute()
 const router = useRouter()
 const courseId = route.params.id as string
 const course = ref<Course | null>(null)
 const rooms = ref<Room[]>([])
+const members = ref<CourseMember[]>([])
+const activeTab = ref<'rooms' | 'members'>('rooms')
 const loading = ref(true)
 
 // Enroll State
@@ -218,13 +228,40 @@ const assignUser = async () => {
     }
 }
 
+const fetchMembers = async () => {
+    try {
+        const res = await api.get<CourseMember[]>(`/courses/${courseId}/members`)
+        members.value = res.data
+    } catch (e) {
+        console.error("Failed to fetch members", e)
+    }
+}
+
+const updateMemberRole = async (member: CourseMember, newRole: string) => {
+    const originalRole = member.role
+    try {
+        // Optimistic update
+        member.role = newRole as 'student' | 'ta'
+        await api.put(`/courses/${courseId}/members/${member.user_id}`, { role: newRole })
+    } catch (e) {
+        console.error(e)
+        alert("Failed to update role")
+        member.role = originalRole // Revert on failure
+    }
+}
+
+const switchTab = (tab: 'rooms' | 'members') => {
+    activeTab.value = tab
+    if (tab === 'members') fetchMembers()
+}
+
 onMounted(() => {
     fetchCourseData()
 })
 </script>
 
 <template>
-  <div class="p-6">
+  <div class="w-full">
     <div v-if="loading" class="flex justify-center">
         <span class="loading loading-spinner loading-lg"></span>
     </div>
@@ -254,8 +291,137 @@ onMounted(() => {
             <button @click="deleteCourse" class="btn btn-error btn-sm btn-outline ml-auto">Delete Course</button>
         </div>
 
-        <div class="divider">DISCUSSION ROOMS</div>
-        
+        <!-- Tabs -->
+        <div role="tablist" class="tabs tabs-lifted mb-6">
+            <a role="tab" class="tab" :class="{ 'tab-active': activeTab === 'rooms' }" @click="switchTab('rooms')">Rooms</a>
+            <a role="tab" class="tab" :class="{ 'tab-active': activeTab === 'members' }" @click="switchTab('members')">Members</a>
+        </div>
+
+        <!-- Rooms Content -->
+        <div v-show="activeTab === 'rooms'" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div v-if="rooms.length === 0" class="col-span-full text-center py-4 opacity-70">
+                No rooms created yet.
+            </div>
+            <div v-for="room in rooms" :key="room.id" class="card bg-base-100 shadow border border-base-300">
+                <div class="card-body">
+                    <div class="flex justify-between items-start">
+                        <h3 class="card-title">
+                            {{ room.name }}
+                            <div v-if="room.is_ai_active" class="badge badge-secondary badge-outline text-xs">AI Active</div>
+                        </h3>
+                        <div class="dropdown dropdown-end">
+                            <label tabindex="0" class="btn btn-ghost btn-xs btn-circle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                            </label>
+                            <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                <li><a @click="deleteRoom(room.id)" class="text-error">Delete Room</a></li>
+                                <li><a @click="openAssignModal(room.id)">Assign Student</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="card-actions justify-end mt-4">
+                        <router-link :to="`/rooms/${room.id}`" class="btn btn-primary btn-sm">Enter Room</router-link>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Members Content -->
+        <div v-show="activeTab === 'members'">
+             <div v-if="members.length === 0" class="text-center py-4 opacity-70">
+                No members found.
+            </div>
+
+            <!-- Desktop View (Table) -->
+            <div class="hidden md:block overflow-x-auto">
+                <table class="table w-full">
+                    <!-- head -->
+                    <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="member in members" :key="member.user_id + '_desktop'">
+                        <td>
+                            <div class="flex items-center gap-3">
+                                <div class="avatar">
+                                    <div class="mask mask-squircle w-12 h-12">
+                                        <img :src="member.avatar_url || 'https://ui-avatars.com/api/?name=' + member.email" alt="Avatar" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="font-bold">{{ member.full_name || 'No Name' }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ member.email }}</td>
+                        <td>
+                            <span class="badge" :class="member.role === 'ta' ? 'badge-accent' : 'badge-ghost'">{{ member.role.toUpperCase() }}</span>
+                        </td>
+                        <td>
+                            <div class="join">
+                                <button 
+                                    v-if="member.role !== 'ta'" 
+                                    @click="updateMemberRole(member, 'ta')" 
+                                    class="btn btn-xs btn-outline btn-accent join-item">
+                                    Make TA
+                                </button>
+                                <button 
+                                    v-if="member.role === 'ta'" 
+                                    @click="updateMemberRole(member, 'student')" 
+                                    class="btn btn-xs btn-outline join-item">
+                                    Revoke TA
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile View (Cards) -->
+            <div class="block md:hidden space-y-4">
+                <div v-for="member in members" :key="member.user_id + '_mobile'" class="card bg-base-100 shadow-sm border border-base-200 transition-all active:scale-[0.98]">
+                    <div class="card-body p-4 flex flex-row items-center gap-4">
+                        <div class="avatar">
+                            <div class="mask mask-squircle w-12 h-12">
+                                <img :src="member.avatar_url || 'https://ui-avatars.com/api/?name=' + member.email" alt="Avatar" />
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-start">
+                                <h3 class="font-bold truncate">{{ member.full_name || 'No Name' }}</h3>
+                                <span class="badge badge-sm" :class="member.role === 'ta' ? 'badge-accent' : 'badge-ghost'">{{ member.role.toUpperCase() }}</span>
+                            </div>
+                            <p class="text-xs text-gray-500 truncate">{{ member.email }}</p>
+                        </div>
+                    </div>
+                     <div class="card-actions px-4 pb-4">
+                         <button 
+                            v-if="member.role !== 'ta'" 
+                            @click="updateMemberRole(member, 'ta')" 
+                            class="btn btn-sm btn-outline btn-accent w-full">
+                            Make TA
+                         </button>
+                         <button 
+                            v-if="member.role === 'ta'" 
+                            @click="updateMemberRole(member, 'student')" 
+                            class="btn btn-sm btn-outline w-full">
+                            Revoke TA
+                         </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div v-else class="text-center text-error">Course not found.</div>
+
         <!-- Create Room Modal -->
         <dialog id="create_room_modal" class="modal">
           <div class="modal-box">
@@ -357,37 +523,6 @@ onMounted(() => {
              </div>
           </div>
         </dialog>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div v-for="room in rooms" :key="room.id" class="card bg-base-100 shadow border border-base-300">
-                <div class="card-body">
-                    <div class="flex justify-between items-start">
-                        <h3 class="card-title">
-                            {{ room.name }}
-                            <div v-if="room.is_ai_active" class="badge badge-secondary badge-outline text-xs">AI Active</div>
-                        </h3>
-                        <div class="dropdown dropdown-end">
-                            <label tabindex="0" class="btn btn-ghost btn-xs btn-circle">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-                            </label>
-                            <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                                <li><a @click="deleteRoom(room.id)" class="text-error">Delete Room</a></li>
-                                <li><a @click="openAssignModal(room.id)">Assign Student</a></li>
-                            </ul>
-                        </div>
-                    </div>
-                    
-                    <div class="card-actions justify-end mt-4">
-                        <router-link :to="`/rooms/${room.id}`" class="btn btn-primary btn-sm">Enter Room</router-link>
-                    </div>
-                </div>
-            </div>
-             <div v-if="rooms.length === 0" class="col-span-full text-center py-4 opacity-70">
-                No rooms created yet.
-            </div>
-        </div>
-    </div>
-    
-    <div v-else class="text-center text-error">Course not found.</div>
+   <!-- End of Modals -->
   </div>
 </template>

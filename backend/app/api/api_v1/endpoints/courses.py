@@ -7,7 +7,7 @@ from sqlmodel import select, SQLModel
 
 from app.api import deps
 from app.models.user import User, UserRole
-from app.models.course import Course, CourseCreate, CourseRead, CourseUpdate, UserCourseLink
+from app.models.course import Course, CourseCreate, CourseRead, CourseUpdate, UserCourseLink, CourseMember, CourseMemberUpdate
 
 router = APIRouter()
 
@@ -159,3 +159,76 @@ async def enroll_user(
     await session.commit()
     
     return {"message": f"User {user_to_enroll.email} enrolled as {enrollment.role}"}
+
+@router.get("/{course_id}/members", response_model=List[CourseMember])
+async def read_course_members(
+    course_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get all members (students and TAs) of a course.
+    Allowed: Admin, Teacher (Owner/TA).
+    """
+    course = await session.get(Course, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+        
+    # Check permissions (Owner or Admin or TA in this course)
+    is_admin = current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+    is_owner = course.owner_id == current_user.id
+    
+    if not (is_admin or is_owner):
+        # Check if TA
+        link = await session.get(UserCourseLink, (current_user.id, course_id))
+        if not link or link.role != "ta":
+             raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    # Query members
+    query = (
+        select(User, UserCourseLink.role)
+        .join(UserCourseLink, User.id == UserCourseLink.user_id)
+        .where(UserCourseLink.course_id == course_id)
+    )
+    results = await session.exec(query)
+    
+    members = []
+    for user, role in results:
+        members.append(CourseMember(
+            user_id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            avatar_url=user.avatar_url,
+            role=role
+        ))
+        
+    return members
+
+@router.put("/{course_id}/members/{user_id}", response_model=Any)
+async def update_course_member_role(
+    course_id: UUID,
+    user_id: UUID,
+    member_update: CourseMemberUpdate,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Update a member's role in a course (e.g. promote to TA).
+    Allowed: Admin, Owner.
+    """
+    course = await session.get(Course, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+    link = await session.get(UserCourseLink, (user_id, course_id))
+    if not link:
+        raise HTTPException(status_code=404, detail="User is not enrolled in this course")
+        
+    link.role = member_update.role
+    session.add(link)
+    await session.commit()
+    
+    return {"message": "Role updated"}
