@@ -77,22 +77,65 @@ const handleLogin = async (type: 'guest' | 'admin') => {
              <p class="text-xs opacity-50 mt-2">Currently Invite Only</p>
         </div>
 
-        <!-- Hidden Admin Form -->
-        <div v-if="showAdminLogin" class="card mt-8 w-full shadow-2xl bg-base-100 animate-fade-in">
-          <form class="card-body" @submit.prevent="handleLogin('admin')">
-            <h2 class="card-title justify-center text-sm uppercase tracking-wide opacity-50 mb-2">Admin Access</h2>
-            <div class="form-control">
-              <input type="text" v-model="adminCredentials.username" placeholder="Username or Email" class="input input-bordered" required />
+        <!-- Hidden Admin Form (Cyberpunk / AI-Native Style) -->
+        <div v-if="showAdminLogin" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm overflow-hidden" @click.self="showAdminLogin = false">
+            
+            <!-- Context: Animated Background Mesh using CSS shapes/gradients -->
+            <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+                <div class="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-cyan-500/20 rounded-full blur-[120px] animate-pulse-slow"></div>
+                <div class="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-500/20 rounded-full blur-[120px] animate-pulse-slow delay-1000"></div>
+                <div class="absolute top-[40%] left-[40%] w-[30%] h-[30%] bg-blue-600/10 rounded-full blur-[100px] animate-float"></div>
             </div>
-            <div class="form-control">
-              <input type="password" v-model="adminCredentials.password" placeholder="Password" class="input input-bordered" required />
+
+            <!-- Glass Card -->
+            <div class="relative z-10 w-full max-w-md p-1 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 shadow-[0_0_40px_rgba(0,0,0,0.5)] backdrop-blur-xl border border-white/10 animate-fade-in-up">
+                <div class="bg-black/40 rounded-xl p-8 backdrop-blur-md h-full w-full">
+                    
+                    <!-- Header -->
+                    <div class="text-center mb-8">
+                        <div class="inline-block relative">
+                            <h2 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 mb-1 tracking-tight">CoAgent</h2>
+                            <div class="absolute -bottom-2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50"></div>
+                        </div>
+                        <p class="text-cyan-100/50 text-xs mt-3 uppercase tracking-[0.2em] font-medium">System Administration</p>
+                    </div>
+
+                    <form @submit.prevent="handleLogin('admin')" class="space-y-5">
+                        <div class="group">
+                            <label class="block text-xs uppercase tracking-wider text-cyan-200/60 mb-1.5 font-medium ml-1">Username</label>
+                            <input 
+                                type="text" 
+                                v-model="adminCredentials.username" 
+                                class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-cyan-50 placeholder-cyan-200/20 transition-all duration-300 focus:outline-none focus:border-cyan-400/50 focus:bg-cyan-900/10 focus:shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                                placeholder="Enter Identity"
+                                required 
+                            />
+                        </div>
+
+                        <div class="group">
+                            <label class="block text-xs uppercase tracking-wider text-cyan-200/60 mb-1.5 font-medium ml-1">Password</label>
+                            <input 
+                                type="password" 
+                                v-model="adminCredentials.password" 
+                                class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-cyan-50 placeholder-cyan-200/20 transition-all duration-300 focus:outline-none focus:border-purple-400/50 focus:bg-purple-900/10 focus:shadow-[0_0_20px_rgba(192,132,252,0.2)]"
+                                placeholder="••••••••"
+                                required 
+                            />
+                        </div>
+
+                        <div v-if="errorMessage" class="text-red-400 text-sm text-center bg-red-900/20 border border-red-500/20 rounded-lg p-2 animate-shake">
+                            {{ errorMessage }}
+                        </div>
+                        
+                        <div class="pt-4 flex items-center justify-between gap-4">
+                            <button type="button" class="text-sm text-cyan-200/40 hover:text-cyan-200 transition-colors" @click="showAdminLogin = false">Cancel</button>
+                            <button class="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-cyan-900/50 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]">
+                                Authenticate
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div v-if="errorMessage" class="text-error text-sm mt-2">{{ errorMessage }}</div>
-            <div class="form-control mt-6">
-              <button class="btn btn-neutral">Enter</button>
-            </div>
-            <button type="button" class="btn btn-ghost btn-xs mt-2" @click="showAdminLogin = false">Close</button>
-          </form>
         </div>
       </div>
     </div>
@@ -101,9 +144,32 @@ const handleLogin = async (type: 'guest' | 'admin') => {
 
 <style scoped>
 .select-none { user-select: none; }
-.animate-fade-in { animation: fadeIn 0.3s ease-out; }
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+
+/* Animation Keyframes */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
+.animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes pulseSlow {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.1); }
+}
+.animate-pulse-slow { animation: pulseSlow 4s ease-in-out infinite; }
+
+@keyframes float {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(30px, -50px); }
+    66% { transform: translate(-20px, 20px); }
+}
+.animate-float { animation: float 10s ease-in-out infinite; }
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+.animate-shake { animation: shake 0.3s ease-in-out; }
+
 </style>

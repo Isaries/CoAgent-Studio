@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
     
     # ADMIN
-    FIRST_SUPERUSER: str = "admin"
-    FIRST_SUPERUSER_PASSWORD: str = "admin"
+    # ADMIN
+    SUPER_ADMIN: str = "admin"
+    SUPER_ADMIN_PASSWORD: str = "admin"
 
     @property
     def ASYNC_DATABASE_URL(self) -> str:
