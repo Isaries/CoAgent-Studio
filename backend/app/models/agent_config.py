@@ -12,7 +12,7 @@ class AgentType(str):
     ANALYTICS = "analytics"
 
 class AgentConfigBase(SQLModel):
-    course_id: UUID = Field(foreign_key="course.id")
+    course_id: Optional[UUID] = Field(default=None, foreign_key="course.id", index=True)
     type: str = Field(index=True) # teacher, student, etc.
     model_provider: str = Field(default="gemini") # gemini, openai
     system_prompt: str

@@ -36,11 +36,19 @@ async def generate_course_analytics(
     result = await session.exec(query)
     config = result.first()
     
-    if not config or not config.encrypted_api_key:
-        raise HTTPException(status_code=400, detail="Analytics Agent not configured for this course")
+    # Fallback to system-level config if missing
+    sys_query = select(AgentConfig).where(AgentConfig.course_id == None, AgentConfig.type == AgentType.ANALYTICS)
+    sys_result = await session.exec(sys_query)
+    sys_config = sys_result.first()
+
+    prompt = (config.system_prompt if config else None) or (sys_config.system_prompt if sys_config else None)
+    key = (config.encrypted_api_key if config else None) or (sys_config.encrypted_api_key if sys_config else None)
+
+    if not key:
+        raise HTTPException(status_code=400, detail="Analytics Agent not configured (Missing API Key)")
 
     # 2. Initialize Agent
-    agent = AnalyticsAgent(provider=config.model_provider, api_key=config.encrypted_api_key)
+    agent = AnalyticsAgent(provider="gemini", api_key=key, system_prompt=prompt)
     
     # 3. Gather Data (All messages from all rooms in course)
     # For MVP, let's limit to the "most active" room or just fetch all

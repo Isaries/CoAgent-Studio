@@ -61,6 +61,12 @@ const router = createRouter({
                     name: 'database-view',
                     component: () => import('../views/DatabaseView.vue'),
                     meta: { requiresAdmin: true }
+                },
+                {
+                    path: 'admin/system-agents',
+                    name: 'system-agent-settings',
+                    component: () => import('../views/SystemSettingsView.vue'),
+                    meta: { requiresAdmin: true }
                 }
             ]
         },
@@ -72,16 +78,12 @@ const router = createRouter({
     ]
 })
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, from, next) => {
     const authStore = useAuthStore()
+    const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+    const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
 
-    // Check auth for protected routes
-    if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-        next('/login')
-        return
-    }
-
-    // Ensure user is loaded if token exists
+    // Sync auth state if token exists but user is not loaded
     if (authStore.token && !authStore.user) {
         try {
             await authStore.fetchUser()

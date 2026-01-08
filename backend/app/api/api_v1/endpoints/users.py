@@ -113,13 +113,17 @@ async def update_user(
             detail="The user with this user_id does not exist in the system",
         )
     
+    user_data = user.dict(exclude_unset=True)
+    update_data = user_in.dict(exclude_unset=True)
+
     # Permission Check:
     # 1. Super Admin cannot change their own role
     if user.id == current_user.id and "role" in update_data and current_user.role == "super_admin":
-        raise HTTPException(
-            status_code=400,
-            detail="Super Admins cannot change their own role",
-        )
+        if update_data["role"] != "super_admin": # If trying to downgrade
+             raise HTTPException(
+                status_code=400,
+                detail="Super Admins cannot change their own role",
+            )
 
     # 2. If target is Admin/Super Admin, and NOT self, only Super Admin can modify
     if user.id != current_user.id:
@@ -128,9 +132,14 @@ async def update_user(
                 status_code=403,
                 detail="Only Super Admins can modify other Admin accounts",
             )
-    
-    user_data = user.dict(exclude_unset=True)
-    update_data = user_in.dict(exclude_unset=True)
+            
+    # 3. Privilege Escalation Check: Only Super Admin can promote others to Admin/Super Admin
+    if "role" in update_data and update_data["role"] in ["admin", "super_admin"]:
+        if current_user.role != "super_admin":
+             raise HTTPException(
+                status_code=403,
+                detail="Only Super Admins can promote users to Admin roles",
+            )
     
     # Handle password update if separately (simple logic for now)
     if "password" in update_data and update_data["password"]:

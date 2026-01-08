@@ -9,6 +9,7 @@ class RoomBase(SQLModel):
     is_ai_active: bool = Field(default=True)
 
     ai_frequency: float = Field(default=0.5) # 0.0 to 1.0
+    ai_mode: str = Field(default="teacher_only") # off, teacher_only, both
 
 class UserRoomLink(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="user.id", primary_key=True)
@@ -35,3 +36,4 @@ class RoomUpdate(SQLModel):
     description: Optional[str] = None
     is_ai_active: Optional[bool] = None
     ai_frequency: Optional[float] = None
+    ai_mode: Optional[str] = None

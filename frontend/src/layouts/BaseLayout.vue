@@ -133,6 +133,7 @@ const updateProfile = async () => {
           <li v-if="authStore.isAdmin"><router-link to="/dashboard" active-class="active">Dashboard</router-link></li>
           <li v-if="authStore.isAdmin"><router-link to="/admin/users" active-class="active">User Management</router-link></li>
           <li v-if="authStore.isAdmin"><router-link to="/admin/database" active-class="active">Database</router-link></li>
+          <li v-if="authStore.isAdmin"><router-link to="/admin/system-agents" active-class="active">System Agents</router-link></li>
           <li><router-link to="/courses" active-class="active">My Courses</router-link></li>
           <li><router-link to="/analytics" active-class="active">Analytics</router-link></li>
           

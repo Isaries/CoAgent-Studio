@@ -1,5 +1,6 @@
 from typing import List, Optional, Any
 from uuid import UUID
+import asyncio
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -85,7 +86,7 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
     """
     # 1. Get Room Settings
     room = await session.get(Room, UUID(room_id))
-    if not room or not room.is_ai_active:
+    if not room or room.ai_mode == "off":
         return
 
     # 2. Get Course Configs (Agents)
@@ -126,7 +127,8 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
 
     # 1. Teacher Turn
     # The Teacher has priority. If Teacher speaks, Student listens.
-    if teacher_agent and teacher_agent.should_reply(history, room.ai_frequency):
+    can_teacher = room.ai_mode in ["teacher_only", "both"]
+    if can_teacher and teacher_agent and teacher_agent.should_reply(history, room.ai_frequency):
         print(f"[Agent] Teacher deciding to reply...")
         reply = await teacher_agent.generate_reply(history)
         
@@ -138,7 +140,8 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
         return
 
     # 2. Student Turn (only if Teacher didn't speak)
-    if student_agent and teacher_agent: # Student needs Teacher to exist for permission
+    can_student = room.ai_mode == "both"
+    if can_student and student_agent and teacher_agent: # Student needs Teacher to exist for permission
         if student_agent.should_reply(history, room.ai_frequency):
             print(f"[Agent] Student proposing contribution...")
             proposal = await student_agent.generate_proposal(history)
@@ -189,7 +192,7 @@ async def websocket_endpoint(
             await manager.broadcast(f"{user.email}: {data}", room_id)
             
             # Trigger Agents
-            await process_agents(room_id, session, manager, user_msg)
+            asyncio.create_task(process_agents(room_id, session, manager, user_msg))
             
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id)

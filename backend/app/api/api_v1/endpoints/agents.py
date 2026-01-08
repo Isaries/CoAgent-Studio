@@ -14,6 +14,68 @@ router = APIRouter()
 
 # ... (DesignRequest class) ...
 
+@router.get("/system", response_model=List[AgentConfigRead])
+async def read_system_agent_configs(
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get all system-wide agent configs (Design, Analytics).
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    query = select(AgentConfig).where(AgentConfig.course_id == None)
+    result = await session.exec(query)
+    return result.all()
+
+@router.put("/system/{agent_type}", response_model=AgentConfigRead)
+async def update_system_agent_config(
+    *,
+    session: AsyncSession = Depends(deps.get_session),
+    agent_type: str,
+    config_in: AgentConfigCreate,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Update or Create System Agent Config (Design, Analytics).
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    # Check if exists
+    query = select(AgentConfig).where(AgentConfig.course_id == None, AgentConfig.type == agent_type)
+    result = await session.exec(query)
+    agent_config = result.first()
+    
+    if agent_config:
+        # Update
+        agent_config.system_prompt = config_in.system_prompt
+        agent_config.model_provider = config_in.model_provider
+        if config_in.api_key:
+            agent_config.encrypted_api_key = config_in.api_key 
+        if config_in.settings:
+            agent_config.settings = config_in.settings
+        
+        session.add(agent_config)
+        await session.commit()
+        await session.refresh(agent_config)
+        return agent_config
+    else:
+        # Create
+        new_config = AgentConfig(
+            course_id=None,
+            type=agent_type,
+            system_prompt=config_in.system_prompt,
+            model_provider=config_in.model_provider,
+            encrypted_api_key=config_in.api_key,
+            settings=config_in.settings
+        )
+        session.add(new_config)
+        await session.commit()
+        await session.refresh(new_config)
+        return new_config
+
 @router.get("/{course_id}", response_model=List[AgentConfigRead])
 async def read_agent_configs(
     course_id: UUID,
@@ -27,6 +89,10 @@ async def read_agent_configs(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
         
+    # Permission Check
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
+          raise HTTPException(status_code=403, detail="Not enough permissions")
+
     query = select(AgentConfig).where(AgentConfig.course_id == course_id)
     result = await session.exec(query)
     return result.all()
@@ -99,6 +165,7 @@ class DesignResponse(BaseModel):
 async def generate_agent_prompt(
     *,
     request: DesignRequest,
+    session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
@@ -111,9 +178,18 @@ async def generate_agent_prompt(
     # Construct meta-prompt
     from app.core.specialized_agents import DesignAgent
     
-    # We use the user's API Key (or system default if we had one) to run the Design Agent
-    # For now, we trust the key passed in request
-    agent = DesignAgent(provider=request.provider, api_key=request.api_key)
+    # 1. Look for system-level Design Agent config
+    from app.models.agent_config import AgentType
+    query = select(AgentConfig).where(AgentConfig.course_id == None, AgentConfig.type == AgentType.DESIGN)
+    db_result = await session.exec(query)
+    sys_config = db_result.first()
+    
+    sys_prompt = sys_config.system_prompt if sys_config else None
+    api_key = request.api_key # Priority to temporary key for generation
+    if not api_key and sys_config:
+        api_key = sys_config.encrypted_api_key
+
+    agent = DesignAgent(provider=request.provider, api_key=api_key, system_prompt=sys_prompt)
     
     result = await agent.generate_system_prompt(
         target_agent_type=request.target_agent_type,
