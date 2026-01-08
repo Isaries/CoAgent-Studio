@@ -55,11 +55,40 @@ async def read_courses(
 ) -> Any:
     """
     Retrieve courses.
-    For MVP: list all courses. Later: filter by enrollment.
+    Admins see all. Others see owned or enrolled.
     """
-    query = select(Course).offset(skip).limit(limit)
-    result = await session.exec(query)
-    return result.all()
+    from sqlmodel import or_
+    
+    if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        query = select(Course, User.full_name).join(User, Course.owner_id == User.id).offset(skip).limit(limit)
+    else:
+        # User sees:
+        # 1. Courses they own
+        # 2. Courses they are enrolled in (via UserCourseLink)
+        query = (
+            select(Course, User.full_name)
+            .join(User, Course.owner_id == User.id)
+            .distinct()
+            .outerjoin(UserCourseLink, Course.id == UserCourseLink.course_id)
+            .where(
+                or_(
+                    Course.owner_id == current_user.id,
+                    UserCourseLink.user_id == current_user.id
+                )
+            )
+            .offset(skip)
+            .limit(limit)
+        )
+        
+    results = await session.exec(query)
+    
+    courses = []
+    for course, owner_name in results:
+        course_read = CourseRead.model_validate(course)
+        course_read.owner_name = owner_name
+        courses.append(course_read)
+        
+    return courses
 
 @router.get("/{course_id}", response_model=CourseRead)
 async def read_course(

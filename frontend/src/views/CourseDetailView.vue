@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
 import { AxiosError } from 'axios'
+import iconUser from '../assets/iconUser.png'
 
 interface Course {
     id: string
@@ -351,7 +352,7 @@ onMounted(() => {
                             <div class="flex items-center gap-3">
                                 <div class="avatar">
                                     <div class="mask mask-squircle w-12 h-12">
-                                        <img :src="member.avatar_url || 'https://ui-avatars.com/api/?name=' + member.email" alt="Avatar" />
+                                        <img :src="member.avatar_url || iconUser" alt="Avatar" />
                                     </div>
                                 </div>
                                 <div>
@@ -391,7 +392,7 @@ onMounted(() => {
                     <div class="card-body p-4 flex flex-row items-center gap-4">
                         <div class="avatar">
                             <div class="mask mask-squircle w-12 h-12">
-                                <img :src="member.avatar_url || 'https://ui-avatars.com/api/?name=' + member.email" alt="Avatar" />
+                                <img :src="member.avatar_url || iconUser" alt="Avatar" />
                             </div>
                         </div>
                         <div class="flex-1 min-w-0">

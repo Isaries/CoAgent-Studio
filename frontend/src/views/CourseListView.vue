@@ -7,6 +7,8 @@ interface Course {
     title: string
     description: string
     owner_id: string
+    owner_name?: string
+    created_at: string
 }
 
 const courses = ref<Course[]>([])
@@ -79,7 +81,11 @@ onMounted(() => {
         <div v-for="course in courses" :key="course.id" class="card bg-base-100 shadow-xl">
             <div class="card-body">
                 <h2 class="card-title">{{ course.title }}</h2>
-                <p>{{ course.description }}</p>
+                <p class="text-sm opacity-70 mb-2">{{ course.description }}</p>
+                <div class="text-xs text-base-content/60">
+                    <div v-if="course.owner_name">By {{ course.owner_name }}</div>
+                    <div>{{ new Date(course.created_at).toLocaleDateString() }}</div>
+                </div>
                 <div class="card-actions justify-end">
                     <router-link :to="`/courses/${course.id}`" class="btn btn-sm btn-ghost">Enter</router-link>
                     <router-link :to="`/courses/${course.id}`" class="btn btn-sm btn-primary">Manage</router-link>

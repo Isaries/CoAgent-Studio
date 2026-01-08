@@ -26,6 +26,7 @@ class CourseCreate(CourseBase):
 class CourseRead(CourseBase):
     id: UUID
     owner_id: UUID
+    owner_name: Optional[str] = None
     created_at: datetime
 
 class CourseUpdate(SQLModel):

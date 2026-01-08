@@ -9,7 +9,8 @@ from sqlmodel import select
 from app.api import deps
 from app.core import security
 from app.core.config import settings
-from app.models.user import User, UserRead
+from app.models.user import User, UserRead, UserRole
+from uuid import UUID
 
 router = APIRouter()
 
@@ -53,3 +54,34 @@ async def test_token(current_user: User = Depends(deps.get_current_user)) -> Any
     Test access token
     """
     return current_user
+
+@router.post("/login/impersonate/{user_id}")
+async def impersonate_user(
+    user_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Impersonate another user.
+    Allowed: Super Admin only.
+    """
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail="The user doesn't have enough privileges",
+        )
+        
+    user = await session.get(User, user_id)
+    if not user:
+         raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+        
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return {
+        "access_token": security.create_access_token(
+            user.id, expires_delta=access_token_expires
+        ),
+        "token_type": "bearer",
+    }

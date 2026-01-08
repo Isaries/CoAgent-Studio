@@ -209,6 +209,12 @@ onMounted(() => {
                     ((user.role === 'admin' || user.role === 'super_admin') && !authStore.isSuperAdmin && user.id !== authStore.user?.id)
                 "
               >Edit</button>
+
+              <button 
+                v-if="authStore.isSuperAdmin && user.id !== authStore.user?.id"
+                @click="authStore.impersonateUser(user.id)" 
+                class="btn btn-xs btn-warning btn-outline mr-2"
+              >Impersonate</button>
               
               <button 
                 @click="deleteUser(user)" 

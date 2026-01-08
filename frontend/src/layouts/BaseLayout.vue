@@ -90,8 +90,17 @@ const updateProfile = async () => {
 </script>
 
 <template>
-  <div class="drawer lg:drawer-open">
+  <div class="drawer lg:drawer-open" :class="{ 'border-4 border-error': authStore.isImpersonating }">
     <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
+    
+    <!-- Impersonation Banner -->
+    <div v-if="authStore.isImpersonating" class="fixed bottom-6 right-6 z-50 animate-bounce">
+        <button @click="authStore.stopImpersonating()" class="btn btn-error shadow-lg gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            Exit Impersonation
+        </button>
+    </div>
+
     <div class="drawer-content flex flex-col bg-base-200">
       <!-- Navbar -->
       <div class="w-full navbar bg-base-100 lg:hidden user-select-none">
