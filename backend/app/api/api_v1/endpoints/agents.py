@@ -47,7 +47,7 @@ async def update_agent_config(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
         
-    if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
          raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Check if exists
@@ -105,7 +105,7 @@ async def generate_agent_prompt(
     Design Agent endpoint.
     Takes user requirements and outputs a system prompt for Teacher/Student.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER]:
          raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Construct meta-prompt

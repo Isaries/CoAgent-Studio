@@ -219,7 +219,7 @@ async def create_user(
         
     # Permission Check:
     # Only Super Admin can create 'admin' or 'super_admin' users
-    if user_in.role in [UserRole.ADMIN, UserRole.super_admin] and current_user.role != "super_admin":
+    if user_in.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and current_user.role != "super_admin":
          raise HTTPException(
             status_code=403,
             detail="Only Super Admins can create Admin accounts",

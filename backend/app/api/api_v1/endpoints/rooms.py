@@ -27,7 +27,7 @@ async def create_room(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
         
-    if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     room = Room.model_validate(room_in)
@@ -84,7 +84,7 @@ async def update_room(
         
     course = await session.get(Course, room.course_id) # Need to check course ownership
     
-    if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
          raise HTTPException(status_code=403, detail="Not enough permissions")
 
     room_data = room.dict(exclude_unset=True)
@@ -111,7 +111,7 @@ async def delete_room(
         
     # Verify Course Ownership
     course = await session.get(Course, room.course_id)
-    if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
     await session.delete(room)
@@ -133,7 +133,7 @@ async def assign_user_to_room(
         raise HTTPException(status_code=404, detail="Room not found")
     
     course = await session.get(Course, room.course_id)
-    if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Find user

@@ -67,7 +67,7 @@ async def init_db():
                 email=settings.SUPER_ADMIN,
                 username=target_username, 
                 full_name="Initial Admin",
-                role=UserRole.super_admin,
+                role=UserRole.SUPER_ADMIN,
             )
             user = User.model_validate(user_in) # replaced from_orm
             user.hashed_password = get_password_hash(settings.SUPER_ADMIN_PASSWORD)
@@ -77,11 +77,28 @@ async def init_db():
             print(f"Superuser {settings.SUPER_ADMIN} already exists. Updating password and ensuring username...")
             user.hashed_password = get_password_hash(settings.SUPER_ADMIN_PASSWORD)
             user.username = target_username
-            user.role = UserRole.super_admin
+            user.role = UserRole.SUPER_ADMIN
             session.add(user)
             await session.commit()
             print("Superuser updated.")
 
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(init_db())
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    max_retries = 60
+    retry_interval = 2
+
+    for i in range(max_retries):
+        try:
+            asyncio.run(init_db())
+            break
+        except Exception as e:
+            logger.warning(f"Database not ready yet, retrying... ({i+1}/{max_retries}) Error: {e}")
+            import time
+            time.sleep(retry_interval)
+    else:
+        logger.error("Could not connect to database after many retries.")
+        exit(1)

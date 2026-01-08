@@ -22,7 +22,7 @@ async def create_course(
     Create new course.
     Allowed: Admin, Teacher.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER]:
          raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions",
@@ -82,7 +82,7 @@ async def update_course(
         raise HTTPException(status_code=404, detail="Course not found")
     
     # Check permissions
-    if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     course_data = course.dict(exclude_unset=True)
@@ -112,7 +112,7 @@ async def delete_course(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
         
-    if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     await session.delete(course)
@@ -137,7 +137,7 @@ async def enroll_user(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
         
-    if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
     # Find user

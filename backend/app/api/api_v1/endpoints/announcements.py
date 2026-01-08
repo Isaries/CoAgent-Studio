@@ -28,7 +28,7 @@ async def create_announcement(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
         
-    if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         # Check if user is TA
         from app.models.course import UserCourseLink
         link = await session.get(UserCourseLink, (current_user.id, course.id))
