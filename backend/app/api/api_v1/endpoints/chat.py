@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query
@@ -10,12 +10,37 @@ from app.models.room import Room
 from app.models.course import Course
 from app.models.user import User
 from app.models.agent_config import AgentConfig, AgentType
+from app.api import deps
 from app.core import security
 from jose import jwt, JWTError
 from app.core.config import settings
 from app.core.specialized_agents import TeacherAgent, StudentAgent
 
 router = APIRouter()
+
+@router.get("/messages/{room_id}", response_model=List[Any])
+async def get_room_messages(
+    room_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get chat history for a room.
+    """
+    query = select(Message, User.email).outerjoin(User, Message.sender_id == User.id).where(Message.room_id == room_id).order_by(Message.created_at.asc())
+    result = await session.exec(query)
+    
+    messages_out = []
+    for msg, email in result:
+        sender = email if email else (f"{msg.agent_type.capitalize()} AI" if msg.agent_type else "Unknown")
+        messages_out.append({
+            "sender": sender,
+            "content": msg.content,
+            "agent_type": msg.agent_type,
+            "sender_id": msg.sender_id
+        })
+    
+    return messages_out
 
 class ConnectionManager:
     def __init__(self):

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import MessageBubble from '../components/chat/MessageBubble.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
+import api from '../api'
 
 // Basic Message Interface (MVP)
 interface Message {
@@ -20,6 +21,23 @@ const roomId = route.params.id as string
 const messages = ref<Message[]>([])
 const ws = ref<WebSocket | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
+
+const fetchMessages = async () => {
+    try {
+        const response = await api.get(`/chat/messages/${roomId}`)
+        const history = response.data.map((msg: any) => ({
+            sender: msg.sender,
+            content: msg.content,
+            isSelf: msg.sender === authStore.user?.email,
+            isAi: !!msg.agent_type,
+            isSystem: false
+        }))
+        messages.value = history
+        scrollToBottom()
+    } catch (error) {
+        console.error('Failed to fetch messages:', error)
+    }
+}
 
 const connectWebSocket = () => {
     if (!authStore.token) return
@@ -78,7 +96,8 @@ const scrollToBottom = () => {
     })
 }
 
-onMounted(() => {
+onMounted(async () => {
+    await fetchMessages()
     connectWebSocket()
 })
 
