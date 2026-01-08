@@ -202,17 +202,32 @@ async def read_course_members(
     )
     results = await session.exec(query)
     
-    members = []
+    members_dict = {}
     for user, role in results:
-        members.append(CourseMember(
+        members_dict[user.id] = CourseMember(
             user_id=user.id,
             email=user.email,
             full_name=user.full_name,
             avatar_url=user.avatar_url,
             role=role
-        ))
-        
-    return members
+        )
+
+    # Ensure owner is in the list as 'teacher'
+    if course.owner_id in members_dict:
+        members_dict[course.owner_id].role = "teacher"
+    else:
+        # Fetch owner if not in list
+        owner = await session.get(User, course.owner_id)
+        if owner:
+             members_dict[owner.id] = CourseMember(
+                user_id=owner.id,
+                email=owner.email,
+                full_name=owner.full_name,
+                avatar_url=owner.avatar_url,
+                role="teacher"
+            )
+            
+    return list(members_dict.values())
 
 @router.put("/{course_id}/members/{user_id}", response_model=Any)
 async def update_course_member_role(
@@ -233,6 +248,10 @@ async def update_course_member_role(
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
+    # Prevent changing role of the owner
+    if user_id == course.owner_id:
+        raise HTTPException(status_code=400, detail="Cannot change the role of the course owner")
+
     link = await session.get(UserCourseLink, (user_id, course_id))
     if not link:
         raise HTTPException(status_code=404, detail="User is not enrolled in this course")

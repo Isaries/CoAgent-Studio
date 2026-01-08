@@ -364,7 +364,7 @@ onMounted(() => {
                             <span class="badge" :class="member.role === 'ta' ? 'badge-accent' : 'badge-ghost'">{{ member.role.toUpperCase() }}</span>
                         </td>
                         <td>
-                            <div class="join">
+                            <div class="join" v-if="course && member.user_id !== course.owner_id">
                                 <button 
                                     v-if="member.role !== 'ta'" 
                                     @click="updateMemberRole(member, 'ta')" 
@@ -378,6 +378,7 @@ onMounted(() => {
                                     Revoke TA
                                 </button>
                             </div>
+                            <div v-else class="text-xs opacity-50 italic">Owner</div>
                         </td>
                     </tr>
                     </tbody>
@@ -401,7 +402,7 @@ onMounted(() => {
                             <p class="text-xs text-gray-500 truncate">{{ member.email }}</p>
                         </div>
                     </div>
-                     <div class="card-actions px-4 pb-4">
+                     <div class="card-actions px-4 pb-4" v-if="course && member.user_id !== course.owner_id">
                          <button 
                             v-if="member.role !== 'ta'" 
                             @click="updateMemberRole(member, 'ta')" 
@@ -414,6 +415,9 @@ onMounted(() => {
                             class="btn btn-sm btn-outline w-full">
                             Revoke TA
                          </button>
+                    </div>
+                    <div class="px-4 pb-4 text-center text-xs opacity-50 italic" v-else>
+                        Course Owner
                     </div>
                 </div>
             </div>
