@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.api_v1.endpoints import login, users, courses, rooms, announcements, chat, agents, analytics
+from app.api.api_v1.endpoints import login, users, courses, rooms, announcements, chat, agents, analytics, admin_db
 
 
 api_router = APIRouter()
@@ -11,4 +11,5 @@ api_router.include_router(announcements.router, prefix="/announcements", tags=["
 api_router.include_router(chat.router, tags=["chat"])
 api_router.include_router(agents.router, prefix="/agents", tags=["agents"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
+api_router.include_router(admin_db.router, prefix="/admin/db", tags=["admin_db"])
 # will add users, courses, etc.

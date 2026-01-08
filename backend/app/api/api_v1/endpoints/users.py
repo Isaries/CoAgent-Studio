@@ -113,6 +113,22 @@ async def update_user(
             detail="The user with this user_id does not exist in the system",
         )
     
+    # Permission Check:
+    # 1. Super Admin cannot change their own role
+    if user.id == current_user.id and "role" in update_data and current_user.role == "super_admin":
+        raise HTTPException(
+            status_code=400,
+            detail="Super Admins cannot change their own role",
+        )
+
+    # 2. If target is Admin/Super Admin, and NOT self, only Super Admin can modify
+    if user.id != current_user.id:
+        if user.role in ["admin", "super_admin"] and current_user.role != "super_admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Only Super Admins can modify other Admin accounts",
+            )
+    
     user_data = user.dict(exclude_unset=True)
     update_data = user_in.dict(exclude_unset=True)
     
@@ -130,6 +146,46 @@ async def update_user(
     session.add(user)
     await session.commit()
     await session.refresh(user)
+    return user
+
+@router.delete("/{user_id}", response_model=UserRead)
+async def delete_user(
+    *,
+    session: AsyncSession = Depends(deps.get_session),
+    user_id: str,
+    current_user: User = Depends(deps.get_current_active_superuser),
+) -> Any:
+    """
+    Delete a user. 
+    Super Admin can delete anyone (including Admins/Super Admins).
+    Admin can delete Students/Teachers/TAs/Guests.
+    """
+    query = select(User).where(User.id == user_id)
+    result = await session.exec(query)
+    user = result.first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="The user with this user_id does not exist in the system",
+        )
+
+    # Restriction: No one can delete themselves
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot delete your own account",
+        )
+        
+    # Permission Check
+    if user.role in ["admin", "super_admin"] and current_user.role != "super_admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only Super Admins can delete Admin accounts",
+        )
+        
+    session.delete(user)
+    await session.commit()
     return user
 @router.post("/", response_model=UserRead)
 async def create_user(
@@ -159,6 +215,16 @@ async def create_user(
             detail="The user with this username or email already exists in the system",
         )
         
+
+        
+    # Permission Check:
+    # Only Super Admin can create 'admin' or 'super_admin' users
+    if user_in.role in [UserRole.ADMIN, UserRole.super_admin] and current_user.role != "super_admin":
+         raise HTTPException(
+            status_code=403,
+            detail="Only Super Admins can create Admin accounts",
+        )
+
     user = User.model_validate(user_in)
     if user_in.password:
         user.hashed_password = security.get_password_hash(user_in.password)

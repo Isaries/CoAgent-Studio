@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import api from '../api'
+import { useAuthStore } from '../stores/auth' // Import store
+
+const authStore = useAuthStore() // Use store
 
 interface User {
     id: string
@@ -30,14 +33,59 @@ const fetchUsers = async () => {
 }
 
 const toggleRole = async (user: User) => {
-    const newRole = user.role === 'admin' ? 'teacher' : 'admin' // Simple toggle for now or prompt
+    // Permission Check:
+    // 1. Super Admin cannot change own role
+    if (user.role === 'super_admin' && user.id === authStore.user?.id) {
+         alert("Super Admins cannot change their own role.")
+         return
+    }
+
+    // 2. If target is Admin/Super Admin, and NOT self, only Super Admin can modify
+    if (user.id !== authStore.user?.id) {
+        if ((user.role === 'admin' || user.role === 'super_admin') && !authStore.isSuperAdmin) {
+            alert("You do not have permission to modify this user.")
+            return
+        }
+    }
+
+    let newRole = user.role === 'admin' ? 'teacher' : 'admin' 
+    
+    // If Super Admin modifing Admin, allow toggle to/from admin?
+    // Simplified logic: If admin -> teacher. If teacher/student -> admin.
+    
     if (!confirm(`Change role of ${user.email} to ${newRole}?`)) return
     
     try {
         await api.put(`/users/${user.id}`, { role: newRole })
         user.role = newRole
-    } catch (e) {
-        alert('Failed to update role')
+    } catch (e: any) {
+        alert(e.response?.data?.detail || 'Failed to update role')
+    }
+}
+
+const deleteUser = async (user: User) => {
+    // Permission Check
+    // 1. Cannot delete self
+    if (user.id === authStore.user?.id) {
+        alert("You cannot delete your own account.")
+        return
+    }
+
+    // 2. If target is Admin/Super Admin, only Super Admin can delete
+    if ((user.role === 'admin' || user.role === 'super_admin') && !authStore.isSuperAdmin) {
+        alert("You do not have permission to delete this user.")
+        return
+    }
+
+    if (!confirm(`Are you sure you want to DELETE user ${user.email}? This action cannot be undone.`)) return
+    
+    try {
+        await api.delete(`/users/${user.id}`)
+        // Remove from list
+        users.value = users.value.filter(u => u.id !== user.id)
+        alert('User deleted successfully')
+    } catch (e: any) {
+        alert(e.response?.data?.detail || 'Failed to delete user')
     }
 }
 
@@ -110,7 +158,7 @@ onMounted(() => {
             <td>{{ user.email }}</td>
             <td>
                 <span class="badge" :class="{
-                    'badge-primary': user.role === 'admin',
+                    'badge-primary': user.role === 'admin' || user.role === 'super_admin',
                     'badge-secondary': user.role === 'teacher',
                     'badge-accent': user.role === 'ta',
                     'badge-ghost': user.role === 'student' || user.role === 'guest'
@@ -122,7 +170,23 @@ onMounted(() => {
                 <input type="checkbox" class="checkbox" :checked="user.is_active" disabled />
             </td>
             <td>
-              <button @click="toggleRole(user)" class="btn btn-xs">Change Role</button>
+              <button 
+                @click="toggleRole(user)" 
+                class="btn btn-xs mr-2"
+                :disabled="
+                    (user.role === 'super_admin' && user.id === authStore.user?.id) || 
+                    ((user.role === 'admin' || user.role === 'super_admin') && !authStore.isSuperAdmin && user.id !== authStore.user?.id)
+                "
+              >Change Role</button>
+              
+              <button 
+                @click="deleteUser(user)" 
+                class="btn btn-xs btn-error btn-outline"
+                :disabled="
+                   user.id === authStore.user?.id ||
+                    ((user.role === 'admin' || user.role === 'super_admin') && !authStore.isSuperAdmin)
+                "
+              >Delete</button>
             </td>
           </tr>
         </tbody>

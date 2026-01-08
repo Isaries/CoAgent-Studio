@@ -11,6 +11,7 @@ class UserRole(str, Enum):
     TA = "ta"
     TEACHER = "teacher"
     ADMIN = "admin"
+    super_admin = "super_admin"
 
 class UserBase(SQLModel):
     email: str = Field(unique=True, index=True)

@@ -36,7 +36,7 @@ async def init_db():
                 email=settings.FIRST_SUPERUSER,
                 username="admin", # Allow login with "admin"
                 full_name="Initial Admin",
-                role=UserRole.ADMIN,
+                role=UserRole.super_admin,
             )
             user = User.model_validate(user_in) # replaced from_orm
             user.hashed_password = get_password_hash(settings.FIRST_SUPERUSER_PASSWORD)
@@ -47,6 +47,7 @@ async def init_db():
             user.hashed_password = get_password_hash(settings.FIRST_SUPERUSER_PASSWORD)
             if not user.username:
                 user.username = "admin"
+            user.role = UserRole.super_admin
             session.add(user)
             await session.commit()
             print("Superuser updated.")

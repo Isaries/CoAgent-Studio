@@ -13,7 +13,7 @@ const courses = ref<Course[]>([])
 const loading = ref(true)
 
 // Create Modal State
-const showModal = ref(false)
+const createModal = ref<HTMLDialogElement | null>(null)
 const newCourse = ref({
     title: '',
     description: '',
@@ -33,9 +33,8 @@ const fetchCourses = async () => {
 
 const openCreateModal = () => {
     newCourse.value = { title: '', description: '', loading: false }
-    // DaisyUI modal method
-    const modal = document.getElementById('create_course_modal') as HTMLDialogElement
-    if (modal) modal.showModal()
+    // Use template ref instead of document.getElementById
+    createModal.value?.showModal()
 }
 
 const createCourse = async () => {
@@ -49,8 +48,7 @@ const createCourse = async () => {
         })
         
         // Close modal
-        const modal = document.getElementById('create_course_modal') as HTMLDialogElement
-        if (modal) modal.close()
+        createModal.value?.close()
         
         await fetchCourses() // Refresh list
     } catch (e: any) {
@@ -94,8 +92,8 @@ onMounted(() => {
         </div>
     </div>
     
-    <!-- Open the modal using ID.showModal() method -->
-    <dialog id="create_course_modal" class="modal">
+    <!-- Using ref="createModal" instead of just ID -->
+    <dialog ref="createModal" id="create_course_modal" class="modal">
       <div class="modal-box">
         <h3 class="font-bold text-lg">Create New Course</h3>
         <p class="py-4">Enter course details below.</p>
