@@ -34,6 +34,16 @@ async def create_course(
     session.add(course)
     await session.commit()
     await session.refresh(course)
+    
+    # Auto-enroll creator as teacher
+    link = UserCourseLink(
+        user_id=current_user.id,
+        course_id=course.id,
+        role="teacher"
+    )
+    session.add(link)
+    await session.commit()
+    
     return course
 
 @router.get("/", response_model=List[CourseRead])

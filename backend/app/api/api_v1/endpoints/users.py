@@ -1,5 +1,8 @@
 from typing import Any, List
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, File, UploadFile
+import os
+import shutil
+import uuid
 from fastapi.encoders import jsonable_encoder
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
@@ -242,3 +245,65 @@ async def create_user(
     await session.commit()
     await session.refresh(user)
     return user
+
+@router.post("/me/avatar", response_model=UserRead)
+async def upload_avatar(
+    *,
+    session: AsyncSession = Depends(deps.get_session),
+    file: UploadFile = File(...),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Upload user avatar.
+    """
+    # 1. Validate File matches allowed types (png, jpg, jpeg)
+    if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Only JPEG and PNG are allowed.",
+        )
+    
+    # 2. Validate File size (approx < 2MB)
+    FILE_SIZE_LIMIT = 2 * 1024 * 1024 # 2MB
+    
+    # Create directory if not exists
+    # Robustly find backend/static/avatars relative to this file
+    # this file: backend/app/api/api_v1/endpoints/users.py
+    # static: backend/static/avatars
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+    static_dir = os.path.join(BASE_DIR, "static", "avatars")
+
+    if not os.path.exists(static_dir):
+        os.makedirs(static_dir)
+        
+    file_extension = file.filename.split(".")[-1]
+    filename = f"{uuid.uuid4()}.{file_extension}"
+    file_path = os.path.join(static_dir, filename)
+    
+    # Write file
+    real_file_size = 0
+    with open(file_path, "wb") as buffer:
+        while True:
+            chunk = await file.read(1024 * 1024) # 1MB chunks
+            if not chunk:
+                break
+            real_file_size += len(chunk)
+            if real_file_size > FILE_SIZE_LIMIT:
+                buffer.close()
+                os.remove(file_path)
+                raise HTTPException(
+                    status_code=400,
+                    detail="File too large. Limit is 2MB.",
+                )
+            buffer.write(chunk)
+            
+    # Update User URL
+    # Return relative path so frontend proxy can handle it
+    relative_path = f"/static/avatars/{filename}" 
+    
+    current_user.avatar_url = relative_path
+    session.add(current_user)
+    await session.commit()
+    await session.refresh(current_user)
+    
+    return current_user

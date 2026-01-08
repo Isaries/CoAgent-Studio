@@ -27,11 +27,51 @@ const openProfileModal = () => {
     showProfileModal.value = true
 }
 
+const handleAvatarUpload = async (event: Event) => {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        // Validate size ( < 2MB )
+        if (file.size > 2 * 1024 * 1024) {
+            alert("File size exceeds 2MB limit.");
+            return;
+        }
+        
+        // Validate Type
+        if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+            alert("Only JPG and PNG files are allowed.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        editLoading.value = true;
+        try {
+            const res = await api.post('/users/me/avatar', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            editForm.value.avatar_url = res.data.avatar_url; // Update preview
+            // Also update store immediately? 
+            if (authStore.user) {
+                authStore.user.avatar_url = res.data.avatar_url;
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Failed to upload avatar");
+        } finally {
+            editLoading.value = false;
+        }
+    }
+}
 const updateProfile = async () => {
     editLoading.value = true
     try {
         const res = await api.put('/users/me', {
             full_name: editForm.value.full_name,
+            // avatar_url: editForm.value.avatar_url // Already updated by upload, but sending it again ensures sync
             avatar_url: editForm.value.avatar_url
         })
         // Update local store
@@ -46,6 +86,7 @@ const updateProfile = async () => {
         editLoading.value = false
     }
 }
+
 </script>
 
 <template>
@@ -97,6 +138,14 @@ const updateProfile = async () => {
                   <input type="text" v-model="editForm.full_name" placeholder="John Doe" class="input input-bordered w-full" />
                 </div>
                 
+                <div class="form-control w-full mb-2">
+                  <label class="label"><span class="label-text">Avatar Image</span></label>
+                  <input type="file" @change="handleAvatarUpload" accept="image/png, image/jpeg" class="file-input file-input-bordered w-full" />
+                   <label class="label"><span class="label-text-alt">Max size 2MB (PNG/JPG)</span></label>
+                </div>
+                
+                <div class="divider text-xs">OR</div>
+
                 <div class="form-control w-full mb-2">
                   <label class="label"><span class="label-text">Avatar URL (Optional)</span></label>
                   <input type="text" v-model="editForm.avatar_url" placeholder="https://..." class="input input-bordered w-full" />
