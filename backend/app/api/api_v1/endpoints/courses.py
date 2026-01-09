@@ -8,10 +8,7 @@ from sqlmodel import select, SQLModel
 from app.api import deps
 from app.models.user import User, UserRole
 from app.models.course import Course, CourseCreate, CourseRead, CourseUpdate, UserCourseLink, CourseMember, CourseMemberUpdate
-from app.models.room import Room, UserRoomLink
-from app.models.agent_config import AgentConfig
-from app.models.announcement import Announcement
-from app.models.message import Message
+from app.services.course_service import CourseService
 
 router = APIRouter()
 
@@ -32,23 +29,8 @@ async def create_course(
             detail="Not enough permissions",
         )
     
-    course_data = course_in.model_dump()
-    course_data["owner_id"] = current_user.id
-    course = Course.model_validate(course_data)
-    session.add(course)
-    await session.commit()
-    await session.refresh(course)
-    
-    # Auto-enroll creator as teacher
-    link = UserCourseLink(
-        user_id=current_user.id,
-        course_id=course.id,
-        role="teacher"
-    )
-    session.add(link)
-    await session.commit()
-    
-    return course
+    service = CourseService(session)
+    return await service.create_course(course_in, current_user)
 
 @router.get("/", response_model=List[CourseRead])
 async def read_courses(
@@ -61,30 +43,8 @@ async def read_courses(
     Retrieve courses.
     Admins see all. Others see owned or enrolled.
     """
-    from sqlmodel import or_
-    
-    if current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        query = select(Course, User.full_name).join(User, Course.owner_id == User.id).offset(skip).limit(limit)
-    else:
-        # User sees:
-        # 1. Courses they own
-        # 2. Courses they are enrolled in (via UserCourseLink)
-        query = (
-            select(Course, User.full_name)
-            .join(User, Course.owner_id == User.id)
-            .distinct()
-            .outerjoin(UserCourseLink, Course.id == UserCourseLink.course_id)
-            .where(
-                or_(
-                    Course.owner_id == current_user.id,
-                    UserCourseLink.user_id == current_user.id
-                )
-            )
-            .offset(skip)
-            .limit(limit)
-        )
-        
-    results = await session.exec(query)
+    service = CourseService(session)
+    results = await service.get_courses(current_user, skip, limit)
     
     courses = []
     for course, owner_name in results:
@@ -103,7 +63,8 @@ async def read_course(
     """
     Get course by ID.
     """
-    course = await session.get(Course, course_id)
+    service = CourseService(session)
+    course = await service.get_course_by_id(course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     return course
@@ -120,25 +81,8 @@ async def update_course(
     Update a course.
     Allowed: Admin, or Owner (Teacher).
     """
-    course = await session.get(Course, course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    
-    # Check permissions
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
-    course_data = course.dict(exclude_unset=True)
-    update_data = course_in.dict(exclude_unset=True)
-    
-    for field in course_data:
-        if field in update_data:
-            setattr(course, field, update_data[field])
-            
-    session.add(course)
-    await session.commit()
-    await session.refresh(course)
-    return course
+    service = CourseService(session)
+    return await service.update_course(course_id, course_in, current_user)
 
 @router.delete("/{course_id}", response_model=CourseRead)
 async def delete_course(
@@ -151,41 +95,8 @@ async def delete_course(
     Delete a course.
     Allowed: Admin, or Owner (Teacher).
     """
-    course = await session.get(Course, course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-        
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
-    from sqlmodel import delete
-
-    # 1. Delete UserCourseLinks (Enrollments)
-    await session.exec(delete(UserCourseLink).where(UserCourseLink.course_id == course_id))
-
-    # 2. Delete Announcements
-    await session.exec(delete(Announcement).where(Announcement.course_id == course_id))
-
-    # 3. Delete AgentConfigs (Brains)
-    await session.exec(delete(AgentConfig).where(AgentConfig.course_id == course_id))
-
-    # 4. Handle Rooms and their links
-    # Get all room IDs first
-    rooms_result = await session.exec(select(Room.id).where(Room.course_id == course_id))
-    room_ids = rooms_result.all()
-    
-    if room_ids:
-        # Delete Messages in these rooms
-        await session.exec(delete(Message).where(Message.room_id.in_(room_ids)))
-        # Delete UserRoomLinks
-        await session.exec(delete(UserRoomLink).where(UserRoomLink.room_id.in_(room_ids)))
-        # Delete Rooms
-        await session.exec(delete(Room).where(Room.course_id == course_id))
-
-    # 5. Finally delete the Course
-    await session.delete(course)
-    await session.commit()
-    return course
+    service = CourseService(session)
+    return await service.delete_course(course_id, current_user)
 
 class EnrollmentRequest(SQLModel):
     user_email: Optional[str] = None
@@ -202,42 +113,9 @@ async def enroll_user(
     """
     Enroll a user by email or ID into a course.
     """
-    course = await session.get(Course, course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-        
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
-        # Check if user is TA
-        from app.models.course import UserCourseLink
-        link = await session.get(UserCourseLink, (current_user.id, course.id))
-        is_ta = link and link.role == "ta"
-        
-        if not is_ta:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
-        
-    # Find user
-    user_to_enroll = None
-    if enrollment.user_id:
-        user_to_enroll = await session.get(User, enrollment.user_id)
-    elif enrollment.user_email:
-        query = select(User).where(User.email == enrollment.user_email)
-        result = await session.exec(query)
-        user_to_enroll = result.first()
-        
-    if not user_to_enroll:
-        raise HTTPException(status_code=404, detail="User not found (provide valid email or ID)")
-        
-    # Check if already enrolled
-    link = await session.get(UserCourseLink, (user_to_enroll.id, course_id))
-    if link:
-        return {"message": "User already enrolled"}
-        
-    # Create Link
-    new_link = UserCourseLink(user_id=user_to_enroll.id, course_id=course_id, role=enrollment.role)
-    session.add(new_link)
-    await session.commit()
-    
-    return {"message": f"User {user_to_enroll.full_name or user_to_enroll.username or user_to_enroll.email} enrolled as {enrollment.role}"}
+    service = CourseService(session)
+    message = await service.enroll_user(course_id, enrollment.user_email, enrollment.user_id, enrollment.role, current_user)
+    return {"message": message}
 
 @router.get("/{course_id}/members", response_model=List[CourseMember])
 async def read_course_members(
@@ -249,30 +127,12 @@ async def read_course_members(
     Get all members (students and TAs) of a course.
     Allowed: Admin, Teacher (Owner/TA).
     """
-    course = await session.get(Course, course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-        
-    # Check permissions (Owner or Admin or TA in this course)
-    is_admin = current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-    is_owner = course.owner_id == current_user.id
+    service = CourseService(session)
+    members_list, owner_id = await service.get_members(course_id, current_user)
     
-    if not (is_admin or is_owner):
-        # Check if enrolled (Student or TA)
-        link = await session.get(UserCourseLink, (current_user.id, course_id))
-        if not link:
-             raise HTTPException(status_code=403, detail="Not enough permissions")
-
-    # Query members
-    query = (
-        select(User, UserCourseLink.role)
-        .join(UserCourseLink, User.id == UserCourseLink.user_id)
-        .where(UserCourseLink.course_id == course_id)
-    )
-    results = await session.exec(query)
-    
+    # Map to Response Model
     members_dict = {}
-    for user, role in results:
+    for user, role in members_list:
         members_dict[user.id] = CourseMember(
             user_id=user.id,
             email=user.email,
@@ -281,12 +141,15 @@ async def read_course_members(
             role=role
         )
 
-    # Ensure owner is in the list as 'teacher'
-    if course.owner_id in members_dict:
-        members_dict[course.owner_id].role = "teacher"
+    # Ensure owner is in the list as 'teacher' if not already
+    if owner_id in members_dict:
+        members_dict[owner_id].role = "teacher"
     else:
-        # Fetch owner if not in list
-        owner = await session.get(User, course.owner_id)
+        # Fetch owner if missing from link query (usually implies filtering, but here we query links)
+        # Service could return owner obj too, but let's query if needed or simple ignore if pure link query
+        # Original logic fetched owner separately.
+        # Let's keep it simple: If owner not in links, we fetch.
+        owner = await session.get(User, owner_id)
         if owner:
              members_dict[owner.id] = CourseMember(
                 user_id=owner.id,
@@ -310,41 +173,8 @@ async def update_course_member_role(
     Update a member's role in a course (e.g. promote to TA).
     Allowed: Admin, Owner.
     """
-    course = await session.get(Course, course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-
-    # Permissions Logic
-    is_admin_or_owner = current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] or course.owner_id == current_user.id
-    
-    if not is_admin_or_owner:
-        # Check if TA
-        link = await session.get(UserCourseLink, (current_user.id, course_id))
-        if not link or link.role != "ta":
-            raise HTTPException(status_code=403, detail="Not enough permissions")
-            
-        # TA Restricted Permissions:
-        # 1. Cannot promote to TA or Teacher
-        if member_update.role in ["ta", "teacher"]:
-             raise HTTPException(status_code=403, detail="TAs cannot promote members to TA or Teacher")
-             
-        # 2. Cannot modify other TAs or Teachers
-        target_link = await session.get(UserCourseLink, (user_id, course_id))
-        if target_link and target_link.role in ["ta", "teacher"]:
-             raise HTTPException(status_code=403, detail="TAs cannot modify other TAs or Teachers")
-        
-    # Prevent changing role of the owner
-    if user_id == course.owner_id:
-        raise HTTPException(status_code=400, detail="Cannot change the role of the course owner")
-
-    link = await session.get(UserCourseLink, (user_id, course_id))
-    if not link:
-        raise HTTPException(status_code=404, detail="User is not enrolled in this course")
-        
-    link.role = member_update.role
-    session.add(link)
-    await session.commit()
-    
+    service = CourseService(session)
+    await service.update_member_role(course_id, user_id, member_update.role, current_user)
     return {"message": "Role updated"}
 
 @router.delete("/{course_id}/members/{user_id}")
@@ -358,34 +188,6 @@ async def remove_course_member(
     Remove a user from a course.
     Allowed: Admin, Owner, TA (Student only).
     """
-    course = await session.get(Course, course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-        
-    # Prevent removing owner
-    if user_id == course.owner_id:
-        raise HTTPException(status_code=400, detail="Cannot remove course owner")
-
-    # Permission Check
-    is_admin_or_owner = current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] or course.owner_id == current_user.id
-    
-    if not is_admin_or_owner:
-        # Check if TA
-        link = await session.get(UserCourseLink, (current_user.id, course_id))
-        if not link or link.role != "ta":
-            raise HTTPException(status_code=403, detail="Not enough permissions")
-            
-        # TA: Cannot remove TA or Teacher
-        target_link = await session.get(UserCourseLink, (user_id, course_id))
-        if target_link and target_link.role in ["ta", "teacher"]:
-             raise HTTPException(status_code=403, detail="TAs cannot remove TAs or Teachers")
-             
-    # Perform Removal
-    link = await session.get(UserCourseLink, (user_id, course_id))
-    if not link:
-        raise HTTPException(status_code=404, detail="User not found in this course")
-        
-    await session.delete(link)
-    await session.commit()
-    
+    service = CourseService(session)
+    await service.remove_member(course_id, user_id, current_user)
     return {"message": "User removed from course"}

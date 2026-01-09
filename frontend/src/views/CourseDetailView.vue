@@ -52,8 +52,8 @@ const handleDeleteCourse = async () => {
         await deleteCourse()
         toast.success("Course deleted successfully")
         router.push('/courses')
-    } catch (e) {
-        toast.error("Failed to delete course")
+    } catch (e: any) {
+        toast.error(e.response?.data?.detail || "Failed to delete course")
     }
 }
 
