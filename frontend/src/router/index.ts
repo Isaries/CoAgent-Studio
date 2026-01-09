@@ -20,6 +20,7 @@ const router = createRouter({
                     path: 'analytics',
                     name: 'analytics',
                     component: () => import('../views/AnalyticsView.vue'),
+                    meta: { requiresNonStudent: true }
                 },
                 {
                     path: 'courses',
@@ -35,6 +36,7 @@ const router = createRouter({
                     path: 'courses/:id/analytics',
                     name: 'course-analytics',
                     component: () => import('../views/AnalyticsView.vue'),
+                    meta: { requiresNonStudent: true }
                 },
                 {
                     path: 'courses/:id',
@@ -78,7 +80,7 @@ const router = createRouter({
     ]
 })
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
     const authStore = useAuthStore()
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
     const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
@@ -95,9 +97,21 @@ router.beforeEach(async (to, from, next) => {
         }
     }
 
+    // Check auth requirement
+    if (requiresAuth && !authStore.token) {
+        next('/login')
+        return
+    }
+
     // Check admin role
-    if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    if (requiresAdmin && !authStore.isAdmin) {
         next('/courses') // Redirect non-admins to courses
+        return
+    }
+
+    const requiresNonStudent = to.matched.some(record => record.meta.requiresNonStudent)
+    if (requiresNonStudent && authStore.isStudent) {
+        next('/courses')
         return
     }
 

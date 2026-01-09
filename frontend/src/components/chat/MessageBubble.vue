@@ -31,13 +31,28 @@ const renderedContent = computed(() => {
     const rawHtml = md.render(props.content)
     return DOMPurify.sanitize(rawHtml)
 })
+const formattedTime = computed(() => {
+    if (!props.timestamp) return ''
+    try {
+        const date = new Date(props.timestamp)
+        return date.toLocaleString('zh-TW', { 
+            month: 'numeric', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+        })
+    } catch (e) {
+        return props.timestamp
+    }
+})
 </script>
 
 <template>
   <div class="chat" :class="alignClass">
     <div class="chat-header text-xs opacity-50 mb-1">
       {{ sender }}
-      <time v-if="timestamp" class="text-xs opacity-50 ml-1">{{ timestamp }}</time>
+      <time v-if="timestamp" class="text-xs opacity-50 ml-1">{{ formattedTime }}</time>
     </div>
     <div class="chat-bubble prose prose-sm max-w-none" :class="bubbleClass">
       <!-- Using v-html for markdown -->

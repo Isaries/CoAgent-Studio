@@ -213,20 +213,28 @@ async def create_user(
     from app.core import security
     
     # Check if user with this email or username already exists
+    # Check if user with this email or username already exists
     from sqlmodel import or_
-    query = select(User).where(
-        or_(
-            User.email == user_in.email,
-            (User.username == user_in.username) if user_in.username else False
-        )
-    )
-    result = await session.exec(query)
-    if result.first():
-        raise HTTPException(
-            status_code=400,
-            detail="The user with this username or email already exists in the system",
-        )
+    
+    conditions = []
+    # If email is empty string, we allow duplicates. Only check if it satisfies truthiness (not empty)
+    if user_in.email: 
+        conditions.append(User.email == user_in.email)
+    
+    if user_in.username:
+        conditions.append(User.username == user_in.username)
         
+    if user_in.full_name:
+        conditions.append(User.full_name == user_in.full_name)
+
+    if conditions:
+        query = select(User).where(or_(*conditions))
+        result = await session.exec(query)
+        if result.first():
+            raise HTTPException(
+                status_code=400,
+                detail="The user with this username, email, or full name already exists in the system",
+            )
 
         
     # Permission Check:

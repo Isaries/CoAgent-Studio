@@ -13,6 +13,7 @@ interface Message {
   isSelf: boolean
   isSystem?: boolean
   isAi?: boolean
+  timestamp?: string
 }
 
 const route = useRoute()
@@ -28,9 +29,10 @@ const fetchMessages = async () => {
         const history = response.data.map((msg: any) => ({
             sender: msg.sender,
             content: msg.content,
-            isSelf: msg.sender === authStore.user?.email,
+            isSelf: msg.sender_id === authStore.user?.id || msg.sender === authStore.user?.email, // Improved check
             isAi: !!msg.agent_type,
-            isSystem: false
+            isSystem: false,
+            timestamp: msg.created_at
         }))
         messages.value = history
         scrollToBottom()
@@ -50,28 +52,41 @@ const connectWebSocket = () => {
     ws.value = new WebSocket(url)
     
     ws.value.onopen = () => {
-        messages.value.push({ sender: 'System', content: 'Connected to chat...', isSelf: false, isSystem: true })
+        messages.value.push({ sender: 'System', content: 'Connected to chat...', isSelf: false, isSystem: true, timestamp: new Date().toISOString() })
     }
     
     ws.value.onmessage = (event) => {
-        // Simple parsing logic for MVP (backend sends "email: message")
         const raw = event.data as string
         let sender = 'Unknown'
         let content = raw
+        let timestamp = ''
         let isAi = false
         
-        if (raw.includes(': ')) {
-            const parts = raw.split(': ')
-            sender = parts[0] ?? 'Unknown'
-            content = parts.slice(1).join(': ')
+        // Format: name|timestamp|content
+        const parts = raw.split('|')
+        if (parts.length >= 3) {
+            sender = parts[0] || 'Unknown'
+            timestamp = parts[1] || ''
+            content = parts.slice(2).join('|')
+        } else if (raw.includes(': ')) {
+             // Fallback for unexpected messages
+            const p = raw.split(': ')
+            sender = p[0] || 'Unknown'
+            content = p.slice(1).join(': ')
         }
         
-        if (sender.includes('Teacher AI')) isAi = true
+        if (sender.includes('Teacher AI') || sender.includes('Student AI')) isAi = true
         
+        // We rely on name matching for WS messages for now since we don't send ID in string
+        // Ideally backend should send JSON.
         const safeEmail = authStore.user?.email ?? ''
-        const isSelf = sender === safeEmail
+        const safeName = authStore.user?.full_name ?? ''
+        // Use type assertion if we know username exists or optional chaining if uncertain
+        const safeUsername = (authStore.user as any)?.username ?? ''
         
-        messages.value.push({ sender, content, isSelf, isAi })
+        const isSelf = sender === safeName || sender === safeEmail || (safeUsername && sender === safeUsername)
+        
+        messages.value.push({ sender, content, isSelf, isAi, timestamp })
         scrollToBottom()
     }
     
@@ -133,6 +148,7 @@ onUnmounted(() => {
             :is-self="msg.isSelf"
             :is-ai="msg.isAi"
             :is-system="msg.isSystem"
+            :timestamp="msg.timestamp"
         />
         <!-- Spacer for auto-scroll visibility -->
         <div class="h-2"></div> 

@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -159,7 +159,8 @@ async def delete_course(
     return course
 
 class EnrollmentRequest(SQLModel):
-    user_email: str
+    user_email: Optional[str] = None
+    user_id: Optional[UUID] = None
     role: str = "student"
 
 @router.post("/{course_id}/enroll")
@@ -170,7 +171,7 @@ async def enroll_user(
     current_user: User = Depends(deps.get_current_user),
 ):
     """
-    Enroll a user by email into a course.
+    Enroll a user by email or ID into a course.
     """
     course = await session.get(Course, course_id)
     if not course:
@@ -180,12 +181,16 @@ async def enroll_user(
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
     # Find user
-    query = select(User).where(User.email == enrollment.user_email)
-    result = await session.exec(query)
-    user_to_enroll = result.first()
-    
+    user_to_enroll = None
+    if enrollment.user_id:
+        user_to_enroll = await session.get(User, enrollment.user_id)
+    elif enrollment.user_email:
+        query = select(User).where(User.email == enrollment.user_email)
+        result = await session.exec(query)
+        user_to_enroll = result.first()
+        
     if not user_to_enroll:
-        raise HTTPException(status_code=404, detail="User email not found")
+        raise HTTPException(status_code=404, detail="User not found (provide valid email or ID)")
         
     # Check if already enrolled
     link = await session.get(UserCourseLink, (user_to_enroll.id, course_id))
@@ -197,7 +202,7 @@ async def enroll_user(
     session.add(new_link)
     await session.commit()
     
-    return {"message": f"User {user_to_enroll.email} enrolled as {enrollment.role}"}
+    return {"message": f"User {user_to_enroll.full_name or user_to_enroll.username or user_to_enroll.email} enrolled as {enrollment.role}"}
 
 @router.get("/{course_id}/members", response_model=List[CourseMember])
 async def read_course_members(

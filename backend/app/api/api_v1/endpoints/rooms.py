@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -119,7 +119,8 @@ async def delete_room(
     return
 
 class AssignmentRequest(SQLModel):
-    user_email: str
+    user_email: Optional[str] = None
+    user_id: Optional[UUID] = None
 
 @router.post("/{room_id}/assign")
 async def assign_user_to_room(
@@ -137,12 +138,16 @@ async def assign_user_to_room(
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Find user
-    query = select(User).where(User.email == assignment.user_email)
-    result = await session.exec(query)
-    user_to_assign = result.first()
+    user_to_assign = None
+    if assignment.user_id:
+        user_to_assign = await session.get(User, assignment.user_id)
+    elif assignment.user_email:
+        query = select(User).where(User.email == assignment.user_email)
+        result = await session.exec(query)
+        user_to_assign = result.first()
     
     if not user_to_assign:
-        raise HTTPException(status_code=404, detail="User email not found")
+        raise HTTPException(status_code=404, detail="User not found")
 
     from app.models.room import UserRoomLink
     
@@ -155,4 +160,4 @@ async def assign_user_to_room(
     session.add(new_link)
     await session.commit()
     
-    return {"message": f"User {user_to_assign.email} assigned to room"}
+    return {"message": f"User {user_to_assign.full_name or user_to_assign.username or user_to_assign.email} assigned to room"}

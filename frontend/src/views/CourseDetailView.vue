@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import api from '../api'
 import { AxiosError } from 'axios'
 import iconUser from '../assets/iconUser.png'
@@ -42,6 +43,7 @@ interface UserResult {
     full_name?: string
     username?: string
 }
+const enrollUserId = ref('')
 const enrollEmail = ref('')
 const enrollLoading = ref(false)
 const searchQuery = ref('')
@@ -72,9 +74,11 @@ const handleSearch = () => {
 
 const selectUser = (user: UserResult) => {
     if (activeSearchContext.value === 'enroll') {
-        enrollEmail.value = user.email
+        enrollEmail.value = user.email || 'No Email'
+        enrollUserId.value = user.id
     } else {
-        assignEmail.value = user.email
+        assignEmail.value = user.email || 'No Email'
+        assignUserId.value = user.id
     }
     searchQuery.value = ''
     searchResults.value = []
@@ -88,12 +92,14 @@ const resetSearch = () => {
 const openEnrollModal = () => {
     activeSearchContext.value = 'enroll'
     enrollEmail.value = ''
+    enrollUserId.value = ''
     resetSearch()
     const modal = document.getElementById('enroll_modal') as HTMLDialogElement
     if (modal) modal.showModal()
 }
 
 const assignEmail = ref('')
+const assignUserId = ref('')
 const assignLoading = ref(false)
 const activeRoomId = ref('')
 
@@ -123,15 +129,17 @@ const fetchCourseData = async () => {
 }
 
 const enrollUser = async () => {
-    if (!enrollEmail.value) return
+    if (!enrollUserId.value && !enrollEmail.value) return
     enrollLoading.value = true
     try {
         await api.post(`/courses/${courseId}/enroll`, {
-           user_email: enrollEmail.value,
+           user_email: enrollEmail.value !== 'No Email' ? enrollEmail.value : null,
+           user_id: enrollUserId.value || null,
            role: 'student'
         })
-        alert(`User ${enrollEmail.value} enrolled successfully!`)
+        alert(`User enrolled successfully!`)
         enrollEmail.value = ''
+        enrollUserId.value = ''
         // Close modal
          const modal = document.getElementById('enroll_modal') as HTMLDialogElement
         if (modal) modal.close()
@@ -208,14 +216,18 @@ const openAssignModal = (roomId: string) => {
 }
 
 const assignUser = async () => {
-    if (!assignEmail.value || !activeRoomId.value) return
+    if (!assignUserId.value && (!assignEmail.value || assignEmail.value === 'No Email')) return
+    if (!activeRoomId.value) return
+
     assignLoading.value = true
     try {
         await api.post(`/rooms/${activeRoomId.value}/assign`, {
-            user_email: assignEmail.value
+            user_email: assignEmail.value !== 'No Email' ? assignEmail.value : null,
+            user_id: assignUserId.value || null
         })
         alert(`User assigned successfully!`)
         assignEmail.value = ''
+        assignUserId.value = ''
          const modal = document.getElementById('assign_modal') as HTMLDialogElement
         if (modal) modal.close()
     } catch (e: unknown) {
@@ -274,11 +286,11 @@ onMounted(() => {
                 <p class="text-gray-600 mt-2">{{ course.description }}</p>
             </div>
             <div class="flex gap-2">
-                <router-link :to="`/courses/${course.id}/settings`" class="btn btn-outline gap-2">
+                <router-link v-if="!useAuthStore().isStudent" :to="`/courses/${course.id}/settings`" class="btn btn-outline gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     Brain
                 </router-link>
-                <router-link :to="`/courses/${course.id}/analytics`" class="btn btn-outline gap-2">
+                <router-link v-if="!useAuthStore().isStudent" :to="`/courses/${course.id}/analytics`" class="btn btn-outline gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                     Analytics
                 </router-link>
@@ -286,7 +298,7 @@ onMounted(() => {
         </div>
         
         <!-- Management Toolbar -->
-        <div class="flex flex-wrap gap-2 mb-6">
+        <div class="flex flex-wrap gap-2 mb-6" v-if="!useAuthStore().isStudent">
             <button @click="openCreateRoomModal" class="btn btn-primary btn-sm">Create Room</button>
             <button @click="openEnrollModal" class="btn btn-secondary btn-sm">Enroll Student</button>
             <button @click="deleteCourse" class="btn btn-error btn-sm btn-outline ml-auto">Delete Course</button>
@@ -310,7 +322,7 @@ onMounted(() => {
                             {{ room.name }}
                             <div v-if="room.is_ai_active" class="badge badge-secondary badge-outline text-xs">AI Active</div>
                         </h3>
-                        <div class="dropdown dropdown-end">
+                        <div class="dropdown dropdown-end" v-if="!useAuthStore().isStudent">
                             <label tabindex="0" class="btn btn-ghost btn-xs btn-circle">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
                             </label>

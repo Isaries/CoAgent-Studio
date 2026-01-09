@@ -18,6 +18,7 @@ export const useAuthStore = defineStore('auth', () => {
     const isAuthenticated = computed(() => !!token.value)
     const isAdmin = computed(() => ['admin', 'super_admin'].includes(user.value?.role || ''))
     const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
+    const isStudent = computed(() => user.value?.role === 'student')
     const isImpersonating = computed(() => !!originalToken.value)
 
     async function login(username: string, password: string) {
@@ -114,6 +115,7 @@ export const useAuthStore = defineStore('auth', () => {
         isAuthenticated,
         isAdmin,
         isSuperAdmin,
+        isStudent,
         isImpersonating,
         login,
         logout,

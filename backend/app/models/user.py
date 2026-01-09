@@ -14,9 +14,9 @@ class UserRole(str, Enum):
     SUPER_ADMIN = "super_admin"
 
 class UserBase(SQLModel):
-    email: str = Field(unique=True, index=True)
+    email: str = Field(index=True)
     username: Optional[str] = Field(default=None, index=True, unique=True, description="For non-email login")
-    full_name: Optional[str] = None
+    full_name: Optional[str] = Field(default=None, unique=True)
     role: UserRole = Field(default=UserRole.GUEST)
     avatar_url: Optional[str] = None
 

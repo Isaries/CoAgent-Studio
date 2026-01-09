@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useAuthStore } from '../stores/auth'
 import api from '../api'
+
+const authStore = useAuthStore()
 
 interface Course {
     id: string
@@ -88,7 +91,7 @@ onMounted(() => {
                 </div>
                 <div class="card-actions justify-end">
                     <router-link :to="`/courses/${course.id}`" class="btn btn-sm btn-ghost">Enter</router-link>
-                    <router-link :to="`/courses/${course.id}`" class="btn btn-sm btn-primary">Manage</router-link>
+                    <router-link v-if="!authStore.isStudent" :to="`/courses/${course.id}`" class="btn btn-sm btn-primary">Manage</router-link>
                 </div>
             </div>
         </div>

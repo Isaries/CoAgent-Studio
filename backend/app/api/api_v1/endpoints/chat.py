@@ -28,17 +28,23 @@ async def get_room_messages(
     """
     Get chat history for a room.
     """
-    query = select(Message, User.email).outerjoin(User, Message.sender_id == User.id).where(Message.room_id == room_id).order_by(Message.created_at.asc())
+    query = select(Message, User).outerjoin(User, Message.sender_id == User.id).where(Message.room_id == room_id).order_by(Message.created_at.asc())
     result = await session.exec(query)
     
     messages_out = []
-    for msg, email in result:
-        sender = email if email else (f"{msg.agent_type.capitalize()} AI" if msg.agent_type else "Unknown")
+    for msg, user in result:
+        sender = "Unknown"
+        if user:
+             sender = user.full_name or user.username or user.email or "Unknown"
+        elif msg.agent_type:
+             sender = f"{msg.agent_type.capitalize()} AI"
+
         messages_out.append({
             "sender": sender,
             "content": msg.content,
             "agent_type": msg.agent_type,
-            "sender_id": msg.sender_id
+            "sender_id": msg.sender_id,
+            "created_at": (msg.created_at.isoformat() + "Z") if msg.created_at else None
         })
     
     return messages_out
@@ -136,7 +142,9 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
         msg = Message(content=reply, room_id=UUID(room_id), agent_type=AgentType.TEACHER)
         session.add(msg)
         await session.commit()
-        await manager.broadcast(f"[Teacher AI]: {reply}", room_id)
+        await session.refresh(msg)
+        timestamp = msg.created_at.isoformat() + "Z"
+        await manager.broadcast(f"[Teacher AI]|{timestamp}|{reply}", room_id)
         return
 
     # 2. Student Turn (only if Teacher didn't speak)
@@ -156,7 +164,9 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
                 msg = Message(content=proposal, room_id=UUID(room_id), agent_type=AgentType.STUDENT)
                 session.add(msg)
                 await session.commit()
-                await manager.broadcast(f"[Student AI]: {proposal}", room_id)
+                await session.refresh(msg)
+                timestamp = msg.created_at.isoformat() + "Z"
+                await manager.broadcast(f"[Student AI]|{timestamp}|{proposal}", room_id)
             else:
                 print(f"[Agent] Proposal DENIED by Teacher.")
 
@@ -188,8 +198,10 @@ async def websocket_endpoint(
             await session.commit() # Commit to get ID and timestamp
             await session.refresh(user_msg)
             
-            # Broadcast User Message
-            await manager.broadcast(f"{user.email}: {data}", room_id)
+            # Broadcast User Message (with format "name|timestamp|content")
+            display_name = user.full_name or user.username or user.email or "Unknown"
+            timestamp = (user_msg.created_at.isoformat() + "Z") if user_msg.created_at else ""
+            await manager.broadcast(f"{display_name}|{timestamp}|{data}", room_id)
             
             # Trigger Agents
             asyncio.create_task(process_agents(room_id, session, manager, user_msg))
