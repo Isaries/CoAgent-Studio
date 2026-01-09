@@ -3,6 +3,8 @@ export interface Course {
     title: string
     description: string
     owner_id: string
+    owner_name?: string
+    created_at: string
 }
 
 export interface Room {

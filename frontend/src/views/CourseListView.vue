@@ -1,18 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import api from '../api'
+import { courseService } from '../services/courseService'
+import type { Course } from '../types/course'
 
 const authStore = useAuthStore()
-
-interface Course {
-    id: string
-    title: string
-    description: string
-    owner_id: string
-    owner_name?: string
-    created_at: string
-}
 
 const courses = ref<Course[]>([])
 const loading = ref(true)
@@ -27,7 +19,7 @@ const newCourse = ref({
 
 const fetchCourses = async () => {
     try {
-        const res = await api.get('/courses/')
+        const res = await courseService.getCourses()
         courses.value = res.data
     } catch (e) {
         console.error(e)
@@ -47,7 +39,7 @@ const createCourse = async () => {
     newCourse.value.loading = true
     
     try {
-        await api.post('/courses/', {
+        await courseService.createCourse({
             title: newCourse.value.title,
             description: newCourse.value.description
         })

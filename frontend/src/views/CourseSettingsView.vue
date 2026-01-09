@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import api from '../api'
+// import api from '../api' // Removed, replaced by service
+import { agentService } from '../services/agentService'
+import type { AgentConfig, ScheduleConfig, TriggerConfig } from '../types/agent'
 import { useAuthStore } from '../stores/auth'
 import { useCourse } from '../composables/useCourse'
 import { useToastStore } from '../stores/toast'
@@ -17,7 +19,7 @@ const { course, fetchCourseData } = useCourse(courseId)
 
 // State
 const activeTab = ref<'teacher' | 'student'>('teacher')
-const configs = ref<any[]>([])
+const configs = ref<AgentConfig[]>([])
 const selectedConfigId = ref<string | null>(null)
 const loading = ref(false)
 
@@ -27,6 +29,74 @@ const editPrompt = ref('')
 const editApiKey = ref('')
 const editProvider = ref('gemini')
 const editModel = ref('')
+
+// Advanced State
+const editContextWindow = ref(10)
+const editTriggerConfig = ref<TriggerConfig>({ type: 'message_count', value: 10 })
+
+// Schedule Config
+const editScheduleConfig = ref<ScheduleConfig>({ 
+    specific: [], 
+    general: { mode: 'none', rules: [] } 
+})
+const syncSchedule = ref(false)
+
+// Helper for Schedule Rules
+
+// Helper for Schedule Rules
+const addSpecificDate = () => {
+    if (syncSchedule.value) return
+    editScheduleConfig.value.specific.push({
+        date: new Date().toISOString().split('T')[0] || "",
+        start: '09:00',
+        end: '17:00'
+    })
+}
+const removeSpecificDate = (idx: number) => {
+    if (syncSchedule.value) return
+    editScheduleConfig.value.specific.splice(idx, 1)
+}
+
+const addGeneralRule = () => {
+    if (syncSchedule.value) return
+    const r: any = { start_time: '09:00', end_time: '17:00', days: [] }
+    if (editScheduleConfig.value.general.mode === 'range_weekly') {
+        r.days = [1, 3, 5] // Mon, Wed, Fri default
+    }
+    editScheduleConfig.value.general.rules.push(r)
+}
+const removeGeneralRule = (idx: number) => {
+    if (syncSchedule.value) return
+    editScheduleConfig.value.general.rules.splice(idx, 1)
+}
+
+// Watcher to ensure 'days' array exists when switching to Weekly mode
+watch(() => editScheduleConfig.value.general.mode, (newMode) => {
+    if (newMode === 'range_weekly') {
+        editScheduleConfig.value.general.rules.forEach((rule: any) => {
+            if (!Array.isArray(rule.days)) {
+                rule.days = []
+            }
+        })
+    }
+})
+
+// Sync Schedule Logic
+const activeTeacherConfig = computed(() => {
+    return configs.value.find(c => c.type === 'teacher' && c.is_active)
+})
+
+watch(syncSchedule, (newVal) => {
+    if (newVal && activeTab.value === 'student' && activeTeacherConfig.value) {
+        // Deep copy teacher schedule
+        try {
+            const teacherSch = activeTeacherConfig.value.schedule_config
+            if (teacherSch) {
+                editScheduleConfig.value = JSON.parse(JSON.stringify(teacherSch))
+            }
+        } catch(e) { console.error("Sync error", e) }
+    }
+})
 
 const availableModels = computed(() => {
     if(editProvider.value === 'gemini') {
@@ -64,11 +134,11 @@ const generatePrompt = async () => {
     }
     
     try {
-        const res = await api.post('/agents/generate', {
+        const res = await agentService.generatePrompt({
             requirement: req,
             target_agent_type: activeTab.value,
-            course_context: designDb.value.context || course.value?.title,
-            api_key: editApiKey.value, // Try to find a key. Ideally use system key or provided key.
+            course_context: designDb.value.context || course.value?.title || '',
+            api_key: editApiKey.value, 
             provider: editProvider.value
         })
         editPrompt.value = res.data.generated_prompt
@@ -105,7 +175,7 @@ const canEdit = computed(() => {
 const fetchConfigs = async () => {
     loading.value = true
     try {
-        const res = await api.get(`/agents/${courseId}`)
+        const res = await agentService.getAgents(courseId)
         configs.value = res.data
         
         // If no selected, select active one for current tab
@@ -129,6 +199,32 @@ const selectConfig = (config: any) => {
     editApiKey.value = "" // Don't show existing key
     editProvider.value = config.model_provider || 'gemini'
     editModel.value = config.model || ''
+    
+    // Advanced
+    editContextWindow.value = config.context_window || 10
+    editTriggerConfig.value = config.trigger_config || { type: 'message_count', value: 10 }
+    
+    // Settings & Schedule
+    const settings = config.settings || {}
+    syncSchedule.value = !!settings.sync_schedule
+    
+    if (syncSchedule.value && activeTeacherConfig.value) {
+         // Force load teacher schedule if synced
+         const teacherSch = activeTeacherConfig.value.schedule_config
+         editScheduleConfig.value = teacherSch ? JSON.parse(JSON.stringify(teacherSch)) : { specific: [], general: { mode: 'none', rules: [] } }
+    } else {
+        // Parse Schedule to new format if needed, or take as is
+        if (config.schedule_config && Array.isArray(config.schedule_config.specific)) {
+            editScheduleConfig.value = config.schedule_config
+            // Ensure legacy general has rules array if missing (migration)
+            if (!editScheduleConfig.value.general.rules) {
+                 editScheduleConfig.value.general.rules = []
+            }
+        } else {
+            // Fallback: Migrate old format or Reset
+            editScheduleConfig.value = { specific: [], general: { mode: 'none', rules: [] } }
+        }
+    }
 }
 
 const startNewConfig = () => {
@@ -138,6 +234,22 @@ const startNewConfig = () => {
     editApiKey.value = ''
     editProvider.value = 'gemini'
     editModel.value = ''
+    
+    // Advanced Reset
+    editContextWindow.value = 10
+    editTriggerConfig.value = { type: 'message_count', value: 10 }
+    
+    // Default sync to true for new student if teacher exists? 
+    // Proposal said "Default Checked".
+    if (activeTab.value === 'student' && activeTeacherConfig.value) {
+        syncSchedule.value = true
+        // Copy immediately
+        const teacherSch = activeTeacherConfig.value.schedule_config
+        editScheduleConfig.value = teacherSch ? JSON.parse(JSON.stringify(teacherSch)) : { specific: [], general: { mode: 'none', rules: [] } }
+    } else {
+        syncSchedule.value = false
+        editScheduleConfig.value = { specific: [], general: { mode: 'none', rules: [] } }
+    }
     
     // Reset Design Agent
     designDb.value = {
@@ -151,13 +263,25 @@ const startNewConfig = () => {
 const saveConfig = async () => {
     if (!editName.value) return toast.warning("Name is required")
     
+    // Ensure schedule is fresh from teacher if synced
+    if (syncSchedule.value && activeTab.value === 'student' && activeTeacherConfig.value) {
+        const teacherSch = activeTeacherConfig.value.schedule_config
+        if (teacherSch) editScheduleConfig.value = JSON.parse(JSON.stringify(teacherSch))
+    }
+
     const payload: any = {
         name: editName.value,
         system_prompt: editPrompt.value,
         model_provider: editProvider.value,
         model: editModel.value,
         type: activeTab.value,
-        settings: {}
+        settings: {
+             ...((selectedConfig.value as any)?.settings || {}),
+             sync_schedule: syncSchedule.value
+        },
+        trigger_config: editTriggerConfig.value,
+        schedule_config: editScheduleConfig.value,
+        context_window: editContextWindow.value
     }
 
     if (editApiKey.value === 'CLEAR_KEY') {
@@ -171,10 +295,10 @@ const saveConfig = async () => {
     try {
         if (selectedConfigId.value) {
             // Update
-             await api.put(`/agents/${selectedConfigId.value}`, payload)
+             await agentService.updateAgent(selectedConfigId.value, payload)
         } else {
             // Create
-             const res = await api.post(`/agents/${courseId}`, payload)
+             const res = await agentService.createAgent(courseId, payload)
              selectedConfigId.value = res.data.id
         }
         await fetchConfigs()
@@ -186,7 +310,7 @@ const saveConfig = async () => {
 
 const activateConfig = async (id: string) => {
     try {
-        await api.put(`/agents/${id}/activate`)
+        await agentService.activateAgent(id)
         await fetchConfigs()
         toast.success("Brain activated")
     } catch (e: any) {
@@ -197,7 +321,7 @@ const activateConfig = async (id: string) => {
 const deleteConfig = async (id: string) => {
     if (!await confirm("Delete Brain", "Are you sure you want to delete this brain profile?")) return
     try {
-        await api.delete(`/agents/${id}`)
+        await agentService.deleteAgent(id)
         if (selectedConfigId.value === id) selectedConfigId.value = null
         await fetchConfigs()
         toast.success("Brain deleted")
@@ -383,6 +507,151 @@ onMounted(async () => {
                             <button @click="generatePrompt" class="btn btn-secondary btn-sm w-full" :disabled="designDb.loading">
                                 {{ designDb.loading ? 'Generating...' : 'Auto-Generate Prompt' }}
                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Settings -->
+                <div v-if="canEdit" class="collapse collapse-arrow bg-base-200 mb-6 border border-base-300">
+                    <input type="checkbox" /> 
+                    <div class="collapse-title font-medium flex items-center gap-2">
+                         <span>⚙️ Advanced: Triggers & Schedule</span>
+                    </div>
+                    <div class="collapse-content"> 
+                        <div class="p-2 space-y-4">
+                            <!-- Trigger Logic -->
+                            <div>
+                                <h4 class="font-bold text-sm mb-2">Trigger Logic</h4>
+                                <div class="flex flex-col gap-2">
+                                    <label class="label cursor-pointer justify-start gap-4">
+                                        <input type="radio" v-model="editTriggerConfig.type" value="message_count" class="radio radio-sm" />
+                                        <span class="label-text">Every <strong>N</strong> messages (excluding agents)</span>
+                                    </label>
+                                    <label class="label cursor-pointer justify-start gap-4">
+                                        <input type="radio" v-model="editTriggerConfig.type" value="time_interval" class="radio radio-sm" />
+                                        <span class="label-text">Every <strong>T</strong> seconds</span>
+                                    </label>
+                                    <label v-if="activeTab === 'student'" class="label cursor-pointer justify-start gap-4">
+                                        <input type="radio" v-model="editTriggerConfig.type" value="silence" class="radio radio-sm" />
+                                        <span class="label-text">Silence > <strong>T</strong> seconds</span>
+                                    </label>
+                                </div>
+                                <div class="mt-2 flex items-center gap-2">
+                                    <span class="text-sm">Value (N or T):</span>
+                                    <input type="number" v-model="editTriggerConfig.value" class="input input-sm input-bordered w-24" min="1" />
+                                </div>
+                            </div>
+
+                            <div class="divider my-1"></div>
+
+                            <!-- Context Window -->
+                            <div>
+                                <h4 class="font-bold text-sm mb-2">Context Window</h4>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm">Previous messages to read:</span>
+                                    <input type="number" v-model="editContextWindow" class="input input-sm input-bordered w-24" min="1" max="50" />
+                                </div>
+                            </div>
+                            
+                            <div class="divider my-1"></div>
+
+                            <!-- Schedule -->
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <h4 class="font-bold text-sm">Availability Schedule (UTC+8)</h4>
+                                    
+                                    <!-- Sync Checkbox (Student Only) -->
+                                    <div v-if="activeTab === 'student'" class="form-control">
+                                        <label class="label cursor-pointer gap-2 py-0">
+                                            <span class="label-text text-xs font-bold text-primary">Use Teacher's Schedule</span>
+                                            <input type="checkbox" v-model="syncSchedule" class="checkbox checkbox-xs checkbox-primary" />
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div :class="{ 'opacity-50 pointer-events-none': syncSchedule }">
+                                    <div v-if="syncSchedule" class="text-xs text-info mb-2 flex items-center gap-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                        Linked to Teacher's schedule. Uncheck to customize.
+                                    </div>
+
+                                    <!-- 1. Specific Exceptions -->
+                                    <div class="mb-4 border rounded-md p-3 bg-base-100">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <span class="text-sm font-bold">1. Specific Date Exceptions (Highest Priority)</span>
+                                            <button @click="addSpecificDate" class="btn btn-xs btn-outline btn-primary" :disabled="syncSchedule">+ Add Exception</button>
+                                        </div>
+                                        <div v-if="editScheduleConfig.specific.length === 0" class="text-xs text-gray-400 italic mb-2">
+                                            No specific exceptions defined.
+                                        </div>
+                                        <div v-for="(rule, idx) in editScheduleConfig.specific" :key="idx" class="flex items-center gap-2 mb-2 last:mb-0">
+                                            <input type="date" v-model="rule.date" class="input input-xs input-bordered" :disabled="syncSchedule" />
+                                            <input type="time" v-model="rule.start" class="input input-xs input-bordered" :disabled="syncSchedule" />
+                                            <span class="text-xs">-</span>
+                                            <input type="time" v-model="rule.end" class="input input-xs input-bordered" :disabled="syncSchedule" />
+                                            <button @click="removeSpecificDate(idx)" class="btn btn-xs btn-ghost text-error" :disabled="syncSchedule">✕</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. General Pattern -->
+                                    <div class="border rounded-md p-3 bg-base-100">
+                                        <span class="text-sm font-bold block mb-2">2. General Schedule Pattern</span>
+                                        <select v-model="editScheduleConfig.general.mode" class="select select-sm select-bordered w-full mb-2" :disabled="syncSchedule">
+                                            <option value="none">Always Active (unless restricted by Schedule)</option>
+                                            <option value="range_daily">Date Range (Daily Time Period)</option>
+                                            <option value="range_weekly">Date Range (Weekly Pattern)</option>
+                                        </select>
+                                        
+                                        <div v-if="editScheduleConfig.general.mode !== 'none'" class="mt-2 space-y-2">
+                                            <!-- Global Date Range -->
+                                            <div class="grid grid-cols-2 gap-2 p-2 bg-base-200 rounded">
+                                                <div class="form-control">
+                                                     <label class="label-text text-xs font-bold">Effective From</label>
+                                                     <input type="date" v-model="editScheduleConfig.general.start_date" class="input input-xs input-bordered" :disabled="syncSchedule" />
+                                                </div>
+                                                <div class="form-control">
+                                                     <label class="label-text text-xs font-bold">Effective To</label>
+                                                     <input type="date" v-model="editScheduleConfig.general.end_date" class="input input-xs input-bordered" :disabled="syncSchedule" />
+                                                </div>
+                                            </div>
+
+                                            <!-- Time Rules List -->
+                                            <div>
+                                                <label class="label-text text-xs font-bold mb-1 block">Time Rules</label>
+                                                <div v-for="(rule, rIdx) in editScheduleConfig.general.rules" :key="rIdx" class="border p-2 rounded mb-2 relative">
+                                                    <button @click="removeGeneralRule(rIdx)" class="btn btn-xs btn-circle btn-ghost absolute right-1 top-1 text-error" :disabled="syncSchedule">✕</button>
+                                                    
+                                                    <div class="grid grid-cols-2 gap-2 mb-1">
+                                                        <div class="form-control">
+                                                             <label class="label-text text-[10px]">Start Time</label>
+                                                             <input type="time" v-model="rule.start_time" class="input input-xs input-bordered" :disabled="syncSchedule" />
+                                                        </div>
+                                                        <div class="form-control">
+                                                             <label class="label-text text-[10px]">End Time</label>
+                                                             <input type="time" v-model="rule.end_time" class="input input-xs input-bordered" :disabled="syncSchedule" />
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- Weekly Days -->
+                                                    <div v-if="editScheduleConfig.general.mode === 'range_weekly'" class="flex gap-1 flex-wrap pt-1 border-t mt-1">
+                                                        <label v-for="(d, i) in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']" :key="d" class="cursor-pointer label p-0 gap-1 border rounded px-1 hover:bg-base-200">
+                                                            <span class="label-text text-[10px]">{{ d }}</span>
+                                                            <input type="checkbox" :value="i" v-model="rule.days" class="checkbox checkbox-xs" :disabled="syncSchedule" />
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div v-if="editScheduleConfig.general.rules.length === 0" class="text-xs text-error italic mb-2">
+                                                    ⚠️ No time rules added. Agent will NOT be active.
+                                                </div>
+                                                <button @click="addGeneralRule" class="btn btn-xs btn-outline w-full text-xs" :disabled="syncSchedule">+ Add Time Rule</button>
+                                            </div>
+                                        </div>
+                                        <div v-else class="text-xs text-gray-400 italic">
+                                            Agent is active 24/7 (except during Specific Exceptions if set).
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

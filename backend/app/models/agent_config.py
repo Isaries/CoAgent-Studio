@@ -28,9 +28,16 @@ class AgentConfig(AgentConfigBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     encrypted_api_key: Optional[str] = None
     settings: Optional[Dict[str, Any]] = Field(default={}, sa_column=Column(JSONB))
+    
+    # Advanced Trigger & Schedule Configs
+    trigger_config: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
+    schedule_config: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
+    context_window: int = Field(default=10)
+
     is_active: bool = Field(default=False)
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
     @property
     def has_api_key(self) -> bool:
         return bool(self.encrypted_api_key)
@@ -38,6 +45,9 @@ class AgentConfig(AgentConfigBase, table=True):
 class AgentConfigCreate(AgentConfigBase):
     api_key: Optional[str] = None # Input only
     settings: Optional[Dict[str, Any]] = {}
+    trigger_config: Optional[Dict[str, Any]] = None
+    schedule_config: Optional[Dict[str, Any]] = None
+    context_window: int = 10
 
 class AgentConfigRead(SQLModel):
     id: UUID
@@ -48,6 +58,11 @@ class AgentConfigRead(SQLModel):
     model: Optional[str] = None
     system_prompt: Optional[str] = ""
     settings: Optional[Dict[str, Any]] = {}
+
+    trigger_config: Optional[Dict[str, Any]] = None
+    schedule_config: Optional[Dict[str, Any]] = None
+    context_window: int = 10
+
     is_active: Optional[bool] = False
     
     created_by: Optional[UUID] = None

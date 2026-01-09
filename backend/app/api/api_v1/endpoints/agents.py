@@ -186,6 +186,9 @@ async def create_course_agent_config(
         model=config_in.model,
         encrypted_api_key=encrypted_key,
         settings=config_in.settings,
+        trigger_config=config_in.trigger_config,
+        schedule_config=config_in.schedule_config,
+        context_window=config_in.context_window,
         is_active=is_first, # Auto-activate if first
         created_by=current_user.id
     )
@@ -253,6 +256,11 @@ async def update_agent_config(
         
     if config_in.settings:
         agent_config.settings = config_in.settings
+
+    # Advanced Configs
+    agent_config.trigger_config = config_in.trigger_config
+    agent_config.schedule_config = config_in.schedule_config
+    agent_config.context_window = config_in.context_window
     
     agent_config.updated_at = datetime.utcnow()
     

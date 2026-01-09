@@ -40,3 +40,13 @@ if os.path.exists(static_dir):
 async def root():
     return {"message": "Welcome to CoAgent Studio API"}
 
+from app.core.room_monitor import room_monitor
+
+@app.on_event("startup")
+async def startup_event():
+    await room_monitor.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await room_monitor.stop()
+

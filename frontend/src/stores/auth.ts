@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import api from '../api'
+import { authService } from '../services/authService' // Changed import
 import router from '../router'
 import type { User } from '../types/user'
 
@@ -32,9 +32,7 @@ export const useAuthStore = defineStore('auth', () => {
             formData.append('username', username)
             formData.append('password', password)
 
-            await api.post('/login/access-token', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            })
+            await authService.login(formData) // Service Call
 
             await fetchUser()
 
@@ -52,7 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function fetchUser() {
         try {
-            const res = await api.post('/login/test-token')
+            const res = await authService.fetchUser() // Service Call
             user.value = res.data
             checkImpersonationStatus()
         } catch (error) {
@@ -64,7 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function impersonateUser(userId: string) {
         try {
-            await api.post(`/login/impersonate/${userId}`)
+            await authService.impersonateUser(userId) // Service Call
             await fetchUser()
             // Manually set true to handle cases where cookie might be delayed or rejected in dev
             isImpersonating.value = true
@@ -79,7 +77,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function stopImpersonating() {
         try {
-            await api.post('/login/stop-impersonate')
+            await authService.stopImpersonating() // Service Call
             await fetchUser()
             router.push('/admin/users')
         } catch (e) {
@@ -89,7 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function logout() {
         try {
-            await api.post('/login/logout')
+            await authService.logout() // Service Call
         } catch (e) {
             console.error('Logout failed', e)
         }
