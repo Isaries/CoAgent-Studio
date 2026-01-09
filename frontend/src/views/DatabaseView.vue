@@ -17,6 +17,7 @@ const searchQuery = ref("")
 const resolveRelations = ref(true)
 const startDate = ref("")
 const endDate = ref("")
+const isSidebarOpen = ref(true)
 
 const supportedRelationsTables = ['message', 'course', 'room', 'usercourselink', 'userroomlink']
 import { computed } from 'vue'
@@ -148,8 +149,15 @@ onMounted(() => {
 <template>
     <div class="flex h-[calc(100vh-64px)] overflow-hidden">
         <!-- Sidebar: Table List -->
-        <div class="w-1/4 bg-base-100 border-r border-base-200 overflow-y-auto p-4">
-            <h2 class="text-lg font-bold mb-4">Database Tables</h2>
+        <div v-show="isSidebarOpen" class="w-64 flex-shrink-0 bg-base-100 border-r border-base-200 overflow-y-auto p-4 transition-all duration-300">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold">Database Tables</h2>
+                <button class="btn btn-sm btn-ghost btn-square" @click="isSidebarOpen = false" title="Collapse Sidebar">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                </button>
+            </div>
             
             <div class="form-control mb-4" :class="{ 'opacity-50': !isResolveSupported }" :title="!isResolveSupported ? 'Not available for this table' : ''">
                 <label class="label cursor-pointer justify-start gap-2">
@@ -168,12 +176,19 @@ onMounted(() => {
         </div>
 
         <!-- Main Area: Data View -->
-        <div class="w-3/4 p-4 flex flex-col overflow-hidden">
+        <div class="flex-1 p-4 flex flex-col overflow-hidden transition-all duration-300">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">
-                    <span v-if="selectedTable">Table: {{ selectedTable }}</span>
-                    <span v-else>Select a table to view data</span>
-                </h2>
+                <div class="flex items-center gap-2">
+                    <button v-show="!isSidebarOpen" class="btn btn-sm btn-ghost btn-square" @click="isSidebarOpen = true" title="Open Sidebar">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                    <h2 class="text-xl font-bold">
+                        <span v-if="selectedTable">Table: {{ selectedTable }}</span>
+                        <span v-else>Select a table to view data</span>
+                    </h2>
+                </div>
                 <div v-if="selectedTable" class="flex items-center gap-2">
                     <input type="date" v-model="startDate" class="input input-bordered input-sm" @change="onStartDateChange" />
                     <span class="text-xs text-base-content/50">to</span>

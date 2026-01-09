@@ -44,6 +44,9 @@ TABLE_RELATIONS = {
     },
 }
 
+# Fields to filter out from response for security
+SENSITIVE_FIELDS = ['hashed_password', 'salt', 'api_key', 'secret', 'token']
+
 @router.get("/tables", response_model=List[str])
 async def list_tables(
     current_user: Any = Depends(deps.get_current_active_superuser),
@@ -160,7 +163,16 @@ async def get_table_data(
         
         result = await session.exec(query, params=params)
         data = result.mappings().all()
-        return data
+        
+        # Filter sensitive fields
+        clean_data = []
+        for row in data:
+            row_dict = dict(row)
+            for field in SENSITIVE_FIELDS:
+                row_dict.pop(field, None)
+            clean_data.append(row_dict)
+            
+        return clean_data
 
     except Exception as e:
         error_detail = f"{str(e)}\n{traceback.format_exc()}"
