@@ -85,20 +85,17 @@ router.beforeEach(async (to, _from, next) => {
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
     const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
 
-    // Sync auth state if token exists but user is not loaded
-    if (authStore.token && !authStore.user) {
+    // Sync auth state if user is not loaded
+    if (!authStore.user) {
         try {
             await authStore.fetchUser()
         } catch (e) {
             // Token might be invalid
-            authStore.logout()
-            next('/login')
-            return
         }
     }
 
     // Check auth requirement
-    if (requiresAuth && !authStore.token) {
+    if (requiresAuth && !authStore.isAuthenticated) {
         next('/login')
         return
     }

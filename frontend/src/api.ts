@@ -5,18 +5,33 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
+    withCredentials: true,
 })
 
-// Request interceptor to add token
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token')
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`
+// Response interceptor to handle token refresh
+api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config
+
+        // Prevent infinite loop: if the failed request was the refresh attempt, don't retry
+        if (originalRequest.url.includes('/login/refresh')) {
+            return Promise.reject(error)
         }
-        return config
-    },
-    (error) => {
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true
+            try {
+                await api.post('/login/refresh')
+                return api(originalRequest)
+            } catch (refreshError) {
+                // Refresh failed - let the store handle logout or catch block in component handle it
+                // Ideally, we should redirect to login if we know it's a session expiry
+                // import router is available
+                // router.push('/login') // Moved to catch block in store usually, but global handler is safer
+                return Promise.reject(refreshError)
+            }
+        }
         return Promise.reject(error)
     }
 )

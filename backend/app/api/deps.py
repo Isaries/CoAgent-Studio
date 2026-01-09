@@ -10,8 +10,35 @@ from app.core.config import settings
 from app.core.db import get_session
 from app.models.user import User
 
-reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/login/access-token"
+from fastapi import Request
+from typing import Optional
+
+class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
+    async def __call__(self, request: Request) -> Optional[str]:
+        # Priority: Cookie > Header
+        authorization: str = request.cookies.get("access_token")
+        if not authorization:
+             authorization = request.headers.get("Authorization")
+             if authorization:
+                 scheme, param = get_authorization_scheme_param(authorization) # type: ignore
+                 if scheme.lower() == "bearer":
+                     authorization = param
+        
+        if not authorization:
+            if self.auto_error:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            else:
+                return None
+        return authorization
+
+from fastapi.security.utils import get_authorization_scheme_param
+
+reusable_oauth2 = OAuth2PasswordBearerWithCookie(
+    tokenUrl=f"{settings.API_V1_STR}/login/refresh" 
 )
 
 async def get_current_user(
