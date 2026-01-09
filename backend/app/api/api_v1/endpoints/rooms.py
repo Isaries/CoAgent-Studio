@@ -1,15 +1,15 @@
 from typing import Any, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, SQLModel
 
 from app.api import deps
-from app.models.user import User, UserRole
 from app.models.course import Course
-from app.models.room import Room, RoomCreate, RoomRead, RoomUpdate, UserRoomLink
 from app.models.message import Message
+from app.models.room import Room, RoomCreate, RoomRead, RoomUpdate, UserRoomLink
+from app.models.user import User, UserRole
 
 router = APIRouter()
 
@@ -27,13 +27,13 @@ async def create_room(
     course = await session.get(Course, room_in.course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-        
+
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         # Check if TA
         from app.models.course import UserCourseLink
         link = await session.get(UserCourseLink, (current_user.id, course.id))
         is_ta = link and link.role == "ta"
-        
+
         if not is_ta:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -88,21 +88,21 @@ async def update_room(
     room = await session.get(Room, room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-        
+
     course = await session.get(Course, room.course_id) # Need to check course ownership
-    
+
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
          # Check if TA
         from app.models.course import UserCourseLink
         link = await session.get(UserCourseLink, (current_user.id, course.id))
         is_ta = link and link.role == "ta"
-        
+
         if not is_ta:
              raise HTTPException(status_code=403, detail="Not enough permissions")
 
     room_data = room.dict(exclude_unset=True)
     update_data = room_in.dict(exclude_unset=True)
-    
+
     for field in room_data:
         if field in update_data:
             setattr(room, field, update_data[field])
@@ -121,7 +121,7 @@ async def delete_room(
     room = await session.get(Room, room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-        
+
     # Verify Course Ownership
     course = await session.get(Course, room.course_id)
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
@@ -129,10 +129,10 @@ async def delete_room(
         from app.models.course import UserCourseLink
         link = await session.get(UserCourseLink, (current_user.id, course.id))
         is_ta = link and link.role == "ta"
-        
+
         if not is_ta:
             raise HTTPException(status_code=403, detail="Not enough permissions")
-            
+
     from sqlmodel import delete
     # Delete Messages
     await session.exec(delete(Message).where(Message.room_id == room_id))
@@ -157,14 +157,14 @@ async def assign_user_to_room(
     room = await session.get(Room, room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-    
+
     course = await session.get(Course, room.course_id)
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         # Check if TA
         from app.models.course import UserCourseLink
         link = await session.get(UserCourseLink, (current_user.id, course.id))
         is_ta = link and link.role == "ta"
-        
+
         if not is_ta:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -176,19 +176,19 @@ async def assign_user_to_room(
         query = select(User).where(User.email == assignment.user_email)
         result = await session.exec(query)
         user_to_assign = result.first()
-    
+
     if not user_to_assign:
         raise HTTPException(status_code=404, detail="User not found")
 
     from app.models.room import UserRoomLink
-    
+
     # Check if already assigned
     link = await session.get(UserRoomLink, (user_to_assign.id, room_id))
     if link:
         return {"message": "User already assigned to room"}
-        
+
     new_link = UserRoomLink(user_id=user_to_assign.id, room_id=room_id)
     session.add(new_link)
     await session.commit()
-    
+
     return {"message": f"User {user_to_assign.full_name or user_to_assign.username or user_to_assign.email} assigned to room"}

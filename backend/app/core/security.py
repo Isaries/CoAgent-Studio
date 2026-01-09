@@ -1,11 +1,10 @@
 from datetime import datetime, timedelta
 from typing import Any, Union
+
+from cryptography.fernet import Fernet  # Explicit import if not found
 from jose import jwt
 from passlib.context import CryptContext
-from app.core.config import settings
-from cryptography.fernet import Fernet # Explicit import if not found
-from jose import jwt
-from passlib.context import CryptContext
+
 from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -44,7 +43,6 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 # Encryption for API Keys
-from cryptography.fernet import Fernet
 
 cipher_suite = Fernet(settings.ENCRYPTION_KEY)
 
@@ -69,15 +67,15 @@ def mask_api_key(encrypted_key: str) -> str:
     """
     if not encrypted_key:
         return None
-    
+
     # Decrypt first
     plain = decrypt_api_key(encrypted_key)
     if not plain:
         return None
-        
+
     if len(plain) <= 4:
         return "****"
-    
+
     prefix = plain[:2]
     suffix = plain[-2:]
     return f"{prefix}******{suffix}"

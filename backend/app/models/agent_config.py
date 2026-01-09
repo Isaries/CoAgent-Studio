@@ -1,9 +1,11 @@
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
-from sqlmodel import Field, Relationship, SQLModel
+
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, SQLModel
+
 
 class AgentType(str):
     TEACHER = "teacher"
@@ -17,18 +19,18 @@ class AgentConfigBase(SQLModel):
     name: str = Field(default="Default Profile")
     model_provider: str = Field(default="gemini") # gemini, openai
     system_prompt: str
-    
-    # We don't store raw api key in base. 
+
+    # We don't store raw api key in base.
     # API Key will be stored in a separate encrypted field or column in table.
 
     # Model Version (e.g. gemini-1.5-pro, gpt-4o)
     model: Optional[str] = Field(default=None)
-    
+
 class AgentConfig(AgentConfigBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     encrypted_api_key: Optional[str] = None
     settings: Optional[Dict[str, Any]] = Field(default={}, sa_column=Column(JSONB))
-    
+
     # Advanced Trigger & Schedule Configs
     trigger_config: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     schedule_config: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
@@ -37,7 +39,7 @@ class AgentConfig(AgentConfigBase, table=True):
     is_active: bool = Field(default=False)
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     @property
     def has_api_key(self) -> bool:
         return bool(self.encrypted_api_key)
@@ -64,9 +66,9 @@ class AgentConfigRead(SQLModel):
     context_window: int = 10
 
     is_active: Optional[bool] = False
-    
+
     created_by: Optional[UUID] = None
     updated_at: Optional[datetime] = None
-    
+
     masked_api_key: Optional[str] = None # Calculated field for UI
     # encrypted_api_key is explicitly excluded from this model to prevent leak

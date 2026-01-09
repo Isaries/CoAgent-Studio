@@ -22,29 +22,29 @@ const bubbleClass = computed(() => {
 })
 
 const alignClass = computed(() => {
-    return props.isSelf ? 'chat-end' : 'chat-start'
+  return props.isSelf ? 'chat-end' : 'chat-start'
 })
 
 const renderedContent = computed(() => {
-    // Only render markdown for AI or System, or maybe all?
-    // Let's render for all for consistency.
-    const rawHtml = md.render(props.content)
-    return DOMPurify.sanitize(rawHtml)
+  // Only render markdown for AI or System, or maybe all?
+  // Let's render for all for consistency.
+  const rawHtml = md.render(props.content)
+  return DOMPurify.sanitize(rawHtml)
 })
 const formattedTime = computed(() => {
-    if (!props.timestamp) return ''
-    try {
-        const date = new Date(props.timestamp)
-        return date.toLocaleString('zh-TW', { 
-            month: 'numeric', 
-            day: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false 
-        })
-    } catch (e) {
-        return props.timestamp
-    }
+  if (!props.timestamp) return ''
+  try {
+    const date = new Date(props.timestamp)
+    return date.toLocaleString('zh-TW', {
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+  } catch (e) {
+    return props.timestamp
+  }
 })
 </script>
 
@@ -59,21 +59,21 @@ const formattedTime = computed(() => {
       <div v-html="renderedContent"></div>
     </div>
     <div class="chat-footer opacity-50 text-xs">
-       <!-- Status (Delivered etc) -->
+      <!-- Status (Delivered etc) -->
     </div>
   </div>
 </template>
 <style>
 /* Override daisyUI/Tailwind prose colors for better contrast in bubbles if needed */
 .chat-bubble.prose {
-    color: inherit; /* Inherit text color from bubble */
+  color: inherit; /* Inherit text color from bubble */
 }
 .chat-bubble.prose code {
-    @apply bg-base-300 rounded px-1;
-    color: inherit;
+  @apply bg-base-300 rounded px-1;
+  color: inherit;
 }
 .chat-bubble.prose pre {
-    @apply bg-base-300 p-2 rounded;
-    color: inherit;
+  @apply bg-base-300 p-2 rounded;
+  color: inherit;
 }
 </style>

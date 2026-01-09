@@ -1,14 +1,16 @@
-from typing import List, Optional, Union
-from pydantic import AnyHttpUrl, EmailStr
+from typing import List
+
+from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "CoAgent Studio"
     API_V1_STR: str = "/api/v1"
-    
+
     # SECURITY
     SECRET_KEY: str = "changethis"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8 
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     ALGORITHM: str = "HS256"
     ENCRYPTION_KEY: str # Required
@@ -21,7 +23,7 @@ class Settings(BaseSettings):
 
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
-    
+
     # ADMIN
     # ADMIN
     SUPER_ADMIN: str = "admin"

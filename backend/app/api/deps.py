@@ -1,5 +1,6 @@
-from typing import Generator
-from fastapi import Depends, HTTPException, status
+from typing import Optional
+
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from pydantic import ValidationError
@@ -10,8 +11,6 @@ from app.core.config import settings
 from app.core.db import get_session
 from app.models.user import User
 
-from fastapi import Request
-from typing import Optional
 
 class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
     async def __call__(self, request: Request) -> Optional[str]:
@@ -23,7 +22,7 @@ class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
                  scheme, param = get_authorization_scheme_param(authorization) # type: ignore
                  if scheme.lower() == "bearer":
                      authorization = param
-        
+
         if not authorization:
             if self.auto_error:
                 raise HTTPException(
@@ -38,7 +37,7 @@ class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
 from fastapi.security.utils import get_authorization_scheme_param
 
 reusable_oauth2 = OAuth2PasswordBearerWithCookie(
-    tokenUrl=f"{settings.API_V1_STR}/login/refresh" 
+    tokenUrl=f"{settings.API_V1_STR}/login/refresh"
 )
 
 async def get_current_user(
@@ -61,19 +60,20 @@ async def get_current_user(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Could not validate credentials",
             )
-        
+
         # In SQLModel for async, we use exec/one_or_none
-        from sqlmodel import select
         from uuid import UUID
+
+        from sqlmodel import select
         try:
             user_id = UUID(token_data)
         except ValueError:
              raise HTTPException(status_code=403, detail="Invalid token subject")
-             
+
         query = select(User).where(User.id == user_id)
         result = await session.exec(query)
         user = result.first()
-        
+
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         if not user.is_active:
@@ -84,7 +84,7 @@ async def get_current_user(
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Internal Auth Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal Auth Error: {e!s}")
 
 async def get_current_active_superuser(
     current_user: User = Depends(get_current_user),

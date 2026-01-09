@@ -1,14 +1,14 @@
 from typing import Any, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel.ext.asyncio.session import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
-from app.models.user import User, UserRole
-from app.models.course import Course
 from app.models.announcement import Announcement, AnnouncementCreate, AnnouncementRead
+from app.models.course import Course
+from app.models.user import User, UserRole
 
 router = APIRouter()
 
@@ -27,13 +27,13 @@ async def create_announcement(
     course = await session.get(Course, announcement_in.course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-        
+
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         # Check if user is TA
         from app.models.course import UserCourseLink
         link = await session.get(UserCourseLink, (current_user.id, course.id))
         is_ta = link and link.role == "ta"
-        
+
         if not is_ta:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 

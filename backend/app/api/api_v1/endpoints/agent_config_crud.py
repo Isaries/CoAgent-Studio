@@ -1,14 +1,14 @@
 from typing import Any, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
-from app.models.user import User, UserRole
+from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentConfigRead
 from app.models.course import Course
-from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentConfigRead, AgentType
+from app.models.user import User, UserRole
 
 router = APIRouter()
 
@@ -28,7 +28,7 @@ async def read_agent_configs(
     course = await session.get(Course, course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-        
+
     query = select(AgentConfig).where(AgentConfig.course_id == course_id)
     result = await session.exec(query)
     return result.all()
@@ -48,7 +48,7 @@ async def update_agent_config(
     course = await session.get(Course, course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-        
+
     if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
          raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -56,7 +56,7 @@ async def update_agent_config(
     query = select(AgentConfig).where(AgentConfig.course_id == course_id, AgentConfig.type == agent_type)
     result = await session.exec(query)
     agent_config = result.first()
-    
+
     if agent_config:
         # Update
         agent_config.system_prompt = config_in.system_prompt
@@ -65,7 +65,7 @@ async def update_agent_config(
             agent_config.encrypted_api_key = config_in.api_key # In real app, encrypt here!
         if config_in.settings:
             agent_config.settings = config_in.settings
-        
+
         session.add(agent_config)
         await session.commit()
         await session.refresh(agent_config)

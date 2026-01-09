@@ -1,9 +1,10 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, SQLModel
+
 
 class UserRole(str, Enum):
     GUEST = "guest"
@@ -26,7 +27,7 @@ class User(UserBase, table=True):
     google_sub: Optional[str] = Field(default=None, index=True) # Google Unique ID
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Relationships will be added later (enrollments, messages, etc.)
 
 class UserCreate(UserBase):

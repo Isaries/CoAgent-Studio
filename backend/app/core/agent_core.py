@@ -1,5 +1,5 @@
-from typing import Optional
 from app.core.llm_service import LLMFactory
+
 
 class AgentCore:
     def __init__(self, provider: str, api_key: str, system_prompt: str, model: str = None):

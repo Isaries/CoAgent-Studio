@@ -1,13 +1,15 @@
-from typing import List, Optional
-from uuid import UUID
-from sqlmodel import select, or_
-from sqlmodel.ext.asyncio.session import AsyncSession
-from fastapi import HTTPException, UploadFile
 import os
 import uuid
+from typing import List, Optional
+from uuid import UUID
 
-from app.models.user import User, UserCreate, UserUpdate, UserRole
+from fastapi import HTTPException, UploadFile
+from sqlmodel import or_, select
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 from app.core import security
+from app.models.user import User, UserCreate, UserRole, UserUpdate
+
 
 class UserService:
     def __init__(self, session: AsyncSession):
@@ -46,7 +48,7 @@ class UserService:
         conditions = []
         if user_in.email: conditions.append(User.email == user_in.email)
         if user_in.username: conditions.append(User.username == user_in.username)
-        
+
         if conditions:
             query = select(User).where(or_(*conditions))
             if (await self.session.exec(query)).first():
@@ -55,7 +57,7 @@ class UserService:
         user = User.model_validate(user_in)
         if user_in.password:
             user.hashed_password = security.get_password_hash(user_in.password)
-            
+
         self.session.add(user)
         await self.session.commit()
         await self.session.refresh(user)
@@ -86,7 +88,7 @@ class UserService:
                   raise HTTPException(status_code=403, detail="Only Super Admins can promote users to Admin")
 
         # Password handling
-        if "password" in update_data and update_data["password"]:
+        if update_data.get("password"):
             update_data["hashed_password"] = security.get_password_hash(update_data["password"])
             del update_data["password"]
 
@@ -107,7 +109,7 @@ class UserService:
         if "role" in update_data: del update_data["role"]
         if "email" in update_data: del update_data["email"]
 
-        if "password" in update_data and update_data["password"]:
+        if update_data.get("password"):
             current_user.hashed_password = security.get_password_hash(update_data["password"])
             del update_data["password"]
 
@@ -139,16 +141,16 @@ class UserService:
         # Validate
         if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
              raise HTTPException(status_code=400, detail="Invalid file type")
-        
+
         FILE_SIZE_LIMIT = 2 * 1024 * 1024
-        
+
         # Path resolution - tricky without dependency injection of config
         # Assuming relative path from THIS file.
         # this file: backend/app/services/user_service.py
         # static: backend/static/avatars
         BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         static_dir = os.path.join(BASE_DIR, "static", "avatars")
-        
+
         if not os.path.exists(static_dir):
             os.makedirs(static_dir)
 

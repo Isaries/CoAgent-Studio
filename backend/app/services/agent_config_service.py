@@ -1,11 +1,14 @@
-from typing import List, Optional
+from typing import List
 from uuid import UUID
-from sqlmodel import select, delete
-from sqlmodel.ext.asyncio.session import AsyncSession
+
 from fastapi import HTTPException
-from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentType
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app.models.agent_config import AgentConfig, AgentConfigCreate
 from app.models.course import Course
 from app.models.user import User, UserRole
+
 
 class AgentConfigService:
     def __init__(self, session: AsyncSession):
@@ -25,7 +28,7 @@ class AgentConfigService:
         query = select(AgentConfig).where(AgentConfig.course_id == None, AgentConfig.type == agent_type)
         result = await self.session.exec(query)
         agent_config = result.first()
-        
+
         if agent_config:
             # Update
             agent_config.system_prompt = config_in.system_prompt
@@ -35,12 +38,12 @@ class AgentConfigService:
                 if config_in.api_key == "":
                     agent_config.encrypted_api_key = None
                 else:
-                    agent_config.encrypted_api_key = config_in.api_key 
+                    agent_config.encrypted_api_key = config_in.api_key
             if config_in.settings:
-                # Merge or Replace? Pydantic dict handles it? 
+                # Merge or Replace? Pydantic dict handles it?
                 # Model definition usually implies JSON replacement for SA JSON columns.
                 agent_config.settings = config_in.settings
-            
+
             self.session.add(agent_config)
             await self.session.commit()
             await self.session.refresh(agent_config)
@@ -65,12 +68,12 @@ class AgentConfigService:
         course = await self.session.get(Course, course_id)
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
-            
-        # Permission: Admin, Owner, or TA? 
+
+        # Permission: Admin, Owner, or TA?
         # Usually settings page calls this.
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
             # Allow TA? Current logic in endpoint seemed to allow "if not course" raise, but didn't strictly check permission for GET?
-            # Let's check original code. 
+            # Let's check original code.
             # Oh, the original code had a print "DEBUG" but then had no permission check visible in snippet?
             # Wait, usually read is stricter. Let's enforce Owner/Admin for now as it contains API keys (masked).
             raise HTTPException(status_code=403, detail="Not enough permissions")
@@ -83,7 +86,7 @@ class AgentConfigService:
         course = await self.session.get(Course, course_id)
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
-            
+
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
              raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -108,7 +111,7 @@ class AgentConfigService:
         agent_config = await self.session.get(AgentConfig, UUID(agent_id))
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
-            
+
         # Permission check via Course
         if agent_config.course_id:
             course = await self.session.get(Course, agent_config.course_id)
@@ -126,7 +129,7 @@ class AgentConfigService:
         if config_in.system_prompt is not None: agent_config.system_prompt = config_in.system_prompt
         if config_in.model_provider is not None: agent_config.model_provider = config_in.model_provider
         if config_in.model is not None: agent_config.model = config_in.model
-        
+
         if config_in.api_key is not None:
              if config_in.api_key == "":
                  agent_config.encrypted_api_key = None
@@ -147,7 +150,7 @@ class AgentConfigService:
         agent_config = await self.session.get(AgentConfig, UUID(agent_id))
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
-            
+
         if agent_config.course_id:
              course = await self.session.get(Course, agent_config.course_id)
              if course and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
@@ -163,23 +166,23 @@ class AgentConfigService:
         agent_config = await self.session.get(AgentConfig, UUID(agent_id))
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
-            
+
         if agent_config.course_id:
              course = await self.session.get(Course, agent_config.course_id)
              if course and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
                   raise HTTPException(status_code=403, detail="Not enough permissions")
-        
+
         # Deactivate others of same type in this course
         if agent_config.course_id:
             query = select(AgentConfig).where(
-                AgentConfig.course_id == agent_config.course_id, 
+                AgentConfig.course_id == agent_config.course_id,
                 AgentConfig.type == agent_config.type
             )
             others = await self.session.exec(query)
             for other in others.all():
                 other.is_active = False
                 self.session.add(other)
-        
+
         agent_config.is_active = True
         self.session.add(agent_config)
         await self.session.commit()

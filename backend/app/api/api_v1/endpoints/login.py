@@ -1,18 +1,17 @@
 from datetime import timedelta
 from typing import Any
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel.ext.asyncio.session import AsyncSession
+from jose import JWTError, jwt
 from sqlmodel import select
-from jose import jwt, JWTError
-
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
 from app.core import security
 from app.core.config import settings
 from app.models.user import User, UserRead, UserRole
-from uuid import UUID
 
 router = APIRouter()
 
@@ -26,7 +25,7 @@ async def login_access_token(
     Currently used for Admin login.
     """
     from sqlmodel import or_
-    
+
     # Allow login by email OR username
     query = select(User).where(
         or_(
@@ -36,12 +35,12 @@ async def login_access_token(
     )
     result = await session.exec(query)
     user = result.first()
-    
+
     if not user or not user.hashed_password or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect username/email or password")
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
-        
+
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
         user.id, expires_delta=access_token_expires
@@ -49,13 +48,13 @@ async def login_access_token(
     refresh_token = security.create_refresh_token(
         user.id, expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     )
-    
+
     response = Response()
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True, 
+        secure=True,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
@@ -84,7 +83,7 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token missing",
         )
-        
+
     try:
         payload = jwt.decode(
             refresh_token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
@@ -100,7 +99,7 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
         )
-        
+
     # Check if user exists/active
     user = await session.get(User, user_id)
     if not user or not user.is_active:
@@ -113,13 +112,13 @@ async def refresh_token(
     access_token = security.create_access_token(
         user.id, expires_delta=access_token_expires
     )
-    
+
     response = Response()
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True, 
+        secure=True,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
@@ -155,19 +154,19 @@ async def impersonate_user(
             status_code=403,
             detail="The user doesn't have enough privileges",
         )
-        
+
     user = await session.get(User, user_id)
     if not user:
          raise HTTPException(
             status_code=404,
             detail="User not found",
         )
-        
+
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
         user.id, expires_delta=access_token_expires
     )
-    
+
     current_token = request.cookies.get("access_token")
     # If not in cookie, try header (for flexibility)
     if not current_token:
@@ -182,7 +181,7 @@ async def impersonate_user(
             key="original_access_token",
             value=current_token,
             httponly=True,
-            secure=True, 
+            secure=True,
             samesite="lax",
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
@@ -191,11 +190,11 @@ async def impersonate_user(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True, 
+        secure=True,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
-    
+
     # Set flag for frontend
     response.set_cookie(
         key="is_impersonating",
@@ -212,7 +211,7 @@ async def stop_impersonate(request: Request) -> Any:
     original_token = request.cookies.get("original_access_token")
     if not original_token:
         raise HTTPException(status_code=400, detail="Not impersonating")
-        
+
     response = Response()
     # Restore access token
     response.set_cookie(
@@ -223,11 +222,11 @@ async def stop_impersonate(request: Request) -> Any:
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
-    
+
     # Clear original token and flag
     response.delete_cookie("original_access_token")
     response.delete_cookie("is_impersonating")
-    
+
     response.body = b'{"message": "Impersonation stopped"}'
     response.status_code = 200
     response.media_type = "application/json"

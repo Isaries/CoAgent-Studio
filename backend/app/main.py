@@ -5,7 +5,7 @@ from app.api.api_v1.api import api_router
 from app.core.config import settings
 
 app = FastAPI(
-    title=settings.PROJECT_NAME, 
+    title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
@@ -29,8 +29,10 @@ elif True: # Allow all for dev
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-from fastapi.staticfiles import StaticFiles
 import os
+
+from fastapi.staticfiles import StaticFiles
+
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -41,6 +43,7 @@ async def root():
     return {"message": "Welcome to CoAgent Studio API"}
 
 from app.core.room_monitor import room_monitor
+
 
 @app.on_event("startup")
 async def startup_event():

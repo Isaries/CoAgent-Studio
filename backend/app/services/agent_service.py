@@ -1,13 +1,16 @@
-from datetime import datetime, time
-from zoneinfo import ZoneInfo
+from datetime import datetime
 from uuid import UUID
-from sqlmodel import select, col
+
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from zoneinfo import ZoneInfo
+
+from app.core.socket_manager import ConnectionManager
+from app.core.specialized_agents import StudentAgent, TeacherAgent
+from app.models.agent_config import AgentConfig, AgentType
 from app.models.message import Message
 from app.models.room import Room
-from app.models.agent_config import AgentConfig, AgentType
-from app.core.specialized_agents import TeacherAgent, StudentAgent
-from app.core.socket_manager import ConnectionManager
+
 
 def is_agent_scheduled_now(config: AgentConfig) -> bool:
     """Check if agent is allowed to run at this current time (UTC+8)."""
@@ -21,7 +24,7 @@ def is_agent_scheduled_now(config: AgentConfig) -> bool:
     # 1. Check Specific Rules (Priority: Override)
     # If ANY specific rule matches CURRENT DATE, we obey ONLY specific rules (ignore general).
     # If matches date but not time -> return False (Override implies "Only these times are allowed today")
-    
+
     # Current Time in UTC+8
     tz = ZoneInfo("Asia/Taipei")
     now = datetime.now(tz)
@@ -32,7 +35,7 @@ def is_agent_scheduled_now(config: AgentConfig) -> bool:
     specific_rules = schedule.get("specific", [])
     if isinstance(specific_rules, list):
         todays_specifics = [r for r in specific_rules if r.get("date") == current_date_str]
-        
+
         if todays_specifics:
             # We have at least one specific rule for today.
             # Check if *any* of them allow now.
@@ -45,10 +48,10 @@ def is_agent_scheduled_now(config: AgentConfig) -> bool:
                 except:
                     continue
             return False # Specific rules exist for today but none match current time -> BLOCKED
-            
+
     # 2. Check General Pattern (Fallback)
     general = schedule.get("general", {})
-    if not general: 
+    if not general:
         # Support legacy format fallback if necessary, or just Default Open
         if "mode" in schedule and "general" not in schedule:
             general = schedule # Treat root as general
@@ -56,7 +59,7 @@ def is_agent_scheduled_now(config: AgentConfig) -> bool:
             return True # Default open if no general config
 
     mode = general.get("mode", "none")
-    
+
     if mode == "none":
         return True
 
@@ -67,8 +70,8 @@ def is_agent_scheduled_now(config: AgentConfig) -> bool:
         if s_date and e_date:
             if not (s_date <= current_date_str <= e_date):
                 return False # Outside valid date range
-        # If dates missing, assume open range? Or strictly require? 
-        # Let's assume open if missing, or strict. UI forces input. 
+        # If dates missing, assume open range? Or strictly require?
+        # Let's assume open if missing, or strict. UI forces input.
         # But if user leaves blank, maybe valid? Let's check dates only if present.
 
     # Check Time Rules
@@ -86,25 +89,25 @@ def is_agent_scheduled_now(config: AgentConfig) -> bool:
         try:
             start_str = rule.get("start_time")
             end_str = rule.get("end_time")
-            
+
             if not start_str or not end_str:
                 continue
 
             start = datetime.strptime(start_str, "%H:%M").time()
             end = datetime.strptime(end_str, "%H:%M").time()
-            
+
             # Check Weekdays for Weekly Mode
             if mode == "range_weekly":
                 allowed_days = rule.get("days", [])
                 if weekday not in allowed_days:
                     continue
-            
+
             # Time Check
             if start <= current_time <= end:
                 return True # Matched a rule
         except:
             continue
-            
+
     return False # No rules matched
 
 async def get_message_count_gap(room_id: UUID, session: AsyncSession) -> int:
@@ -113,11 +116,11 @@ async def get_message_count_gap(room_id: UUID, session: AsyncSession) -> int:
     query = select(Message).where(Message.room_id == room_id).where(Message.agent_type.isnot(None)).order_by(Message.created_at.desc()).limit(1)
     result = await session.exec(query)
     last_agent_msg = result.first()
-    
+
     count_query = select(col(Message.id)).where(Message.room_id == room_id).where(Message.agent_type.is_(None))
     if last_agent_msg:
         count_query = count_query.where(Message.created_at > last_agent_msg.created_at)
-    
+
     # Execute count
     # Note: SQLModel/SQLAlchemy counting might vary, executing simply
     results = await session.exec(count_query)
@@ -137,16 +140,16 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
     query = select(AgentConfig).where(AgentConfig.course_id == room.course_id).order_by(AgentConfig.updated_at.desc())
     result = await session.exec(query)
     configs = result.all()
-    
+
     # Select Active or Fallback to Latest
     teacher_config = next((c for c in configs if c.type == AgentType.TEACHER and c.is_active), None)
     if not teacher_config:
         teacher_config = next((c for c in configs if c.type == AgentType.TEACHER), None)
-        
+
     student_config = next((c for c in configs if c.type == AgentType.STUDENT and c.is_active), None)
     if not student_config:
         student_config = next((c for c in configs if c.type == AgentType.STUDENT), None)
-    
+
     # --- Check Schedules ---
     if teacher_config and not is_agent_scheduled_now(teacher_config):
         teacher_config = None # Disable if off-schedule
@@ -158,7 +161,7 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
 
     # --- Check Trigger Logic (Message Count) ---
     msg_gap = await get_message_count_gap(UUID(room_id), session)
-    
+
     teacher_should_run = False
     if teacher_config:
         t_trigger = teacher_config.trigger_config or {}
@@ -212,11 +215,11 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
         # Check standard should_reply (Mention or Config Trigger satisfied)
         # If specific config satisfied (msg_count), we force True, otherwise use probability
         force_reply = (teacher_config.trigger_config is not None)
-        
+
         if force_reply or teacher_agent.should_reply(history, room.ai_frequency):
-            print(f"[Agent] Teacher deciding to reply...")
+            print("[Agent] Teacher deciding to reply...")
             reply = await teacher_agent.generate_reply(history)
-            
+
             # Save & Broadcast
             msg = Message(content=reply, room_id=UUID(room_id), agent_type=AgentType.TEACHER)
             session.add(msg)
@@ -230,18 +233,18 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
     can_student = room.ai_mode == "both"
     if can_student and student_agent and teacher_agent and student_should_run:
         force_reply = (student_config.trigger_config is not None)
-        
+
         if force_reply or student_agent.should_reply(history, room.ai_frequency):
-            print(f"[Agent] Student proposing contribution...")
+            print("[Agent] Student proposing contribution...")
             proposal = await student_agent.generate_proposal(history)
-            
+
             # Ask Teacher for Permission
             context_str = "\n".join([f"{m.sender_id}: {m.content}" for m in history])
             print(f"[Agent] Teacher evaluating proposal: {proposal[:50]}...")
             is_approved = await teacher_agent.evaluate_student_proposal(proposal, context_str)
-            
+
             if is_approved:
-                print(f"[Agent] Proposal APPROVED.")
+                print("[Agent] Proposal APPROVED.")
                 msg = Message(content=proposal, room_id=UUID(room_id), agent_type=AgentType.STUDENT)
                 session.add(msg)
                 await session.commit()
@@ -249,7 +252,7 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
                 timestamp = msg.created_at.isoformat() + "Z"
                 await manager.broadcast(f"[Student AI]|{timestamp}|{proposal}", room_id)
             else:
-                print(f"[Agent] Proposal DENIED by Teacher.")
+                print("[Agent] Proposal DENIED by Teacher.")
 
 async def check_and_process_time_triggers(room_id: str, session: AsyncSession, manager: ConnectionManager):
     """
@@ -264,7 +267,7 @@ async def check_and_process_time_triggers(room_id: str, session: AsyncSession, m
     query = select(AgentConfig).where(AgentConfig.course_id == room.course_id).order_by(AgentConfig.updated_at.desc())
     result = await session.exec(query)
     configs = result.all()
-    
+
     teacher_config = next((c for c in configs if c.type == AgentType.TEACHER and c.is_active), None)
     if not teacher_config: # Retry non-active if that's the logic (or strictly active?)
          # Logic says "Select Active or Fallback".
@@ -285,12 +288,12 @@ async def check_and_process_time_triggers(room_id: str, session: AsyncSession, m
 
     # 3. Get Time Context
     # We need last message from ANYONE (for silence) and last message from EACH agent (for interval).
-    
+
     # Last message in room
     last_msg_query = select(Message).where(Message.room_id == UUID(room_id)).order_by(Message.created_at.desc()).limit(1)
     last_msg_res = await session.exec(last_msg_query)
     last_msg = last_msg_res.first()
-    
+
     now = datetime.now()
     if last_msg and last_msg.created_at:
         # Ensure timezone awareness compatibility.
@@ -299,7 +302,7 @@ async def check_and_process_time_triggers(room_id: str, session: AsyncSession, m
         last_msg_time = last_msg.created_at
         if last_msg_time.tzinfo is None:
             last_msg_time = last_msg_time.replace(tzinfo=None) # Treat as naive UTC if needed or just compare
-        
+
         # We'll use naive check if both naive, or aware if both aware.
         # Safer: (datetime.utcnow() - last_msg.created_at).total_seconds() if stored as UTC
         silence_duration = (datetime.utcnow() - last_msg.created_at).total_seconds()
@@ -324,7 +327,7 @@ async def check_and_process_time_triggers(room_id: str, session: AsyncSession, m
             interval = float(t_conf.get("value", 60))
             if t_since >= interval:
                 teacher_action = True
-    
+
     student_action = False
     if student_config and not teacher_action: # Priority: Teacher
         s_conf = student_config.trigger_config or {}
@@ -362,14 +365,14 @@ async def check_and_process_time_triggers(room_id: str, session: AsyncSession, m
          # The requirement didn't specify turn exemption. "Student Agent... (C) Silence...".
          # Let's follow standard flow: Proposal -> Teacher Eval.
          # But if Teacher is "Time Interval" triggered, Teacher speaks.
-         
+
          key = student_config.encrypted_api_key or (teacher_config.encrypted_api_key if teacher_config else None)
          if key:
              agent = StudentAgent(student_config.model_provider, key, student_config.system_prompt, student_config.model)
-             
+
              # If trigger is silence, maybe context is "It's quiet..."
              proposal = await agent.generate_proposal(history)
-             
+
              # Evaluate
              if teacher_config and teacher_config.has_api_key:
                  t_agent = TeacherAgent(teacher_config.model_provider, teacher_config.encrypted_api_key, teacher_config.system_prompt, teacher_config.model)

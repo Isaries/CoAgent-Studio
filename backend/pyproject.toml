@@ -1,0 +1,10 @@
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+skip-string-normalization = false
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "W", "C90", "I", "N", "UP", "B", "A", "C4", "ISC", "PIE", "PT", "RUF"]
+ignore = ["E501"]
+exclude = ["migrations", "alembic"]

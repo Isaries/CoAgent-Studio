@@ -7,17 +7,17 @@ import router from './router'
 
 const pinia = createPinia()
 const i18n = createI18n({
-    legacy: false, // Composition API
-    locale: 'en',
-    fallbackLocale: 'en',
-    messages: {
-        en: {
-            hello: 'hello world'
-        },
-        zh: {
-            hello: '你好'
-        }
+  legacy: false, // Composition API
+  locale: 'en',
+  fallbackLocale: 'en',
+  messages: {
+    en: {
+      hello: 'hello world'
+    },
+    zh: {
+      hello: '你好'
     }
+  }
 })
 
 const app = createApp(App)

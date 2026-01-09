@@ -1,19 +1,19 @@
-from typing import List, Optional, Any
-from uuid import UUID
 import asyncio
+from typing import Any, List
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query
-from sqlmodel.ext.asyncio.session import AsyncSession
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from jose import JWTError, jwt
 from sqlmodel import select
-from app.core.db import get_session
-from app.models.message import Message
-from app.models.room import Room
-from app.models.user import User
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 from app.api import deps
 from app.core.config import settings
+from app.core.db import get_session
 from app.core.socket_manager import manager
+from app.models.message import Message
+from app.models.user import User
 from app.services.agent_service import process_agents
-from jose import jwt, JWTError
 
 router = APIRouter()
 
@@ -28,7 +28,7 @@ async def get_room_messages(
     """
     query = select(Message, User).outerjoin(User, Message.sender_id == User.id).where(Message.room_id == room_id).order_by(Message.created_at.asc())
     result = await session.exec(query)
-    
+
     messages_out = []
     for msg, user in result:
         sender = "Unknown"
@@ -44,7 +44,7 @@ async def get_room_messages(
             "sender_id": msg.sender_id,
             "created_at": (msg.created_at.isoformat() + "Z") if msg.created_at else None
         })
-    
+
     return messages_out
 
 async def get_current_user_ws(token: str, session: AsyncSession) -> User:
@@ -55,14 +55,14 @@ async def get_current_user_ws(token: str, session: AsyncSession) -> User:
             return None
     except JWTError:
         return None
-        
+
     user = await session.get(User, token_data)
     return user
 
 @router.websocket("/ws/{room_id}")
 async def websocket_endpoint(
-    websocket: WebSocket, 
-    room_id: str, 
+    websocket: WebSocket,
+    room_id: str,
     token: str = Query(...),
     session: AsyncSession = Depends(get_session)
 ):
@@ -76,7 +76,7 @@ async def websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_text()
-            
+
             # Save User Message
             user_msg = Message(
                 content=data,
@@ -86,15 +86,15 @@ async def websocket_endpoint(
             session.add(user_msg)
             await session.commit() # Commit to get ID and timestamp
             await session.refresh(user_msg)
-            
+
             # Broadcast User Message (with format "name|timestamp|content")
             display_name = user.full_name or user.username or user.email or "Unknown"
             timestamp = (user_msg.created_at.isoformat() + "Z") if user_msg.created_at else ""
             await manager.broadcast(f"{display_name}|{timestamp}|{data}", room_id)
-            
+
             # Trigger Agents
             asyncio.create_task(process_agents(room_id, session, manager, user_msg))
-            
+
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id)
         await manager.broadcast(f"Client #{user.email} left", room_id)

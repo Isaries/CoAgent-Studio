@@ -1,6 +1,16 @@
 from fastapi import APIRouter
-from app.api.api_v1.endpoints import login, users, courses, rooms, announcements, chat, agents, analytics, admin_db
 
+from app.api.api_v1.endpoints import (
+    admin_db,
+    agents,
+    analytics,
+    announcements,
+    chat,
+    courses,
+    login,
+    rooms,
+    users,
+)
 
 api_router = APIRouter()
 api_router.include_router(login.router, tags=["login"])

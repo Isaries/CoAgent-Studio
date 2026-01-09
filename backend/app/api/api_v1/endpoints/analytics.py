@@ -1,16 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
 from typing import Any, List
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 from app.api import deps
-from app.models.user import User, UserRole
-from app.models.course import Course
-from app.models.room import Room
-from app.models.message import Message
+from app.core.specialized_agents import AnalyticsAgent
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.analytics import AnalyticsReport
-from app.core.specialized_agents import AnalyticsAgent
+from app.models.course import Course
+from app.models.message import Message
+from app.models.room import Room
+from app.models.user import User, UserRole
 
 router = APIRouter()
 
@@ -27,7 +29,7 @@ async def generate_course_analytics(
     course = await session.get(Course, course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-        
+
     # Check permissions (Teacher or Admin)
     # Allow TA to view
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
@@ -41,7 +43,7 @@ async def generate_course_analytics(
     query = select(AgentConfig).where(AgentConfig.course_id == course_id, AgentConfig.type == AgentType.ANALYTICS).order_by(AgentConfig.is_active.desc(), AgentConfig.updated_at.desc())
     result = await session.exec(query)
     config = result.first()
-    
+
     # Fallback to system-level config if missing
     sys_query = select(AgentConfig).where(AgentConfig.course_id == None, AgentConfig.type == AgentType.ANALYTICS)
     sys_result = await session.exec(sys_query)
@@ -55,26 +57,26 @@ async def generate_course_analytics(
 
     # 2. Initialize Agent
     agent = AnalyticsAgent(provider="gemini", api_key=key, system_prompt=prompt)
-    
+
     # 3. Gather Data (All messages from all rooms in course)
     # For MVP, let's limit to the "most active" room or just fetch all
     rooms_query = select(Room).where(Room.course_id == course_id)
     rooms_res = await session.exec(rooms_query)
     rooms = rooms_res.all()
-    
+
     combined_report = f"# Course Analytics Report: {course.title}\n\n"
-    
+
     for room in rooms:
         msgs_query = select(Message).where(Message.room_id == room.id).order_by(Message.created_at.desc()).limit(50)
         msgs_res = await session.exec(msgs_query)
         messages = list(reversed(msgs_res.all()))
-        
+
         if not messages:
             continue
-            
+
         room_analysis = await agent.analyze_room(messages)
         combined_report += f"## Room: {room.name}\n{room_analysis}\n\n"
-    
+
     # 4. Save Report
     report = AnalyticsReport(
         course_id=course_id,
@@ -84,7 +86,7 @@ async def generate_course_analytics(
     session.add(report)
     await session.commit()
     await session.refresh(report)
-    
+
     return report
 
 @router.get("/{course_id}", response_model=List[AnalyticsReport])

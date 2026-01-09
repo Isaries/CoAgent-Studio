@@ -2,12 +2,18 @@ from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
-from sqlmodel import select, SQLModel
 
 from app.api import deps
+from app.models.course import (
+    CourseCreate,
+    CourseMember,
+    CourseMemberUpdate,
+    CourseRead,
+    CourseUpdate,
+)
 from app.models.user import User, UserRole
-from app.models.course import Course, CourseCreate, CourseRead, CourseUpdate, UserCourseLink, CourseMember, CourseMemberUpdate
 from app.services.course_service import CourseService
 
 router = APIRouter()
@@ -28,7 +34,7 @@ async def create_course(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions",
         )
-    
+
     service = CourseService(session)
     return await service.create_course(course_in, current_user)
 
@@ -45,13 +51,13 @@ async def read_courses(
     """
     service = CourseService(session)
     results = await service.get_courses(current_user, skip, limit)
-    
+
     courses = []
     for course, owner_name in results:
         course_read = CourseRead.model_validate(course)
         course_read.owner_name = owner_name
         courses.append(course_read)
-        
+
     return courses
 
 @router.get("/{course_id}", response_model=CourseRead)
@@ -129,7 +135,7 @@ async def read_course_members(
     """
     service = CourseService(session)
     members_list, owner_id = await service.get_members(course_id, current_user)
-    
+
     # Map to Response Model
     members_dict = {}
     for user, role in members_list:
@@ -158,7 +164,7 @@ async def read_course_members(
                 avatar_url=owner.avatar_url,
                 role="teacher"
             )
-            
+
     return list(members_dict.values())
 
 @router.put("/{course_id}/members/{user_id}", response_model=Any)

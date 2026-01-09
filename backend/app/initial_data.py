@@ -1,10 +1,12 @@
 import asyncio
+
+from passlib.context import CryptContext
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from app.core.db import get_session, engine
-from app.models.user import User, UserRole, UserCreate
+
 from app.core.config import settings
-from passlib.context import CryptContext
+from app.core.db import engine
+from app.models.user import UserCreate, UserRole
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -14,27 +16,26 @@ def get_password_hash(password):
 async def init_db():
     # In dev, ensure tables exist
     from sqlmodel import SQLModel
-    
+
     # Import all models to ensure they are registered in metadata
-    from app.models import User, Course, Room, Announcement, Message, AgentConfig
-    
+    from app.models import User
+
     print("Creating database tables...")
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
 
     import os
-    import os
     print(f"DEBUG: os.environ.get('SUPER_ADMIN') is '{os.environ.get('SUPER_ADMIN')}'")
     async with AsyncSession(engine) as session:
         print(f"DEBUG: settings.SUPER_ADMIN is '{settings.SUPER_ADMIN}'")
-        
+
         # Determine strict username
         # If SUPER_ADMIN looks like an email, default username to 'admin'.
         # If it's a simple string (like 'sadmin'), use that as username.
         target_username = "admin"
         if "@" not in settings.SUPER_ADMIN:
             target_username = settings.SUPER_ADMIN
-            
+
         print(f"DEBUG: Target username is '{target_username}'")
 
         # Check for username conflict (someone else has this username)
@@ -42,14 +43,14 @@ async def init_db():
         user_conflict_query = select(User).where(User.username == target_username)
         result_conflict = await session.exec(user_conflict_query)
         conflicting_user = result_conflict.first()
-        
+
         # Note: If conflicting_user is the SAME as the superuser we are about to check/create (by email), it's fine.
         # But we haven't fetched the superuser by email yet.
-        
+
         query = select(User).where(User.email == settings.SUPER_ADMIN)
         result = await session.exec(query)
         user = result.first()
-        
+
         if conflicting_user:
             # If the user occupying the name is NOT the one we are managing (or we are creating a new one)
             is_same_user = user and conflicting_user.id == user.id
@@ -60,12 +61,12 @@ async def init_db():
                  conflicting_user.username = backup_username
                  session.add(conflicting_user)
                  await session.commit()
-        
+
         if not user:
             print(f"Creating superuser {settings.SUPER_ADMIN}")
             user_in = UserCreate(
                 email=settings.SUPER_ADMIN,
-                username=target_username, 
+                username=target_username,
                 full_name="Initial Admin",
                 role=UserRole.SUPER_ADMIN,
             )

@@ -1,6 +1,7 @@
+import datetime
 import sqlite3
 import uuid
-import datetime
+
 from passlib.context import CryptContext
 
 # Path based on env 'sqlite:///./data/project_data.db' and PWD '/code'
@@ -26,7 +27,7 @@ def run():
         print("Creating Admin user...")
         uid = str(uuid.uuid4())
         now = datetime.datetime.now().isoformat()
-        
+
         # Insert Admin
         # Assuming is_active/is_superuser are boolean (1/0 in SQLite)
         query = '''
@@ -34,11 +35,11 @@ def run():
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         '''
         c.execute(query, (uid, EMAIL, PWD_HASH, "admin", 1, now, "Super Admin", 1))
-        
+
         conn.commit()
         print("Admin user created successfully!")
         conn.close()
-            
+
     except Exception as e:
         print(f"Error: {e}")
 

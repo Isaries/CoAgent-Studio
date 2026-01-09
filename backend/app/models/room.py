@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 from uuid import UUID, uuid4
+
 from sqlmodel import Field, Relationship, SQLModel
+
 
 class RoomBase(SQLModel):
     name: str
@@ -20,7 +22,7 @@ class Room(RoomBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     course_id: UUID = Field(foreign_key="course.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     course: "Course" = Relationship(back_populates="rooms")
 
 class RoomCreate(RoomBase):

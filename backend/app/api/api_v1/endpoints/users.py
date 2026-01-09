@@ -1,9 +1,10 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
-from app.models.user import User, UserRead, UserUpdate, UserCreate
+from app.models.user import User, UserCreate, UserRead, UserUpdate
 from app.services.user_service import UserService
 
 router = APIRouter()

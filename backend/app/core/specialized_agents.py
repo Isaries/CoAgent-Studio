@@ -1,6 +1,8 @@
 import random
 from typing import Optional
+
 from app.core.agent_core import AgentCore
+
 
 class TeacherAgent(AgentCore):
     def should_reply(self, message_history: list, ai_frequency: float) -> bool:
@@ -10,11 +12,11 @@ class TeacherAgent(AgentCore):
         2. Reply based on frequency probability.
         """
         last_msg = message_history[-1] if message_history else None
-        
+
         # 1. Direct mention
         if last_msg and ("@teacher" in last_msg.content.lower() or "老師" in last_msg.content):
              return True
-             
+
         # 2. Probability check
         return random.random() < ai_frequency
 
@@ -107,7 +109,7 @@ class AnalyticsAgent(AgentCore):
             return "No messages to analyze."
 
         context = "\n".join([f"{m.sender_id}: {m.content}" for m in message_history])
-        
+
         prompt = f"""
         Chat Log:
         {context}
