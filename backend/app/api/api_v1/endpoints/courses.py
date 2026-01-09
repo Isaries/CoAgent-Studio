@@ -223,9 +223,9 @@ async def read_course_members(
     is_owner = course.owner_id == current_user.id
     
     if not (is_admin or is_owner):
-        # Check if TA
+        # Check if enrolled (Student or TA)
         link = await session.get(UserCourseLink, (current_user.id, course_id))
-        if not link or link.role != "ta":
+        if not link:
              raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Query members
