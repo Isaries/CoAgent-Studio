@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import api from '../../../api'
 import { AxiosError } from 'axios'
 
+import { useToastStore } from '../../../stores/toast'
+
 const props = defineProps<{
     courseId: string
 }>()
@@ -14,6 +16,7 @@ const emit = defineEmits<{
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const name = ref('')
 const loading = ref(false)
+const toast = useToastStore()
 
 const open = () => {
     name.value = ''
@@ -37,12 +40,13 @@ const createRoom = async () => {
         
         emit('created')
         close()
+        toast.success("Room created")
     } catch (e: unknown) {
         console.error(e)
         if (e instanceof AxiosError && e.response) {
-            alert('Failed to create room: ' + (e.response.data?.detail || e.message))
+            toast.error('Failed to create room: ' + (e.response.data?.detail || e.message))
         } else {
-             alert('Failed to create room: ' + String(e))
+             toast.error('Failed to create room: ' + String(e))
         }
     } finally {
         loading.value = false

@@ -4,6 +4,8 @@ import api from '../../../api'
 import { AxiosError } from 'axios'
 import UserSearchInput, { type UserResult } from '../../common/UserSearchInput.vue'
 
+import { useToastStore } from '../../../stores/toast'
+
 const props = defineProps<{
     roomId: string
 }>()
@@ -14,6 +16,7 @@ const emit = defineEmits<{
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
 const searchInputRef = ref<InstanceType<typeof UserSearchInput> | null>(null)
+const toast = useToastStore()
 
 const assignEmail = ref('')
 const assignUserId = ref('')
@@ -45,14 +48,14 @@ const assignUser = async () => {
             user_email: assignEmail.value !== 'No Email' ? assignEmail.value : null,
             user_id: assignUserId.value || null
         })
-        alert(`User assigned successfully!`)
+        toast.success(`User assigned successfully!`)
         emit('assigned')
         close()
     } catch (e: unknown) {
         if (e instanceof AxiosError && e.response) {
-             alert('Assignment failed: ' + (e.response.data?.detail || e.message))
+             toast.error('Assignment failed: ' + (e.response.data?.detail || e.message))
         } else {
-             alert('Assignment failed: ' + String(e))
+             toast.error('Assignment failed: ' + String(e))
         }
     } finally {
         assignLoading.value = false

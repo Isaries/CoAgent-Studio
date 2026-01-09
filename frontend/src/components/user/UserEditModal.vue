@@ -4,9 +4,12 @@ import { useUsers } from '../../composables/useUsers'
 import { usePermissions } from '../../composables/usePermissions'
 import type { User, UpdateUserPayload } from '../../types/user'
 
+import { useToastStore } from '../../stores/toast'
+
 const emit = defineEmits(['updated'])
 const { updateUser, loading, error } = useUsers()
 const { currentUser, isSuperAdmin } = usePermissions()
+const toast = useToastStore()
 
 const show = ref(false)
 const targetUser = ref<User | null>(null)
@@ -46,10 +49,10 @@ const submit = async () => {
         await updateUser(form.value.id, payload)
         emit('updated')
         close()
-        alert('User updated successfully')
+        toast.success('User updated successfully')
     } catch (e) {
         // Error handled in composable
-        if (!error.value) alert("Failed to update user")
+        if (!error.value) toast.error("Failed to update user")
     }
 }
 

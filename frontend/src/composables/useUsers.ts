@@ -1,11 +1,15 @@
 import { ref } from 'vue'
 import { userService } from '../services/userService'
 import type { User, CreateUserPayload, UpdateUserPayload } from '../types/user'
+import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 
 export function useUsers() {
     const users = ref<User[]>([])
     const loading = ref(false)
     const error = ref<string | null>(null)
+    const toast = useToastStore()
+    const { confirm } = useConfirm()
 
     const fetchUsers = async (params?: { skip?: number; limit?: number }) => {
         loading.value = true
@@ -16,6 +20,7 @@ export function useUsers() {
         } catch (e: any) {
             console.error(e)
             error.value = e.response?.data?.detail || 'Failed to fetch users'
+            toast.error(error.value || 'Failed to fetch users')
         } finally {
             loading.value = false
         }
@@ -50,7 +55,7 @@ export function useUsers() {
                 // Let's just fetch again for simplicity or manual update
                 // users.value[index] = { ...users.value[index], ...payload } as User 
                 // Actually payload might not have all fields. 
-                // Let's refresh.
+                await fetchUsers()
             }
             return true
         } catch (e: any) {
@@ -62,15 +67,16 @@ export function useUsers() {
     }
 
     const deleteUser = async (id: string) => {
-        if (!confirm("Are you sure?")) return
+        if (!await confirm("Delete User", "Are you sure you want to delete this user?")) return
 
         loading.value = true
         try {
             await userService.deleteUser(id)
             users.value = users.value.filter(u => u.id !== id)
+            toast.success('User deleted successfully')
         } catch (e: any) {
             error.value = e.response?.data?.detail || 'Failed to delete user'
-            alert(error.value)
+            toast.error(error.value || 'Failed to delete user')
         } finally {
             loading.value = false
         }

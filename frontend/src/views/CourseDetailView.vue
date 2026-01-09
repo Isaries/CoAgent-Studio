@@ -4,7 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useCourse } from '../composables/useCourse'
 
-// Components
+import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
+
+// ... existing imports ...
 import CreateRoomModal from '../components/course/modals/CreateRoomModal.vue'
 import EnrollStudentModal from '../components/course/modals/EnrollStudentModal.vue'
 import AssignStudentModal from '../components/course/modals/AssignStudentModal.vue'
@@ -18,6 +21,8 @@ import CourseAnnouncementList from '../components/course/CourseAnnouncementList.
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const toast = useToastStore()
+const { confirm } = useConfirm()
 
 const courseId = route.params.id as string
 const { course, rooms, members, announcements, loading, fetchCourseData, fetchMembers, deleteCourse, deleteRoom, updateMemberRole, removeMember, createAnnouncement } = useCourse(courseId)
@@ -42,12 +47,13 @@ const switchTab = (tab: 'rooms' | 'members' | 'announcements') => {
 
 // Actions
 const handleDeleteCourse = async () => {
-    if (!confirm("DANGER: Are you sure you want to delete this ENTIRE course? All rooms and messages will be lost.")) return;
+    if (!await confirm("Delete Course", "DANGER: Are you sure you want to delete this ENTIRE course? All rooms and messages will be lost.")) return;
     try {
         await deleteCourse()
+        toast.success("Course deleted successfully")
         router.push('/courses')
     } catch (e) {
-        alert("Failed to delete course")
+        toast.error("Failed to delete course")
     }
 }
 
@@ -71,8 +77,9 @@ const onAssigned = () => {
 const onCreateAnnouncement = async (data: { title: string; content: string }) => {
     try {
         await createAnnouncement(data.title, data.content)
+        toast.success("Announcement posted")
     } catch (e: any) {
-        alert(e.response?.data?.detail || "Failed to post announcement")
+        toast.error(e.response?.data?.detail || "Failed to post announcement")
     }
 }
 

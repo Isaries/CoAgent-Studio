@@ -3,6 +3,8 @@ import { courseService } from '../services/courseService'
 import { roomService } from '../services/roomService'
 import { announcementService } from '../services/announcementService'
 import type { Course, Room, CourseMember, Announcement } from '../types/course'
+import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 
 export function useCourse(courseId: string) {
     const course = ref<Course | null>(null)
@@ -11,6 +13,8 @@ export function useCourse(courseId: string) {
     const announcements = ref<Announcement[]>([])
     const loading = ref(true)
     const error = ref<string | null>(null)
+    const toast = useToastStore()
+    const { confirm } = useConfirm()
 
     const fetchCourseData = async () => {
         loading.value = true
@@ -26,6 +30,7 @@ export function useCourse(courseId: string) {
         } catch (e: any) {
             console.error(e)
             error.value = "Failed to load course data"
+            // toast.error("Failed to load course data") // Optional: might be too spammy if initial load
         } finally {
             loading.value = false
         }
@@ -50,12 +55,13 @@ export function useCourse(courseId: string) {
     }
 
     const deleteRoom = async (roomId: string) => {
-        if (!confirm("Are you sure you want to delete this room?")) return
+        if (!await confirm("Delete Room", "Are you sure you want to delete this room?")) return
         try {
             await roomService.deleteRoom(roomId)
             rooms.value = rooms.value.filter(r => r.id !== roomId)
+            toast.success("Room deleted")
         } catch (e) {
-            alert("Failed to delete room")
+            toast.error("Failed to delete room")
         }
     }
 
@@ -64,22 +70,24 @@ export function useCourse(courseId: string) {
         try {
             member.role = role as 'student' | 'ta' // Optimistic
             await courseService.updateMemberRole(courseId, member.user_id, role)
+            toast.success("Role updated")
         } catch (e) {
             console.error(e)
-            alert("Failed to update role")
+            toast.error("Failed to update role")
             member.role = originalRole
         }
     }
 
     const removeMember = async (memberId: string) => {
-        if (!confirm("Are you sure you want to remove this member?")) return
+        if (!await confirm("Remove Member", "Are you sure you want to remove this member?")) return
         try {
             // Need to implement removeMember in courseService first
             await courseService.removeMember(courseId, memberId)
             members.value = members.value.filter(m => m.user_id !== memberId)
+            toast.success("Member removed")
         } catch (e: any) {
             console.error(e)
-            alert(e.response?.data?.detail || "Failed to remove member")
+            toast.error(e.response?.data?.detail || "Failed to remove member")
         }
     }
 

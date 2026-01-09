@@ -4,6 +4,8 @@ import api from '../../../api'
 import { AxiosError } from 'axios'
 import UserSearchInput, { type UserResult } from '../../common/UserSearchInput.vue'
 
+import { useToastStore } from '../../../stores/toast'
+
 const props = defineProps<{
     courseId: string
 }>()
@@ -18,6 +20,7 @@ const searchInputRef = ref<InstanceType<typeof UserSearchInput> | null>(null)
 const enrollEmail = ref('')
 const enrollUserId = ref('')
 const enrollLoading = ref(false)
+const toast = useToastStore()
 
 const open = () => {
     enrollEmail.value = ''
@@ -46,14 +49,14 @@ const enrollUser = async () => {
            user_id: enrollUserId.value || null,
            role: 'student'
         })
-        alert(`User enrolled successfully!`)
+        toast.success(`User enrolled successfully!`)
         emit('enrolled')
         close()
     } catch (e: unknown) {
         if (e instanceof AxiosError && e.response) {
-             alert('Enrollment failed: ' + (e.response.data?.detail || e.message))
+             toast.error('Enrollment failed: ' + (e.response.data?.detail || e.message))
         } else {
-             alert('Enrollment failed: ' + String(e))
+             toast.error('Enrollment failed: ' + String(e))
         }
     } finally {
         enrollLoading.value = false

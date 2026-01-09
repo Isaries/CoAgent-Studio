@@ -4,9 +4,13 @@ import { useRoute } from 'vue-router'
 import api from '../api'
 import { useAuthStore } from '../stores/auth'
 import { useCourse } from '../composables/useCourse'
+import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const toast = useToastStore()
+const { confirm } = useConfirm()
 const courseId = route.params.id as string
 
 const { course, fetchCourseData } = useCourse(courseId)
@@ -145,16 +149,23 @@ const startNewConfig = () => {
 }
 
 const saveConfig = async () => {
-    if (!editName.value) return alert("Name is required")
+    if (!editName.value) return toast.warning("Name is required")
     
-    const payload = {
+    const payload: any = {
         name: editName.value,
         system_prompt: editPrompt.value,
-        api_key: editApiKey.value,
         model_provider: editProvider.value,
         model: editModel.value,
         type: activeTab.value,
         settings: {}
+    }
+
+    if (editApiKey.value === 'CLEAR_KEY') {
+        payload.api_key = "" // Send empty string to backend to trigger deletion
+    } else if (editApiKey.value) {
+        payload.api_key = editApiKey.value
+    } else {
+        payload.api_key = null // Send null to tell backend "Keep Existing"
     }
     
     try {
@@ -167,9 +178,9 @@ const saveConfig = async () => {
              selectedConfigId.value = res.data.id
         }
         await fetchConfigs()
-        alert("Saved!")
+        toast.success("Saved!")
     } catch (e: any) {
-        alert(e.response?.data?.detail || "Failed to save")
+        toast.error(e.response?.data?.detail || "Failed to save")
     }
 }
 
@@ -177,20 +188,29 @@ const activateConfig = async (id: string) => {
     try {
         await api.put(`/agents/${id}/activate`)
         await fetchConfigs()
+        toast.success("Brain activated")
     } catch (e: any) {
-        alert(e.response?.data?.detail || "Failed to activate")
+        toast.error(e.response?.data?.detail || "Failed to activate")
     }
 }
 
 const deleteConfig = async (id: string) => {
-    if (!confirm("Are you sure?")) return
+    if (!await confirm("Delete Brain", "Are you sure you want to delete this brain profile?")) return
     try {
         await api.delete(`/agents/${id}`)
         if (selectedConfigId.value === id) selectedConfigId.value = null
         await fetchConfigs()
+        toast.success("Brain deleted")
     } catch (e: any) {
-        alert(e.response?.data?.detail || "Failed to delete")
+        toast.error(e.response?.data?.detail || "Failed to delete")
     }
+}
+
+const handleClearApiKey = async () => {
+    if (!await confirm("Clear API Key", "Are you sure? This will remove the key immediately.")) return
+    editApiKey.value = 'CLEAR_KEY'
+    await saveConfig()
+    editApiKey.value = '' // Reset to empty to show placeholder or clean state
 }
 
 
@@ -292,9 +312,33 @@ onMounted(async () => {
                 </div>
 
                 <div class="form-control mb-6">
-                    <label class="label"><span class="label-text">API Key (Leave empty to keep existing)</span></label>
-                    <input type="password" v-model="editApiKey" :disabled="!canEdit" placeholder="Enter new API Key to update..." class="input input-bordered" />
-                    <div v-if="selectedConfig && selectedConfig.masked_api_key && !editApiKey" class="label text-xs text-success flex gap-1 items-center">
+                    <label class="label">
+                        <span class="label-text">API Key</span>
+                        <span class="label-text-alt text-gray-500">Leave empty to keep existing</span>
+                    </label>
+                    <div class="join">
+                        <input 
+                            type="password" 
+                            v-model="editApiKey" 
+                            :disabled="!canEdit" 
+                            placeholder="Enter new API Key to update..." 
+                            class="input input-bordered join-item w-full" 
+                        />
+                        <button 
+                            v-if="canEdit && selectedConfig && selectedConfig.masked_api_key" 
+                            @click="handleClearApiKey" 
+                            class="btn btn-warning join-item"
+                            :class="{ 'btn-active': editApiKey === 'CLEAR_KEY' }"
+                            type="button"
+                        >
+                            {{ editApiKey === 'CLEAR_KEY' ? 'Clearing...' : 'Clear' }}
+                        </button>
+                    </div>
+                    
+                    <div v-if="editApiKey === 'CLEAR_KEY'" class="label text-xs text-warning">
+                        Key will be removed upon saving.
+                    </div>
+                    <div v-else-if="selectedConfig && selectedConfig.masked_api_key && !editApiKey" class="label text-xs text-success flex gap-1 items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                         Encryption Active. Current Key: {{ selectedConfig.masked_api_key }}
                     </div>

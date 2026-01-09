@@ -54,8 +54,12 @@ async def update_system_agent_config(
         agent_config.system_prompt = config_in.system_prompt
         agent_config.model_provider = config_in.model_provider
         agent_config.model = config_in.model
-        if config_in.api_key:
-            agent_config.encrypted_api_key = config_in.api_key 
+        agent_config.model = config_in.model
+        if config_in.api_key is not None:
+            if config_in.api_key == "":
+                agent_config.encrypted_api_key = None
+            else:
+                agent_config.encrypted_api_key = config_in.api_key 
         if config_in.settings:
             agent_config.settings = config_in.settings
         
@@ -238,9 +242,14 @@ async def update_agent_config(
     agent_config.model_provider = config_in.model_provider
     agent_config.model = config_in.model
     
-    if config_in.api_key:
-        # Encrypt the new key
-        agent_config.encrypted_api_key = encrypt_api_key(config_in.api_key)
+    agent_config.model = config_in.model
+    
+    if config_in.api_key is not None:
+        if config_in.api_key == "":
+             agent_config.encrypted_api_key = None
+        else:
+            # Encrypt the new key
+            agent_config.encrypted_api_key = encrypt_api_key(config_in.api_key)
         
     if config_in.settings:
         agent_config.settings = config_in.settings

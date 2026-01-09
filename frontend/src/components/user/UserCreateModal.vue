@@ -3,8 +3,11 @@ import { ref } from 'vue'
 import { useUsers } from '../../composables/useUsers'
 import type { CreateUserPayload } from '../../types/user'
 
+import { useToastStore } from '../../stores/toast'
+
 const emit = defineEmits(['created'])
 const { createUser, loading, error } = useUsers()
+const toast = useToastStore()
 
 const show = ref(false)
 const form = ref<CreateUserPayload>({
@@ -35,11 +38,11 @@ const submit = async () => {
         await createUser(form.value)
         emit('created')
         close()
-        alert('User created successfully')
+        toast.success('User created successfully')
     } catch (e) {
         // Error handling is done in composable (setting error ref) or re-thrown
         // But here we might want to alert if not handled
-        if (!error.value) alert("Failed to create user")
+        if (!error.value) toast.error("Failed to create user")
     }
 }
 

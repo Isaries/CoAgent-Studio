@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import api from '../api'
+import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 
 // Config State
 const loading = ref(false)
+const toast = useToastStore()
+const { confirm } = useConfirm()
 
 const configs = ref({
     design: { prompt: '', apiKey: '', provider: 'gemini' },
     analytics: { prompt: '', apiKey: '', provider: 'gemini' }
 })
+// ... (lines 10-38 is fetchSettings, kept same logic reference but need to be careful with replacment range)
+// Actually I should just prepend/append logic or pick a safe block.
+// Let's replace the top block to init confirm, then append the handler function before onMounted.
 
 const fetchSettings = async () => {
     loading.value = true
@@ -43,11 +50,17 @@ const saveAgent = async (type: 'design' | 'analytics') => {
             model_provider: config.provider,
             settings: {}
         })
-        alert(`${type.toUpperCase()} Agent settings saved!`)
+        toast.success(`${type.toUpperCase()} Agent settings saved!`)
     } catch (e) {
         console.error(e)
-        alert('Error saving settings')
+        toast.error('Error saving settings')
     }
+}
+
+const handleClearApiKey = async (type: 'design' | 'analytics') => {
+    if (!await confirm("Clear API Key", "Are you sure? This will remove the key immediately.")) return
+    configs.value[type].apiKey = ''
+    await saveAgent(type)
 }
 
 onMounted(() => {
@@ -81,8 +94,16 @@ onMounted(() => {
 
                 <div class="form-control mb-4">
                     <label class="label"><span class="label-text font-bold">Global API Key</span></label>
-                    <input type="password" v-model="configs.design.apiKey" placeholder="sk-..." class="input input-bordered" />
-                    <label class="label"><span class="label-text-alt text-warning text-xs">If provided, this will be used for all prompt generation tasks unless overridden.</span></label>
+                    <div class="join">
+                         <input type="password" v-model="configs.design.apiKey" placeholder="sk-..." class="input input-bordered join-item w-full" />
+                         <button 
+                            @click="handleClearApiKey('design')" 
+                            class="btn btn-outline join-item"
+                            title="Clear"
+                         >Clear</button>
+                    </div>
+                   
+                    <label class="label"><span class="label-text-alt text-warning text-xs">If provided, this will be used for all prompt generation tasks unless overridden. Leave empty to clear/unset.</span></label>
                 </div>
 
                 <div class="form-control mb-4">
