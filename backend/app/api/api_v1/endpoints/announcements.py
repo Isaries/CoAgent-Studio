@@ -37,8 +37,11 @@ async def create_announcement(
         if not is_ta:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    announcement = Announcement.model_validate(announcement_in)
-    announcement.author_id = current_user.id
+    announcement = Announcement.model_validate(announcement_in, update={"author_id": current_user.id})
+    # OR safer approach since model_validate with update might not be avail in older pydantic?
+    # Actually, SQLModel uses Pydantic V2.
+    # Let's use constructor.
+    announcement = Announcement(**announcement_in.model_dump(), author_id=current_user.id)
     session.add(announcement)
     await session.commit()
     await session.refresh(announcement)

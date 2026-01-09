@@ -21,3 +21,12 @@ export interface CourseMember {
     avatar_url?: string
     role: 'student' | 'ta'
 }
+
+export interface Announcement {
+    id: string
+    course_id: string
+    title: string
+    content: string
+    author_id: string
+    created_at: string
+}

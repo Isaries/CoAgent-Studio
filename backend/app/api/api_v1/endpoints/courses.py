@@ -8,6 +8,10 @@ from sqlmodel import select, SQLModel
 from app.api import deps
 from app.models.user import User, UserRole
 from app.models.course import Course, CourseCreate, CourseRead, CourseUpdate, UserCourseLink, CourseMember, CourseMemberUpdate
+from app.models.room import Room, UserRoomLink
+from app.models.agent_config import AgentConfig
+from app.models.announcement import Announcement
+from app.models.message import Message
 
 router = APIRouter()
 
@@ -154,6 +158,31 @@ async def delete_course(
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
+    from sqlmodel import delete
+
+    # 1. Delete UserCourseLinks (Enrollments)
+    await session.exec(delete(UserCourseLink).where(UserCourseLink.course_id == course_id))
+
+    # 2. Delete Announcements
+    await session.exec(delete(Announcement).where(Announcement.course_id == course_id))
+
+    # 3. Delete AgentConfigs (Brains)
+    await session.exec(delete(AgentConfig).where(AgentConfig.course_id == course_id))
+
+    # 4. Handle Rooms and their links
+    # Get all room IDs first
+    rooms_result = await session.exec(select(Room.id).where(Room.course_id == course_id))
+    room_ids = rooms_result.all()
+    
+    if room_ids:
+        # Delete Messages in these rooms
+        await session.exec(delete(Message).where(Message.room_id.in_(room_ids)))
+        # Delete UserRoomLinks
+        await session.exec(delete(UserRoomLink).where(UserRoomLink.room_id.in_(room_ids)))
+        # Delete Rooms
+        await session.exec(delete(Room).where(Room.course_id == course_id))
+
+    # 5. Finally delete the Course
     await session.delete(course)
     await session.commit()
     return course

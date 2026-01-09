@@ -10,6 +10,7 @@ import EnrollStudentModal from '../components/course/modals/EnrollStudentModal.v
 import AssignStudentModal from '../components/course/modals/AssignStudentModal.vue'
 import CourseRoomList from '../components/course/CourseRoomList.vue'
 import CourseMemberList from '../components/course/CourseMemberList.vue'
+import CourseAnnouncementList from '../components/course/CourseAnnouncementList.vue'
 
 // Types
 // import type { CourseMember } from '../types/course'
@@ -19,9 +20,9 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const courseId = route.params.id as string
-const { course, rooms, members, loading, fetchCourseData, fetchMembers, deleteCourse, deleteRoom, updateMemberRole, removeMember } = useCourse(courseId)
+const { course, rooms, members, announcements, loading, fetchCourseData, fetchMembers, deleteCourse, deleteRoom, updateMemberRole, removeMember, createAnnouncement } = useCourse(courseId)
 
-const activeTab = ref<'rooms' | 'members'>('rooms')
+const activeTab = ref<'rooms' | 'members' | 'announcements'>('announcements')
 
 // Modal Refs
 const createRoomModal = ref<InstanceType<typeof CreateRoomModal> | null>(null)
@@ -34,7 +35,7 @@ const activeRoomId = ref('')
 const isStudent = computed(() => authStore.isStudent)
 const currentUserRole = computed(() => authStore.user?.role)
 
-const switchTab = (tab: 'rooms' | 'members') => {
+const switchTab = (tab: 'rooms' | 'members' | 'announcements') => {
     activeTab.value = tab
     if (tab === 'members') fetchMembers()
 }
@@ -65,6 +66,14 @@ const onEnrolled = () => {
 }
 const onAssigned = () => {
     // Maybe show toast? Logic handled in modal.
+}
+
+const onCreateAnnouncement = async (data: { title: string; content: string }) => {
+    try {
+        await createAnnouncement(data.title, data.content)
+    } catch (e: any) {
+        alert(e.response?.data?.detail || "Failed to post announcement")
+    }
 }
 
 onMounted(() => {
@@ -106,11 +115,20 @@ onMounted(() => {
 
         <!-- Tabs -->
         <div role="tablist" class="tabs tabs-lifted mb-6">
+            <a role="tab" class="tab" :class="{ 'tab-active': activeTab === 'announcements' }" @click="switchTab('announcements')">Announcements</a>
             <a role="tab" class="tab" :class="{ 'tab-active': activeTab === 'rooms' }" @click="switchTab('rooms')">Rooms</a>
             <a role="tab" class="tab" :class="{ 'tab-active': activeTab === 'members' }" @click="switchTab('members')">Members</a>
         </div>
 
         <!-- Tab Content -->
+        <div v-show="activeTab === 'announcements'">
+            <CourseAnnouncementList 
+                :announcements="announcements" 
+                :course-owner-id="course?.owner_id || ''"
+                @create="onCreateAnnouncement"
+            />
+        </div>
+
         <div v-show="activeTab === 'rooms'">
             <CourseRoomList 
                 :rooms="rooms"

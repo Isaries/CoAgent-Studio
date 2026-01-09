@@ -8,7 +8,8 @@ from sqlmodel import select, SQLModel
 from app.api import deps
 from app.models.user import User, UserRole
 from app.models.course import Course
-from app.models.room import Room, RoomCreate, RoomRead, RoomUpdate
+from app.models.room import Room, RoomCreate, RoomRead, RoomUpdate, UserRoomLink
+from app.models.message import Message
 
 router = APIRouter()
 
@@ -131,7 +132,13 @@ async def delete_room(
         
         if not is_ta:
             raise HTTPException(status_code=403, detail="Not enough permissions")
-        
+            
+    from sqlmodel import delete
+    # Delete Messages
+    await session.exec(delete(Message).where(Message.room_id == room_id))
+    # Delete UserRoomLinks
+    await session.exec(delete(UserRoomLink).where(UserRoomLink.room_id == room_id))
+
     await session.delete(room)
     await session.commit()
     return

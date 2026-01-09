@@ -1,24 +1,28 @@
 import { ref } from 'vue'
 import { courseService } from '../services/courseService'
 import { roomService } from '../services/roomService'
-import type { Course, Room, CourseMember } from '../types/course'
+import { announcementService } from '../services/announcementService'
+import type { Course, Room, CourseMember, Announcement } from '../types/course'
 
 export function useCourse(courseId: string) {
     const course = ref<Course | null>(null)
     const rooms = ref<Room[]>([])
     const members = ref<CourseMember[]>([])
+    const announcements = ref<Announcement[]>([])
     const loading = ref(true)
     const error = ref<string | null>(null)
 
     const fetchCourseData = async () => {
         loading.value = true
         try {
-            const [courseRes, roomsRes] = await Promise.all([
+            const [courseRes, roomsRes, announceRes] = await Promise.all([
                 courseService.getCourse(courseId),
-                roomService.getRooms(courseId)
+                roomService.getRooms(courseId),
+                announcementService.getAnnouncements(courseId)
             ])
             course.value = courseRes.data
             rooms.value = roomsRes.data
+            announcements.value = announceRes.data
         } catch (e: any) {
             console.error(e)
             error.value = "Failed to load course data"
@@ -79,10 +83,26 @@ export function useCourse(courseId: string) {
         }
     }
 
+    const createAnnouncement = async (title: string, content: string) => {
+        try {
+            const res = await announcementService.createAnnouncement({
+                course_id: courseId,
+                title,
+                content
+            })
+            announcements.value.unshift(res.data)
+            return res.data
+        } catch (e: any) {
+            console.error(e)
+            throw e
+        }
+    }
+
     return {
         course,
         rooms,
         members,
+        announcements,
         loading,
         error,
         fetchCourseData,
@@ -90,6 +110,7 @@ export function useCourse(courseId: string) {
         updateMemberRole,
         removeMember,
         deleteCourse,
-        deleteRoom
+        deleteRoom,
+        createAnnouncement
     }
 }
