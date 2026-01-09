@@ -19,12 +19,20 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
 
     # 2. Get Course Configs (Agents)
     # Note: Assuming Room has course_id. The original code used room.course_id
-    query = select(AgentConfig).where(AgentConfig.course_id == room.course_id)
+    # 2. Get Course Configs (Agents)
+    # Note: Assuming Room has course_id. The original code used room.course_id
+    query = select(AgentConfig).where(AgentConfig.course_id == room.course_id).order_by(AgentConfig.updated_at.desc())
     result = await session.exec(query)
     configs = result.all()
     
-    teacher_config = next((c for c in configs if c.type == AgentType.TEACHER), None)
-    student_config = next((c for c in configs if c.type == AgentType.STUDENT), None)
+    # Select Active or Fallback to Latest
+    teacher_config = next((c for c in configs if c.type == AgentType.TEACHER and c.is_active), None)
+    if not teacher_config:
+        teacher_config = next((c for c in configs if c.type == AgentType.TEACHER), None)
+        
+    student_config = next((c for c in configs if c.type == AgentType.STUDENT and c.is_active), None)
+    if not student_config:
+        student_config = next((c for c in configs if c.type == AgentType.STUDENT), None)
     
     # helper to process history
     hist_query = select(Message).where(Message.room_id == UUID(room_id)).order_by(Message.created_at.desc()).limit(15)

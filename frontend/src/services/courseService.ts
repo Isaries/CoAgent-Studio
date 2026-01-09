@@ -17,5 +17,9 @@ export const courseService = {
 
     async updateMemberRole(courseId: string, userId: string, role: string) {
         return api.put(`/courses/${courseId}/members/${userId}`, { role })
+    },
+
+    async removeMember(courseId: string, userId: string) {
+        return api.delete(`/courses/${courseId}/members/${userId}`)
     }
 }

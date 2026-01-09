@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8 
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     ALGORITHM: str = "HS256"
+    ENCRYPTION_KEY: str # Required
 
     # DATABASE
     POSTGRES_SERVER: str = "db"
@@ -32,7 +33,7 @@ class Settings(BaseSettings):
 
     model_config = {
         "case_sensitive": True,
-        "env_file": ".env",
+        "env_file": [".env", "../.env"],
         "extra": "ignore"
     }
 

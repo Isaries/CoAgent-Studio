@@ -178,7 +178,13 @@ async def enroll_user(
         raise HTTPException(status_code=404, detail="Course not found")
         
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        # Check if user is TA
+        from app.models.course import UserCourseLink
+        link = await session.get(UserCourseLink, (current_user.id, course.id))
+        is_ta = link and link.role == "ta"
+        
+        if not is_ta:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
         
     # Find user
     user_to_enroll = None
@@ -279,8 +285,24 @@ async def update_course_member_role(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # Permissions Logic
+    is_admin_or_owner = current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] or course.owner_id == current_user.id
+    
+    if not is_admin_or_owner:
+        # Check if TA
+        link = await session.get(UserCourseLink, (current_user.id, course_id))
+        if not link or link.role != "ta":
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+            
+        # TA Restricted Permissions:
+        # 1. Cannot promote to TA or Teacher
+        if member_update.role in ["ta", "teacher"]:
+             raise HTTPException(status_code=403, detail="TAs cannot promote members to TA or Teacher")
+             
+        # 2. Cannot modify other TAs or Teachers
+        target_link = await session.get(UserCourseLink, (user_id, course_id))
+        if target_link and target_link.role in ["ta", "teacher"]:
+             raise HTTPException(status_code=403, detail="TAs cannot modify other TAs or Teachers")
         
     # Prevent changing role of the owner
     if user_id == course.owner_id:
@@ -295,3 +317,46 @@ async def update_course_member_role(
     await session.commit()
     
     return {"message": "Role updated"}
+
+@router.delete("/{course_id}/members/{user_id}")
+async def remove_course_member(
+    course_id: UUID,
+    user_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+):
+    """
+    Remove a user from a course.
+    Allowed: Admin, Owner, TA (Student only).
+    """
+    course = await session.get(Course, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+        
+    # Prevent removing owner
+    if user_id == course.owner_id:
+        raise HTTPException(status_code=400, detail="Cannot remove course owner")
+
+    # Permission Check
+    is_admin_or_owner = current_user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] or course.owner_id == current_user.id
+    
+    if not is_admin_or_owner:
+        # Check if TA
+        link = await session.get(UserCourseLink, (current_user.id, course_id))
+        if not link or link.role != "ta":
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+            
+        # TA: Cannot remove TA or Teacher
+        target_link = await session.get(UserCourseLink, (user_id, course_id))
+        if target_link and target_link.role in ["ta", "teacher"]:
+             raise HTTPException(status_code=403, detail="TAs cannot remove TAs or Teachers")
+             
+    # Perform Removal
+    link = await session.get(UserCourseLink, (user_id, course_id))
+    if not link:
+        raise HTTPException(status_code=404, detail="User not found in this course")
+        
+    await session.delete(link)
+    await session.commit()
+    
+    return {"message": "User removed from course"}

@@ -67,6 +67,18 @@ export function useCourse(courseId: string) {
         }
     }
 
+    const removeMember = async (memberId: string) => {
+        if (!confirm("Are you sure you want to remove this member?")) return
+        try {
+            // Need to implement removeMember in courseService first
+            await courseService.removeMember(courseId, memberId)
+            members.value = members.value.filter(m => m.user_id !== memberId)
+        } catch (e: any) {
+            console.error(e)
+            alert(e.response?.data?.detail || "Failed to remove member")
+        }
+    }
+
     return {
         course,
         rooms,
@@ -76,6 +88,7 @@ export function useCourse(courseId: string) {
         fetchCourseData,
         fetchMembers,
         updateMemberRole,
+        removeMember,
         deleteCourse,
         deleteRoom
     }

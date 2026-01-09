@@ -14,6 +14,7 @@ class AgentType(str):
 class AgentConfigBase(SQLModel):
     course_id: Optional[UUID] = Field(default=None, foreign_key="course.id", index=True)
     type: str = Field(index=True) # teacher, student, etc.
+    name: str = Field(default="Default Profile")
     model_provider: str = Field(default="gemini") # gemini, openai
     system_prompt: str
     
@@ -24,13 +25,29 @@ class AgentConfig(AgentConfigBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     encrypted_api_key: Optional[str] = None
     settings: Optional[Dict[str, Any]] = Field(default={}, sa_column=Column(JSONB))
+    is_active: bool = Field(default=False)
+    created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    @property
+    def has_api_key(self) -> bool:
+        return bool(self.encrypted_api_key)
 
 class AgentConfigCreate(AgentConfigBase):
     api_key: Optional[str] = None # Input only
     settings: Optional[Dict[str, Any]] = {}
 
-class AgentConfigRead(AgentConfigBase):
+class AgentConfigRead(SQLModel):
     id: UUID
-    updated_at: datetime
-    has_api_key: bool # Derived
+    course_id: Optional[UUID] = None
+    type: str
+    name: Optional[str] = "Default Profile"
+    model_provider: str = "gemini"
+    system_prompt: Optional[str] = ""
+    settings: Optional[Dict[str, Any]] = {}
+    is_active: Optional[bool] = False
+    
+    created_by: Optional[UUID] = None
+    updated_at: Optional[datetime] = None
+    
+    masked_api_key: Optional[str] = None # Calculated field for UI
+    # encrypted_api_key is explicitly excluded from this model to prevent leak

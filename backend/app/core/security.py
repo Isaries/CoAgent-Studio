@@ -3,6 +3,10 @@ from typing import Any, Union
 from jose import jwt
 from passlib.context import CryptContext
 from app.core.config import settings
+from cryptography.fernet import Fernet # Explicit import if not found
+from jose import jwt
+from passlib.context import CryptContext
+from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 ALGORITHM = "HS256"
@@ -38,3 +42,42 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
+# Encryption for API Keys
+from cryptography.fernet import Fernet
+
+cipher_suite = Fernet(settings.ENCRYPTION_KEY)
+
+def encrypt_api_key(api_key: str) -> str:
+    if not api_key:
+        return None
+    return cipher_suite.encrypt(api_key.encode()).decode()
+
+def decrypt_api_key(encrypted_key: str) -> str:
+    if not encrypted_key:
+        return None
+    try:
+        return cipher_suite.decrypt(encrypted_key.encode()).decode()
+    except Exception:
+        # If decryption fails (e.g. legacy plain text), return as is or handle error
+        # Assuming legacy support might be needed during migration
+        return encrypted_key
+
+def mask_api_key(encrypted_key: str) -> str:
+    """
+    Returns masked key: sk******89 or sk****** (if short)
+    """
+    if not encrypted_key:
+        return None
+    
+    # Decrypt first
+    plain = decrypt_api_key(encrypted_key)
+    if not plain:
+        return None
+        
+    if len(plain) <= 4:
+        return "****"
+    
+    prefix = plain[:2]
+    suffix = plain[-2:]
+    return f"{prefix}******{suffix}"

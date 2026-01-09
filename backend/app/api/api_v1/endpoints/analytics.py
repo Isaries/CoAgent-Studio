@@ -29,10 +29,16 @@ async def generate_course_analytics(
         raise HTTPException(status_code=404, detail="Course not found")
         
     # Check permissions (Teacher or Admin)
-    # if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER] ... (Simplified)
+    # Allow TA to view
+    if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
+         from app.models.course import UserCourseLink
+         link = await session.get(UserCourseLink, (current_user.id, course_id))
+         if not link or link.role != "ta":
+             raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # 1. Get Analytics Agent Config
-    query = select(AgentConfig).where(AgentConfig.course_id == course_id, AgentConfig.type == AgentType.ANALYTICS)
+    # Prioritize Active, then Latest
+    query = select(AgentConfig).where(AgentConfig.course_id == course_id, AgentConfig.type == AgentType.ANALYTICS).order_by(AgentConfig.is_active.desc(), AgentConfig.updated_at.desc())
     result = await session.exec(query)
     config = result.first()
     

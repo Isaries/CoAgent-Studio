@@ -6,10 +6,12 @@ const props = defineProps<{
     members: CourseMember[]
     courseOwnerId?: string
     isStudent: boolean
+    currentUserRole?: string
 }>()
 
 const emit = defineEmits<{
     (e: 'update-role', member: CourseMember, newRole: string): void
+    (e: 'remove-member', memberId: string): void
 }>()
 </script>
 
@@ -52,16 +54,22 @@ const emit = defineEmits<{
                     <td>
                         <div class="join" v-if="!isStudent && member.user_id !== courseOwnerId">
                             <button 
-                                v-if="member.role !== 'ta'" 
+                                v-if="member.role !== 'ta' && currentUserRole !== 'ta'" 
                                 @click="emit('update-role', member, 'ta')" 
                                 class="btn btn-xs btn-outline btn-accent join-item">
                                 Make TA
                             </button>
                             <button 
-                                v-if="member.role === 'ta'" 
+                                v-if="member.role === 'ta' && currentUserRole !== 'ta'" 
                                 @click="emit('update-role', member, 'student')" 
                                 class="btn btn-xs btn-outline join-item">
                                 Revoke TA
+                            </button>
+                            <button 
+                                v-if="currentUserRole !== 'ta' || (currentUserRole === 'ta' && member.role === 'student')"
+                                @click="emit('remove-member', member.user_id)" 
+                                class="btn btn-xs btn-outline btn-error join-item">
+                                Remove
                             </button>
                         </div>
                         <div v-else-if="member.user_id === courseOwnerId" class="text-xs opacity-50 italic">Owner</div>
@@ -90,16 +98,22 @@ const emit = defineEmits<{
                 </div>
                  <div class="card-actions px-4 pb-4" v-if="!isStudent && member.user_id !== courseOwnerId">
                      <button 
-                        v-if="member.role !== 'ta'" 
+                        v-if="member.role !== 'ta' && currentUserRole !== 'ta'" 
                         @click="emit('update-role', member, 'ta')" 
                         class="btn btn-sm btn-outline btn-accent w-full">
                         Make TA
                      </button>
                      <button 
-                        v-if="member.role === 'ta'" 
+                        v-if="member.role === 'ta' && currentUserRole !== 'ta'" 
                         @click="emit('update-role', member, 'student')" 
                         class="btn btn-sm btn-outline w-full">
                         Revoke TA
+                     </button>
+                     <button 
+                        v-if="currentUserRole !== 'ta' || (currentUserRole === 'ta' && member.role === 'student')"
+                        @click="emit('remove-member', member.user_id)" 
+                        class="btn btn-sm btn-outline btn-error w-full mt-2">
+                        Remove
                      </button>
                 </div>
                 <div class="px-4 pb-4 text-center text-xs opacity-50 italic" v-else-if="member.user_id === courseOwnerId">

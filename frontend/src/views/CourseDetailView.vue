@@ -19,7 +19,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const courseId = route.params.id as string
-const { course, rooms, members, loading, fetchCourseData, fetchMembers, deleteCourse, deleteRoom, updateMemberRole } = useCourse(courseId)
+const { course, rooms, members, loading, fetchCourseData, fetchMembers, deleteCourse, deleteRoom, updateMemberRole, removeMember } = useCourse(courseId)
 
 const activeTab = ref<'rooms' | 'members'>('rooms')
 
@@ -32,6 +32,7 @@ const assignModal = ref<InstanceType<typeof AssignStudentModal> | null>(null)
 const activeRoomId = ref('')
 
 const isStudent = computed(() => authStore.isStudent)
+const currentUserRole = computed(() => authStore.user?.role)
 
 const switchTab = (tab: 'rooms' | 'members') => {
     activeTab.value = tab
@@ -100,7 +101,7 @@ onMounted(() => {
         <div class="flex flex-wrap gap-2 mb-6" v-if="!isStudent">
             <button @click="openCreateRoom" class="btn btn-primary btn-sm">Create Room</button>
             <button @click="openEnroll" class="btn btn-secondary btn-sm">Enroll Student</button>
-            <button @click="handleDeleteCourse" class="btn btn-error btn-sm btn-outline ml-auto">Delete Course</button>
+            <button v-if="currentUserRole !== 'ta'" @click="handleDeleteCourse" class="btn btn-error btn-sm btn-outline ml-auto">Delete Course</button>
         </div>
 
         <!-- Tabs -->
@@ -124,7 +125,9 @@ onMounted(() => {
                 :members="members"
                 :courseOwnerId="course.owner_id"
                 :isStudent="isStudent"
+                :currentUserRole="currentUserRole"
                 @update-role="updateMemberRole"
+                @remove-member="removeMember"
             />
         </div>
     </div>
