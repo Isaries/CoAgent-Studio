@@ -77,8 +77,8 @@ class DesignAgent(AgentCore):
     Only output the generated prompt content. Do not output explanations.
     """
 
-    def __init__(self, provider: str, api_key: str, system_prompt: Optional[str] = None):
-        super().__init__(provider, api_key, system_prompt or self.DEFAULT_SYSTEM_PROMPT)
+    def __init__(self, provider: str, api_key: str, system_prompt: Optional[str] = None, model: str = None):
+        super().__init__(provider, api_key, system_prompt or self.DEFAULT_SYSTEM_PROMPT, model=model)
 
     async def generate_system_prompt(self, target_agent_type: str, context: str, requirement: str) -> str:
         input_text = f"""
@@ -99,8 +99,8 @@ class AnalyticsAgent(AgentCore):
     3. Sentiment and collaboration atmosphere.
     """
 
-    def __init__(self, provider: str, api_key: str, system_prompt: Optional[str] = None):
-        super().__init__(provider, api_key, system_prompt or self.DEFAULT_SYSTEM_PROMPT)
+    def __init__(self, provider: str, api_key: str, system_prompt: Optional[str] = None, model: str = None):
+        super().__init__(provider, api_key, system_prompt or self.DEFAULT_SYSTEM_PROMPT, model=model)
 
     async def analyze_room(self, message_history: list) -> str:
         if not message_history:

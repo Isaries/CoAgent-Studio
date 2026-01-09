@@ -46,38 +46,45 @@ async def get_current_user(
     token: str = Depends(reusable_oauth2),
 ) -> User:
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
-        )
-        token_data = payload.get("sub")
-        if token_data is None:
+        try:
+            payload = jwt.decode(
+                token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+            )
+            token_data = payload.get("sub")
+            if token_data is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Could not validate credentials",
+                )
+        except (jwt.JWTError, ValidationError):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Could not validate credentials",
             )
-    except (jwt.JWTError, ValidationError):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
-    
-    # In SQLModel for async, we use exec/one_or_none
-    from sqlmodel import select
-    from uuid import UUID
-    try:
-        user_id = UUID(token_data)
-    except ValueError:
-         raise HTTPException(status_code=403, detail="Invalid token subject")
-         
-    query = select(User).where(User.id == user_id)
-    result = await session.exec(query)
-    user = result.first()
-    
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return user
+        
+        # In SQLModel for async, we use exec/one_or_none
+        from sqlmodel import select
+        from uuid import UUID
+        try:
+            user_id = UUID(token_data)
+        except ValueError:
+             raise HTTPException(status_code=403, detail="Invalid token subject")
+             
+        query = select(User).where(User.id == user_id)
+        result = await session.exec(query)
+        user = result.first()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if not user.is_active:
+            raise HTTPException(status_code=400, detail="Inactive user")
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Auth Error: {str(e)}")
 
 async def get_current_active_superuser(
     current_user: User = Depends(get_current_user),

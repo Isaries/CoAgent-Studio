@@ -44,7 +44,8 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
         teacher_agent = TeacherAgent(
             provider=teacher_config.model_provider,
             api_key=teacher_config.encrypted_api_key,
-            system_prompt=teacher_config.system_prompt
+            system_prompt=teacher_config.system_prompt,
+            model=teacher_config.model
         )
 
     student_agent = None
@@ -57,7 +58,8 @@ async def process_agents(room_id: str, session: AsyncSession, manager: Connectio
             student_agent = StudentAgent(
                 provider=student_config.model_provider,
                 api_key=key,
-                system_prompt=student_config.system_prompt
+                system_prompt=student_config.system_prompt,
+                model=student_config.model
             )
 
     # --- Orchestration Logic ---

@@ -53,6 +53,7 @@ async def update_system_agent_config(
         # Update
         agent_config.system_prompt = config_in.system_prompt
         agent_config.model_provider = config_in.model_provider
+        agent_config.model = config_in.model
         if config_in.api_key:
             agent_config.encrypted_api_key = config_in.api_key 
         if config_in.settings:
@@ -69,6 +70,7 @@ async def update_system_agent_config(
             type=agent_type,
             system_prompt=config_in.system_prompt,
             model_provider=config_in.model_provider,
+            model=config_in.model,
             encrypted_api_key=config_in.api_key,
             settings=config_in.settings
         )
@@ -177,6 +179,7 @@ async def create_course_agent_config(
         name=config_in.name,
         system_prompt=config_in.system_prompt,
         model_provider=config_in.model_provider,
+        model=config_in.model,
         encrypted_api_key=encrypted_key,
         settings=config_in.settings,
         is_active=is_first, # Auto-activate if first
@@ -233,6 +236,7 @@ async def update_agent_config(
     agent_config.name = config_in.name
     agent_config.system_prompt = config_in.system_prompt
     agent_config.model_provider = config_in.model_provider
+    agent_config.model = config_in.model
     
     if config_in.api_key:
         # Encrypt the new key
@@ -255,6 +259,7 @@ async def update_agent_config(
     return c_read
 
 
+@router.put("/{config_id}/activate")
 async def activate_agent_config(
     *,
     session: AsyncSession = Depends(deps.get_session),

@@ -20,6 +20,9 @@ class AgentConfigBase(SQLModel):
     
     # We don't store raw api key in base. 
     # API Key will be stored in a separate encrypted field or column in table.
+
+    # Model Version (e.g. gemini-1.5-pro, gpt-4o)
+    model: Optional[str] = Field(default=None)
     
 class AgentConfig(AgentConfigBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
@@ -42,6 +45,7 @@ class AgentConfigRead(SQLModel):
     type: str
     name: Optional[str] = "Default Profile"
     model_provider: str = "gemini"
+    model: Optional[str] = None
     system_prompt: Optional[str] = ""
     settings: Optional[Dict[str, Any]] = {}
     is_active: Optional[bool] = False

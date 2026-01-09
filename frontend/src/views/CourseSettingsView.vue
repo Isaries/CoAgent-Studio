@@ -22,6 +22,24 @@ const editName = ref('')
 const editPrompt = ref('')
 const editApiKey = ref('')
 const editProvider = ref('gemini')
+const editModel = ref('')
+
+const availableModels = computed(() => {
+    if(editProvider.value === 'gemini') {
+        return [
+            { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
+            { label: 'Gemini 1.5 Flash', value: 'gemini-1.5-flash' },
+            { label: 'Gemini Pro (Legacy)', value: 'gemini-pro' },
+        ]
+    } else if (editProvider.value === 'openai') {
+        return [
+            { label: 'GPT-4o', value: 'gpt-4o' },
+            { label: 'GPT-4 Turbo', value: 'gpt-4-turbo' },
+            { label: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' },
+        ]
+    }
+    return []
+})
 
 // Design Agent
 const designDb = ref({
@@ -106,6 +124,7 @@ const selectConfig = (config: any) => {
     editPrompt.value = config.system_prompt
     editApiKey.value = "" // Don't show existing key
     editProvider.value = config.model_provider || 'gemini'
+    editModel.value = config.model || ''
 }
 
 const startNewConfig = () => {
@@ -114,6 +133,7 @@ const startNewConfig = () => {
     editPrompt.value = ''
     editApiKey.value = ''
     editProvider.value = 'gemini'
+    editModel.value = ''
     
     // Reset Design Agent
     designDb.value = {
@@ -132,6 +152,7 @@ const saveConfig = async () => {
         system_prompt: editPrompt.value,
         api_key: editApiKey.value,
         model_provider: editProvider.value,
+        model: editModel.value,
         type: activeTab.value,
         settings: {}
     }
@@ -276,6 +297,23 @@ onMounted(async () => {
                     <div v-if="selectedConfig && selectedConfig.masked_api_key && !editApiKey" class="label text-xs text-success flex gap-1 items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                         Encryption Active. Current Key: {{ selectedConfig.masked_api_key }}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Provider</span></label>
+                        <select v-model="editProvider" :disabled="!canEdit" class="select select-bordered w-full">
+                            <option value="gemini">Google Gemini</option>
+                            <option value="openai">OpenAI GPT</option>
+                        </select>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Model Version</span></label>
+                        <select v-model="editModel" :disabled="!canEdit" class="select select-bordered w-full">
+                            <option value="" disabled selected>Default (Auto)</option>
+                            <option v-for="m in availableModels" :key="m.value" :value="m.value">{{ m.label }}</option>
+                        </select>
                     </div>
                 </div>
 
