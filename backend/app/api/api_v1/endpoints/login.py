@@ -228,4 +228,7 @@ async def stop_impersonate(request: Request) -> Any:
     response.delete_cookie("original_access_token")
     response.delete_cookie("is_impersonating")
     
-    return {"message": "Impersonation stopped"}
+    response.body = b'{"message": "Impersonation stopped"}'
+    response.status_code = 200
+    response.media_type = "application/json"
+    return response

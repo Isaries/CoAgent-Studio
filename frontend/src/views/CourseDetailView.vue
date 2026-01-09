@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import api from '../api'
+import { useCourse } from '../composables/useCourse'
 
 // Components
 import CreateRoomModal from '../components/course/modals/CreateRoomModal.vue'
@@ -12,18 +12,16 @@ import CourseRoomList from '../components/course/CourseRoomList.vue'
 import CourseMemberList from '../components/course/CourseMemberList.vue'
 
 // Types
-import type { Course, Room, CourseMember } from '../types/course'
+// import type { CourseMember } from '../types/course'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
 const courseId = route.params.id as string
-const course = ref<Course | null>(null)
-const rooms = ref<Room[]>([])
-const members = ref<CourseMember[]>([])
+const { course, rooms, members, loading, fetchCourseData, fetchMembers, deleteCourse, deleteRoom, updateMemberRole } = useCourse(courseId)
+
 const activeTab = ref<'rooms' | 'members'>('rooms')
-const loading = ref(true)
 
 // Modal Refs
 const createRoomModal = ref<InstanceType<typeof CreateRoomModal> | null>(null)
@@ -35,65 +33,19 @@ const activeRoomId = ref('')
 
 const isStudent = computed(() => authStore.isStudent)
 
-const fetchCourseData = async () => {
-    try {
-        const [courseRes, roomsRes] = await Promise.all([
-            api.get<Course>(`/courses/${courseId}`),
-            api.get<Room[]>(`/rooms/`, { params: { course_id: courseId } })
-        ])
-        course.value = courseRes.data
-        rooms.value = roomsRes.data
-    } catch (e) {
-        console.error(e)
-    } finally {
-        loading.value = false
-    }
-}
-
-const fetchMembers = async () => {
-    try {
-        const res = await api.get<CourseMember[]>(`/courses/${courseId}/members`)
-        members.value = res.data
-    } catch (e) {
-        console.error("Failed to fetch members", e)
-    }
-}
-
 const switchTab = (tab: 'rooms' | 'members') => {
     activeTab.value = tab
     if (tab === 'members') fetchMembers()
 }
 
 // Actions
-const deleteCourse = async () => {
+const handleDeleteCourse = async () => {
     if (!confirm("DANGER: Are you sure you want to delete this ENTIRE course? All rooms and messages will be lost.")) return;
     try {
-        await api.delete(`/courses/${courseId}`)
+        await deleteCourse()
         router.push('/courses')
     } catch (e) {
         alert("Failed to delete course")
-    }
-}
-
-const deleteRoom = async (roomId: string) => {
-    if (!confirm("Are you sure you want to delete this room?")) return;
-    try {
-        await api.delete(`/rooms/${roomId}`)
-        await fetchCourseData()
-    } catch (e) {
-        alert("Failed to delete room")
-    }
-}
-
-const updateMemberRole = async (member: CourseMember, newRole: string) => {
-    const originalRole = member.role
-    try {
-        member.role = newRole as 'student' | 'ta' // Optimistic update
-        await api.put(`/courses/${courseId}/members/${member.user_id}`, { role: newRole })
-    } catch (e) {
-        console.error(e)
-        alert("Failed to update role")
-        member.role = originalRole // Revert
     }
 }
 
@@ -148,7 +100,7 @@ onMounted(() => {
         <div class="flex flex-wrap gap-2 mb-6" v-if="!isStudent">
             <button @click="openCreateRoom" class="btn btn-primary btn-sm">Create Room</button>
             <button @click="openEnroll" class="btn btn-secondary btn-sm">Enroll Student</button>
-            <button @click="deleteCourse" class="btn btn-error btn-sm btn-outline ml-auto">Delete Course</button>
+            <button @click="handleDeleteCourse" class="btn btn-error btn-sm btn-outline ml-auto">Delete Course</button>
         </div>
 
         <!-- Tabs -->

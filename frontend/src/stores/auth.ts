@@ -2,14 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '../api'
 import router from '../router'
-
-interface User {
-    id: string
-    email: string
-    role: string
-    full_name?: string
-    avatar_url?: string
-}
+import type { User } from '../types/user'
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref<User | null>(null)
@@ -21,7 +14,16 @@ export const useAuthStore = defineStore('auth', () => {
 
     // Helper to check impersonation cookie status
     function checkImpersonationStatus() {
-        isImpersonating.value = document.cookie.split('; ').some(row => row.startsWith('is_impersonating=true'))
+        if (!document.cookie) {
+            isImpersonating.value = false
+            return
+        }
+        const cookies = document.cookie.split('; ').reduce((acc, current) => {
+            const [name, value] = current.split('=')
+            if (name) acc[name.trim()] = value || ''
+            return acc
+        }, {} as Record<string, string>)
+        isImpersonating.value = cookies['is_impersonating'] === 'true'
     }
 
     async function login(username: string, password: string) {
@@ -64,6 +66,8 @@ export const useAuthStore = defineStore('auth', () => {
         try {
             await api.post(`/login/impersonate/${userId}`)
             await fetchUser()
+            // Manually set true to handle cases where cookie might be delayed or rejected in dev
+            isImpersonating.value = true
             router.push('/courses')
             return true
         } catch (e) {
