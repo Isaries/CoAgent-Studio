@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { watchDebounced } from '@vueuse/core'
 import api from '../api'
 
 const tables = ref<string[]>([])
@@ -11,7 +12,59 @@ const error = ref<string | null>(null)
 // Pagination
 const limit = ref(100)
 const offset = ref(0)
-const hasMore = ref(true) 
+const hasMore = ref(true)
+const searchQuery = ref("")
+const resolveRelations = ref(true)
+const startDate = ref("")
+const endDate = ref("")
+
+const supportedRelationsTables = ['message', 'course', 'room', 'usercourselink', 'userroomlink']
+import { computed } from 'vue'
+const isResolveSupported = computed(() => {
+    return selectedTable.value && supportedRelationsTables.includes(selectedTable.value)
+})
+
+const hiddenColumns = ['sender_id', 'room_id', 'owner_id', 'course_id', 'user_id']
+const visibleColumns = computed(() => {
+    if (tableData.value.length === 0) return []
+    const keys = Object.keys(tableData.value[0])
+    
+    if (resolveRelations.value && isResolveSupported.value) {
+        return keys.filter(key => !hiddenColumns.includes(key))
+    }
+    return keys
+})
+
+const onStartDateChange = () => {
+    // Auto-sync End Date to Strat Date for convenience (Single Day Filter)
+    if (startDate.value) {
+        endDate.value = startDate.value
+    }
+    performSearch()
+}
+
+const performSearch = () => {
+    offset.value = 0
+    tableData.value = []
+    hasMore.value = true
+    fetchTableData()
+}
+
+// Real-time search with debounce
+watchDebounced(
+    searchQuery,
+    () => {
+        performSearch()
+    },
+    { debounce: 500, maxWait: 1000 },
+)
+
+const toggleResolvedView = () => {
+    offset.value = 0
+    tableData.value = []
+    hasMore.value = true
+    fetchTableData()
+}
 
 const fetchTables = async () => {
     try {
@@ -28,11 +81,24 @@ const fetchTableData = async () => {
     loading.value = true
     error.value = null
     try {
+        // Format dates
+        const params: any = {
+            limit: limit.value,
+            offset: offset.value,
+            resolve_relations: resolveRelations.value,
+            search: searchQuery.value || undefined
+        }
+
+        if (startDate.value) {
+            params.start_date = new Date(startDate.value + 'T00:00:00').toISOString()
+        }
+        if (endDate.value) {
+             // End of the day
+             params.end_date = new Date(endDate.value + 'T23:59:59').toISOString()
+        }
+
         const res = await api.get(`/admin/db/tables/${selectedTable.value}`, {
-            params: {
-                limit: limit.value,
-                offset: offset.value
-            }
+            params: params
         })
         tableData.value = res.data
         if (res.data.length < limit.value) {
@@ -41,7 +107,12 @@ const fetchTableData = async () => {
             hasMore.value = true
         }
     } catch (e: any) {
-        error.value = e.response?.data?.detail || "Failed to fetch table data"
+        console.error("Full error object:", e)
+        if (e.response && e.response.data) {
+             error.value = `Server Error: ${JSON.stringify(e.response.data)}`
+        } else {
+             error.value = `Error: ${e.message || "Unknown error"}`
+        }
         tableData.value = []
     } finally {
         loading.value = false
@@ -51,6 +122,7 @@ const fetchTableData = async () => {
 const selectTable = (table: string) => {
     selectedTable.value = table
     offset.value = 0
+    searchQuery.value = "" // Reset search
     hasMore.value = true
     tableData.value = []
     fetchTableData()
@@ -78,6 +150,14 @@ onMounted(() => {
         <!-- Sidebar: Table List -->
         <div class="w-1/4 bg-base-100 border-r border-base-200 overflow-y-auto p-4">
             <h2 class="text-lg font-bold mb-4">Database Tables</h2>
+            
+            <div class="form-control mb-4" :class="{ 'opacity-50': !isResolveSupported }" :title="!isResolveSupported ? 'Not available for this table' : ''">
+                <label class="label cursor-pointer justify-start gap-2">
+                    <span class="label-text">Resolve Relations</span> 
+                    <input type="checkbox" class="toggle toggle-primary toggle-sm" v-model="resolveRelations" @change="toggleResolvedView" :disabled="!isResolveSupported" />
+                </label>
+            </div>
+
             <ul class="menu w-full p-0">
                 <li v-for="table in tables" :key="table">
                     <a :class="{ 'active': selectedTable === table }" @click="selectTable(table)">
@@ -95,6 +175,16 @@ onMounted(() => {
                     <span v-else>Select a table to view data</span>
                 </h2>
                 <div v-if="selectedTable" class="flex items-center gap-2">
+                    <input type="date" v-model="startDate" class="input input-bordered input-sm" @change="onStartDateChange" />
+                    <span class="text-xs text-base-content/50">to</span>
+                    <input type="date" v-model="endDate" class="input input-bordered input-sm" @change="performSearch" />
+                    <div class="divider divider-horizontal m-0"></div>
+                    
+                    <input type="text" v-model="searchQuery" placeholder="Search..." class="input input-bordered input-sm w-full max-w-xs" @keyup.enter="performSearch" />
+                    <button class="btn btn-sm btn-ghost" @click="performSearch">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </button>
+                    <div class="divider divider-horizontal m-0"></div>
                     <button class="btn btn-sm btn-ghost" @click="prevPage" :disabled="offset === 0">Previous</button>
                     <span class="text-sm">Page {{ Math.floor(offset / limit) + 1 }}</span>
                     <button class="btn btn-sm btn-ghost" @click="nextPage" :disabled="!hasMore">Next</button>
@@ -113,13 +203,51 @@ onMounted(() => {
                 <table class="table table-pin-rows table-xs">
                     <thead>
                         <tr>
-                            <th v-for="(_, key) in tableData[0]" :key="key">{{ key }}</th>
+                            <th v-for="key in visibleColumns" :key="key">{{ key }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-for="(row, index) in tableData" :key="index">
-                            <td v-for="(value, key) in row" :key="key" class="whitespace-nowrap max-w-xs overflow-hidden text-ellipsis" :title="String(value)">
-                                {{ typeof value === 'object' && value !== null ? JSON.stringify(value) : value }}
+                            <td v-for="key in visibleColumns" :key="key" class="whitespace-nowrap max-w-xs overflow-hidden text-ellipsis" :title="String(row[key])">
+                                <!-- Define value for cleaner template -->
+                                <template v-for="value in [row[key]]">
+                                <!-- Avatars -->
+                                <span v-if="(String(key) === 'avatar_url' || String(key).includes('image')) && value && typeof value === 'string' && value.startsWith('http')">
+                                    <div class="avatar">
+                                        <div class="w-8 h-8 rounded-full">
+                                            <img :src="value" alt="avatar" />
+                                        </div>
+                                    </div>
+                                </span>
+                                <!-- Status (Boolean) -->
+                                <span v-else-if="typeof value === 'boolean' || String(key).startsWith('is_')">
+                                    <div class="badge" :class="value ? 'badge-success gap-2' : 'badge-ghost gap-2'">
+                                         <span v-if="value">Active</span>
+                                         <span v-else>Inactive</span>
+                                    </div>
+                                    <span class="text-xs opacity-50 ml-1">({{ value }})</span>
+                                </span>
+                                <!-- Roles -->
+                                <span v-else-if="String(key) === 'role' && typeof value === 'string'">
+                                    <div class="badge" 
+                                        :class="{
+                                            'badge-primary': value === 'admin' || value === 'super_admin', 
+                                            'badge-secondary': value === 'teacher',
+                                            'badge-accent': value === 'ta',
+                                            'badge-ghost': value === 'student' || value === 'guest'
+                                        }">
+                                        {{ value }}
+                                    </div>
+                                </span>
+                                <!-- Date Time -->
+                                <span v-else-if="(String(key) === 'created_at' || String(key) === 'updated_at') && value">
+                                    {{ new Date(value).toLocaleString() }}
+                                </span>
+                                <!-- Default -->
+                                <span v-else>
+                                    {{ typeof value === 'object' && value !== null ? JSON.stringify(value) : value }}
+                                </span>
+                                </template>
                             </td>
                         </tr>
                     </tbody>
