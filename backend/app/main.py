@@ -4,10 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.api_v1.api import api_router
 from app.core.config import settings
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
-)
+app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
 
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:
@@ -18,8 +15,8 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-elif True: # Allow all for dev
-     app.add_middleware(
+elif True:  # Allow all for dev
+    app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
         allow_credentials=True,
@@ -31,7 +28,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 import os
 
-from fastapi.staticfiles import StaticFiles
+from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 if os.path.exists(static_dir):
@@ -42,14 +39,15 @@ if os.path.exists(static_dir):
 async def root():
     return {"message": "Welcome to CoAgent Studio API"}
 
-from app.core.room_monitor import room_monitor
+
+from app.core.room_monitor import room_monitor  # noqa: E402
 
 
 @app.on_event("startup")
 async def startup_event():
     await room_monitor.start()
 
+
 @app.on_event("shutdown")
 async def shutdown_event():
     await room_monitor.stop()
-

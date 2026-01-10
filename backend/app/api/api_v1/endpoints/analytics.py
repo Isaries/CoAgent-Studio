@@ -16,6 +16,7 @@ from app.models.user import User, UserRole
 
 router = APIRouter()
 
+
 @router.post("/{course_id}/generate", response_model=AnalyticsReport)
 async def generate_course_analytics(
     course_id: UUID,
@@ -23,7 +24,7 @@ async def generate_course_analytics(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Trigger analysis for the entire course (all rooms). 
+    Trigger analysis for the entire course (all rooms).
     For MVP, we also just pick the first room to demonstrate specific room analysis.
     """
     course = await session.get(Course, course_id)
@@ -33,27 +34,40 @@ async def generate_course_analytics(
     # Check permissions (Teacher or Admin)
     # Allow TA to view
     if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
-         from app.models.course import UserCourseLink
-         link = await session.get(UserCourseLink, (current_user.id, course_id))
-         if not link or link.role != "ta":
-             raise HTTPException(status_code=403, detail="Not enough permissions")
+        from app.models.course import UserCourseLink
+
+        link = await session.get(UserCourseLink, (current_user.id, course_id))
+        if not link or link.role != "ta":
+            raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # 1. Get Analytics Agent Config
     # Prioritize Active, then Latest
-    query = select(AgentConfig).where(AgentConfig.course_id == course_id, AgentConfig.type == AgentType.ANALYTICS).order_by(AgentConfig.is_active.desc(), AgentConfig.updated_at.desc())
+    query = (
+        select(AgentConfig)
+        .where(AgentConfig.course_id == course_id, AgentConfig.type == AgentType.ANALYTICS)
+        .order_by(AgentConfig.is_active.desc(), AgentConfig.updated_at.desc())
+    )
     result = await session.exec(query)
     config = result.first()
 
     # Fallback to system-level config if missing
-    sys_query = select(AgentConfig).where(AgentConfig.course_id == None, AgentConfig.type == AgentType.ANALYTICS)
+    sys_query = select(AgentConfig).where(
+        AgentConfig.course_id == None, AgentConfig.type == AgentType.ANALYTICS
+    )
     sys_result = await session.exec(sys_query)
     sys_config = sys_result.first()
 
-    prompt = (config.system_prompt if config else None) or (sys_config.system_prompt if sys_config else None)
-    key = (config.encrypted_api_key if config else None) or (sys_config.encrypted_api_key if sys_config else None)
+    prompt = (config.system_prompt if config else None) or (
+        sys_config.system_prompt if sys_config else None
+    )
+    key = (config.encrypted_api_key if config else None) or (
+        sys_config.encrypted_api_key if sys_config else None
+    )
 
     if not key:
-        raise HTTPException(status_code=400, detail="Analytics Agent not configured (Missing API Key)")
+        raise HTTPException(
+            status_code=400, detail="Analytics Agent not configured (Missing API Key)"
+        )
 
     # 2. Initialize Agent
     agent = AnalyticsAgent(provider="gemini", api_key=key, system_prompt=prompt)
@@ -67,7 +81,12 @@ async def generate_course_analytics(
     combined_report = f"# Course Analytics Report: {course.title}\n\n"
 
     for room in rooms:
-        msgs_query = select(Message).where(Message.room_id == room.id).order_by(Message.created_at.desc()).limit(50)
+        msgs_query = (
+            select(Message)
+            .where(Message.room_id == room.id)
+            .order_by(Message.created_at.desc())
+            .limit(50)
+        )
         msgs_res = await session.exec(msgs_query)
         messages = list(reversed(msgs_res.all()))
 
@@ -79,9 +98,7 @@ async def generate_course_analytics(
 
     # 4. Save Report
     report = AnalyticsReport(
-        course_id=course_id,
-        content=combined_report,
-        report_type="course_summary"
+        course_id=course_id, content=combined_report, report_type="course_summary"
     )
     session.add(report)
     await session.commit()
@@ -89,12 +106,17 @@ async def generate_course_analytics(
 
     return report
 
+
 @router.get("/{course_id}", response_model=List[AnalyticsReport])
 async def read_analytics_reports(
     course_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    query = select(AnalyticsReport).where(AnalyticsReport.course_id == course_id).order_by(AnalyticsReport.created_at.desc())
+    query = (
+        select(AnalyticsReport)
+        .where(AnalyticsReport.course_id == course_id)
+        .order_by(AnalyticsReport.created_at.desc())
+    )
     result = await session.exec(query)
     return result.all()

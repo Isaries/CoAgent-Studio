@@ -15,6 +15,7 @@ from app.models.user import User, UserRead, UserRole
 
 router = APIRouter()
 
+
 @router.post("/login/access-token")
 async def login_access_token(
     session: AsyncSession = Depends(deps.get_session),
@@ -28,23 +29,22 @@ async def login_access_token(
 
     # Allow login by email OR username
     query = select(User).where(
-        or_(
-            User.email == form_data.username,
-            User.username == form_data.username
-        )
+        or_(User.email == form_data.username, User.username == form_data.username)
     )
     result = await session.exec(query)
     user = result.first()
 
-    if not user or not user.hashed_password or not security.verify_password(form_data.password, user.hashed_password):
+    if (
+        not user
+        or not user.hashed_password
+        or not security.verify_password(form_data.password, user.hashed_password)
+    ):
         raise HTTPException(status_code=400, detail="Incorrect username/email or password")
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = security.create_access_token(
-        user.id, expires_delta=access_token_expires
-    )
+    access_token = security.create_access_token(user.id, expires_delta=access_token_expires)
     refresh_token = security.create_refresh_token(
         user.id, expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     )
@@ -56,7 +56,7 @@ async def login_access_token(
         httponly=True,
         secure=True,
         samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     response.set_cookie(
         key="refresh_token",
@@ -65,9 +65,10 @@ async def login_access_token(
         secure=True,
         samesite="lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-        path=f"{settings.API_V1_STR}/login/refresh"
+        path=f"{settings.API_V1_STR}/login/refresh",
     )
     return response
+
 
 @router.post("/login/refresh")
 async def refresh_token(
@@ -85,33 +86,28 @@ async def refresh_token(
         )
 
     try:
-        payload = jwt.decode(
-            refresh_token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
-        )
+        payload = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=[security.ALGORITHM])
         if payload.get("type") != "refresh":
-             raise HTTPException(
+            raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token type",
             )
         user_id = payload.get("sub")
     except JWTError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
-        )
+        ) from None
 
     # Check if user exists/active
     user = await session.get(User, user_id)
     if not user or not user.is_active:
-         raise HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
         )
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = security.create_access_token(
-        user.id, expires_delta=access_token_expires
-    )
+    access_token = security.create_access_token(user.id, expires_delta=access_token_expires)
 
     response = Response()
     response.set_cookie(
@@ -120,9 +116,10 @@ async def refresh_token(
         httponly=True,
         secure=True,
         samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     return response
+
 
 @router.post("/login/logout")
 async def logout() -> Any:
@@ -131,12 +128,14 @@ async def logout() -> Any:
     response.delete_cookie("refresh_token", path=f"{settings.API_V1_STR}/login/refresh")
     return {"message": "Logged out successfully"}
 
+
 @router.post("/login/test-token", response_model=UserRead)
 async def test_token(current_user: User = Depends(deps.get_current_user)) -> Any:
     """
     Test access token
     """
     return current_user
+
 
 @router.post("/login/impersonate/{user_id}")
 async def impersonate_user(
@@ -157,22 +156,20 @@ async def impersonate_user(
 
     user = await session.get(User, user_id)
     if not user:
-         raise HTTPException(
+        raise HTTPException(
             status_code=404,
             detail="User not found",
         )
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = security.create_access_token(
-        user.id, expires_delta=access_token_expires
-    )
+    access_token = security.create_access_token(user.id, expires_delta=access_token_expires)
 
     current_token = request.cookies.get("access_token")
     # If not in cookie, try header (for flexibility)
     if not current_token:
-         auth_header = request.headers.get("Authorization")
-         if auth_header and auth_header.startswith("Bearer "):
-             current_token = auth_header.replace("Bearer ", "")
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            current_token = auth_header.replace("Bearer ", "")
 
     response = Response()
     if current_token:
@@ -183,7 +180,7 @@ async def impersonate_user(
             httponly=True,
             secure=True,
             samesite="lax",
-            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
 
     response.set_cookie(
@@ -192,7 +189,7 @@ async def impersonate_user(
         httponly=True,
         secure=True,
         samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
     # Set flag for frontend
@@ -202,9 +199,10 @@ async def impersonate_user(
         httponly=False,
         secure=True,
         samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     return response
+
 
 @router.post("/login/stop-impersonate")
 async def stop_impersonate(request: Request) -> Any:
@@ -220,7 +218,7 @@ async def stop_impersonate(request: Request) -> Any:
         httponly=True,
         secure=True,
         samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
     # Clear original token and flag

@@ -1,10 +1,13 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .agent_key import AgentKey
 
 
 class AgentType(str):
@@ -13,11 +16,12 @@ class AgentType(str):
     DESIGN = "design"
     ANALYTICS = "analytics"
 
+
 class AgentConfigBase(SQLModel):
     course_id: Optional[UUID] = Field(default=None, foreign_key="course.id", index=True)
-    type: str = Field(index=True) # teacher, student, etc.
+    type: str = Field(index=True)  # teacher, student, etc.
     name: str = Field(default="Default Profile")
-    model_provider: str = Field(default="gemini") # gemini, openai
+    model_provider: str = Field(default="gemini")  # gemini, openai
     system_prompt: str
 
     # We don't store raw api key in base.
@@ -25,6 +29,7 @@ class AgentConfigBase(SQLModel):
 
     # Model Version (e.g. gemini-1.5-pro, gpt-4o)
     model: Optional[str] = Field(default=None)
+
 
 class AgentConfig(AgentConfigBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
@@ -44,14 +49,18 @@ class AgentConfig(AgentConfigBase, table=True):
     def has_api_key(self) -> bool:
         return bool(self.encrypted_api_key)
 
-    keys: List["AgentKey"] = Relationship(back_populates="agent_config", sa_relationship_kwargs={"cascade": "all, delete-orphan"}) # Auto-delete keys when config is deleted
+    keys: List["AgentKey"] = Relationship(
+        back_populates="agent_config", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )  # Auto-delete keys when config is deleted
+
 
 class AgentConfigCreate(AgentConfigBase):
-    api_key: Optional[str] = None # Input only
-    settings: Optional[Dict[str, Any]] = {}
+    api_key: Optional[str] = None  # Input only
+    settings: Optional[Dict[str, Any]] = Field(default_factory=dict)
     trigger_config: Optional[Dict[str, Any]] = None
     schedule_config: Optional[Dict[str, Any]] = None
     context_window: int = 10
+
 
 class AgentConfigRead(SQLModel):
     id: UUID
@@ -61,7 +70,7 @@ class AgentConfigRead(SQLModel):
     model_provider: str = "gemini"
     model: Optional[str] = None
     system_prompt: Optional[str] = ""
-    settings: Optional[Dict[str, Any]] = {}
+    settings: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
     trigger_config: Optional[Dict[str, Any]] = None
     schedule_config: Optional[Dict[str, Any]] = None
@@ -72,5 +81,5 @@ class AgentConfigRead(SQLModel):
     created_by: Optional[UUID] = None
     updated_at: Optional[datetime] = None
 
-    masked_api_key: Optional[str] = None # Calculated field for UI
+    masked_api_key: Optional[str] = None  # Calculated field for UI
     # encrypted_api_key is explicitly excluded from this model to prevent leak

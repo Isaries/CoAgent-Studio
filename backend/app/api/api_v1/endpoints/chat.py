@@ -17,6 +17,7 @@ from app.services.agent_service import process_agents
 
 router = APIRouter()
 
+
 @router.get("/messages/{room_id}", response_model=List[Any])
 async def get_room_messages(
     room_id: UUID,
@@ -26,26 +27,34 @@ async def get_room_messages(
     """
     Get chat history for a room.
     """
-    query = select(Message, User).outerjoin(User, Message.sender_id == User.id).where(Message.room_id == room_id).order_by(Message.created_at.asc())
+    query = (
+        select(Message, User)
+        .outerjoin(User, Message.sender_id == User.id)
+        .where(Message.room_id == room_id)
+        .order_by(Message.created_at.asc())
+    )
     result = await session.exec(query)
 
     messages_out = []
     for msg, user in result:
         sender = "Unknown"
         if user:
-             sender = user.full_name or user.username or user.email or "Unknown"
+            sender = user.full_name or user.username or user.email or "Unknown"
         elif msg.agent_type:
-             sender = f"{msg.agent_type.capitalize()} AI"
+            sender = f"{msg.agent_type.capitalize()} AI"
 
-        messages_out.append({
-            "sender": sender,
-            "content": msg.content,
-            "agent_type": msg.agent_type,
-            "sender_id": msg.sender_id,
-            "created_at": (msg.created_at.isoformat() + "Z") if msg.created_at else None
-        })
+        messages_out.append(
+            {
+                "sender": sender,
+                "content": msg.content,
+                "agent_type": msg.agent_type,
+                "sender_id": msg.sender_id,
+                "created_at": (msg.created_at.isoformat() + "Z") if msg.created_at else None,
+            }
+        )
 
     return messages_out
+
 
 async def get_current_user_ws(token: str, session: AsyncSession) -> User:
     try:
@@ -59,12 +68,13 @@ async def get_current_user_ws(token: str, session: AsyncSession) -> User:
     user = await session.get(User, token_data)
     return user
 
+
 @router.websocket("/ws/{room_id}")
 async def websocket_endpoint(
     websocket: WebSocket,
     room_id: str,
     token: str = Query(...),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
 ):
     # Authenticate
     user = await get_current_user_ws(token, session)
@@ -78,13 +88,9 @@ async def websocket_endpoint(
             data = await websocket.receive_text()
 
             # Save User Message
-            user_msg = Message(
-                content=data,
-                room_id=UUID(room_id),
-                sender_id=user.id
-            )
+            user_msg = Message(content=data, room_id=UUID(room_id), sender_id=user.id)
             session.add(user_msg)
-            await session.commit() # Commit to get ID and timestamp
+            await session.commit()  # Commit to get ID and timestamp
             await session.refresh(user_msg)
 
             # Broadcast User Message (with format "name|timestamp|content")
@@ -93,7 +99,10 @@ async def websocket_endpoint(
             await manager.broadcast(f"{display_name}|{timestamp}|{data}", room_id)
 
             # Trigger Agents
-            asyncio.create_task(process_agents(room_id, session, manager, user_msg))
+            # Fix RUF006: Maintain a strong reference to the task
+            task = asyncio.create_task(process_agents(room_id, session, manager, user_msg))
+            manager.background_tasks.add(task)
+            task.add_done_callback(manager.background_tasks.discard)
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id)

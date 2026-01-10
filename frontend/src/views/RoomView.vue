@@ -44,9 +44,14 @@ const fetchMessages = async () => {
 const connectWebSocket = () => {
   if (!authStore.token) return
 
-  // In dev: proxy /api/v1 -> backend:8000.
+  // Dynamic WebSocket Host
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const host = 'localhost:8000' // Direct to backend
+  // If in dev (port 5173), we likely want to hit localhost:8000 or whatever the proxy targets.
+  // But WS doesn't always go through Vite proxy nicely without config.
+  // Ideally: Use env var VITE_API_URL or infer.
+  // Robust inference:
+  const isDev = window.location.port === '5173' // Default Vite port
+  const host = isDev ? 'localhost:8000' : window.location.host
   const url = `${protocol}//${host}/api/v1/chat/ws/${roomId}?token=${authStore.token}`
 
   ws.value = new WebSocket(url)

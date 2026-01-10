@@ -12,9 +12,7 @@ from app.models.agent_config import AgentConfig
 
 async def migrate_keys():
     print("Starting Key Encryption Migration...")
-    async_session = sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with async_session() as session:
         try:
             query = select(AgentConfig)
@@ -42,7 +40,9 @@ async def migrate_keys():
         except Exception as e:
             print(f"ERROR: {e}")
             import traceback
+
             traceback.print_exc()
+
 
 if __name__ == "__main__":
     if sys.platform.startswith("win"):

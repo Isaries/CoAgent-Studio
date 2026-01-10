@@ -1,23 +1,28 @@
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .course import Course
 
 
 class RoomBase(SQLModel):
     name: str
     description: Optional[str] = None
-    is_ai_active: bool = Field(default=True) # Teacher/Student toggle
-    is_analytics_active: bool = Field(default=False) # Analytics toggle
+    is_ai_active: bool = Field(default=True)  # Teacher/Student toggle
+    is_analytics_active: bool = Field(default=False)  # Analytics toggle
 
-    ai_frequency: float = Field(default=0.5) # 0.0 to 1.0
-    ai_mode: str = Field(default="teacher_only") # off, teacher_only, both
+    ai_frequency: float = Field(default=0.5)  # 0.0 to 1.0
+    ai_mode: str = Field(default="teacher_only")  # off, teacher_only, both
+
 
 class UserRoomLink(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="user.id", primary_key=True)
     room_id: UUID = Field(foreign_key="room.id", primary_key=True)
     role: str = Field(default="student")
+
 
 class Room(RoomBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
@@ -26,13 +31,16 @@ class Room(RoomBase, table=True):
 
     course: "Course" = Relationship(back_populates="rooms")
 
+
 class RoomCreate(RoomBase):
     course_id: UUID
+
 
 class RoomRead(RoomBase):
     id: UUID
     course_id: UUID
     created_at: datetime
+
 
 class RoomUpdate(SQLModel):
     name: Optional[str] = None

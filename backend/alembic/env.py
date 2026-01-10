@@ -11,7 +11,7 @@ from sqlmodel import SQLModel
 
 from alembic import context
 from app.core.config import settings
-from app.models import * # Import all models here so Alembic can see them
+from app.models import *  # Import all models here so Alembic can see them
 
 config = context.config
 
@@ -20,8 +20,9 @@ if config.config_file_name is not None:
 
 target_metadata = SQLModel.metadata
 
+
 def run_migrations_offline():
-    url = settings.ASYNC_DATABASE_URL
+    url = settings.async_database_url
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -32,9 +33,10 @@ def run_migrations_offline():
     with context.begin_transaction():
         context.run_migrations()
 
+
 async def run_migrations_online():
     configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = settings.ASYNC_DATABASE_URL
+    configuration["sqlalchemy.url"] = settings.async_database_url
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",
@@ -46,11 +48,13 @@ async def run_migrations_online():
 
     await connectable.dispose()
 
+
 def do_run_migrations(connection):
     context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
         context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()

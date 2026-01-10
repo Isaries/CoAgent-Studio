@@ -10,8 +10,10 @@ from app.models.user import UserCreate, UserRole
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 def get_password_hash(password):
     return pwd_context.hash(password)
+
 
 async def init_db():
     # In dev, ensure tables exist
@@ -25,6 +27,7 @@ async def init_db():
         await conn.run_sync(SQLModel.metadata.create_all)
 
     import os
+
     print(f"DEBUG: os.environ.get('SUPER_ADMIN') is '{os.environ.get('SUPER_ADMIN')}'")
     async with AsyncSession(engine) as session:
         print(f"DEBUG: settings.SUPER_ADMIN is '{settings.SUPER_ADMIN}'")
@@ -55,12 +58,15 @@ async def init_db():
             # If the user occupying the name is NOT the one we are managing (or we are creating a new one)
             is_same_user = user and conflicting_user.id == user.id
             if not is_same_user:
-                 import uuid
-                 backup_username = f"{target_username}_old_{str(uuid.uuid4())[:8]}"
-                 print(f"WARNING: Username '{target_username}' is taken by user {conflicting_user.email} (ID: {conflicting_user.id}). Renaming that user to '{backup_username}'.")
-                 conflicting_user.username = backup_username
-                 session.add(conflicting_user)
-                 await session.commit()
+                import uuid
+
+                backup_username = f"{target_username}_old_{str(uuid.uuid4())[:8]}"
+                print(
+                    f"WARNING: Username '{target_username}' is taken by user {conflicting_user.email} (ID: {conflicting_user.id}). Renaming that user to '{backup_username}'."
+                )
+                conflicting_user.username = backup_username
+                session.add(conflicting_user)
+                await session.commit()
 
         if not user:
             print(f"Creating superuser {settings.SUPER_ADMIN}")
@@ -70,12 +76,14 @@ async def init_db():
                 full_name="Initial Admin",
                 role=UserRole.SUPER_ADMIN,
             )
-            user = User.model_validate(user_in) # replaced from_orm
+            user = User.model_validate(user_in)  # replaced from_orm
             user.hashed_password = get_password_hash(settings.SUPER_ADMIN_PASSWORD)
             session.add(user)
             await session.commit()
         else:
-            print(f"Superuser {settings.SUPER_ADMIN} already exists. Updating password and ensuring username...")
+            print(
+                f"Superuser {settings.SUPER_ADMIN} already exists. Updating password and ensuring username..."
+            )
             user.hashed_password = get_password_hash(settings.SUPER_ADMIN_PASSWORD)
             user.username = target_username
             user.role = UserRole.SUPER_ADMIN
@@ -83,9 +91,11 @@ async def init_db():
             await session.commit()
             print("Superuser updated.")
 
+
 if __name__ == "__main__":
     import asyncio
     import logging
+
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
@@ -99,6 +109,7 @@ if __name__ == "__main__":
         except Exception as e:
             logger.warning(f"Database not ready yet, retrying... ({i+1}/{max_retries}) Error: {e}")
             import time
+
             time.sleep(retry_interval)
     else:
         logger.error("Could not connect to database after many retries.")

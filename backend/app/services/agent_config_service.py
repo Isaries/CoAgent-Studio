@@ -22,11 +22,15 @@ class AgentConfigService:
         result = await self.session.exec(query)
         return result.all()
 
-    async def update_system_agent_config(self, agent_type: str, config_in: AgentConfigCreate, current_user: User) -> AgentConfig:
+    async def update_system_agent_config(
+        self, agent_type: str, config_in: AgentConfigCreate, current_user: User
+    ) -> AgentConfig:
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
-        query = select(AgentConfig).where(AgentConfig.course_id == None, AgentConfig.type == agent_type)
+        query = select(AgentConfig).where(
+            AgentConfig.course_id == None, AgentConfig.type == agent_type
+        )
         result = await self.session.exec(query)
         agent_config = result.first()
 
@@ -58,21 +62,26 @@ class AgentConfigService:
                 model_provider=config_in.model_provider,
                 model=config_in.model,
                 encrypted_api_key=config_in.api_key,
-                settings=config_in.settings
+                settings=config_in.settings,
             )
             self.session.add(new_config)
             await self.session.commit()
             await self.session.refresh(new_config)
             return new_config
 
-    async def get_course_agent_configs(self, course_id: UUID, current_user: User) -> List[AgentConfig]:
+    async def get_course_agent_configs(
+        self, course_id: UUID, current_user: User
+    ) -> List[AgentConfig]:
         course = await self.session.get(Course, course_id)
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
 
         # Permission: Admin, Owner, or TA?
         # Usually settings page calls this.
-        if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
+        if (
+            current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+            and course.owner_id != current_user.id
+        ):
             # Allow TA? Current logic in endpoint seemed to allow "if not course" raise, but didn't strictly check permission for GET?
             # Let's check original code.
             # Oh, the original code had a print "DEBUG" but then had no permission check visible in snippet?
@@ -83,13 +92,18 @@ class AgentConfigService:
         result = await self.session.exec(query)
         return result.all()
 
-    async def create_course_agent_config(self, course_id: UUID, config_in: AgentConfigCreate, current_user: User) -> AgentConfig:
+    async def create_course_agent_config(
+        self, course_id: UUID, config_in: AgentConfigCreate, current_user: User
+    ) -> AgentConfig:
         course = await self.session.get(Course, course_id)
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
 
-        if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
-             raise HTTPException(status_code=403, detail="Not enough permissions")
+        if (
+            current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+            and course.owner_id != current_user.id
+        ):
+            raise HTTPException(status_code=403, detail="Not enough permissions")
 
         agent_config = AgentConfig(
             course_id=course_id,
@@ -101,51 +115,65 @@ class AgentConfigService:
             settings=config_in.settings,
             trigger_config=config_in.trigger_config,
             schedule_config=config_in.schedule_config,
-            context_window=config_in.context_window
+            context_window=config_in.context_window,
         )
         self.session.add(agent_config)
         await self.session.commit()
         await self.session.refresh(agent_config)
         return agent_config
 
-    async def update_agent_config(self, agent_id: str, config_in: AgentConfigCreate, current_user: User) -> AgentConfig:
+    async def update_agent_config(
+        self, agent_id: str, config_in: AgentConfigCreate, current_user: User
+    ) -> AgentConfig:
         agent_config = await self.session.get(AgentConfig, UUID(agent_id))
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
 
-        # Permission check via Course
-        if agent_config.course_id:
-            course = await self.session.get(Course, agent_config.course_id)
-            if not course:
-                 # Orphaned config?
-                 pass
-            elif current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
-                 raise HTTPException(status_code=403, detail="Not enough permissions")
-        else:
-             # System config accessed via ID? Usually system endpoints use type.
-             if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-                 raise HTTPException(status_code=403, detail="Not enough permissions")
-
-        # Update fields
-        if config_in.system_prompt is not None: agent_config.system_prompt = config_in.system_prompt
-        if config_in.model_provider is not None: agent_config.model_provider = config_in.model_provider
-        if config_in.model is not None: agent_config.model = config_in.model
-
-        if config_in.api_key is not None:
-             if config_in.api_key == "":
-                 agent_config.encrypted_api_key = None
-             else:
-                 agent_config.encrypted_api_key = config_in.api_key
-
-        if config_in.settings is not None: agent_config.settings = config_in.settings
-        if config_in.trigger_config is not None: agent_config.trigger_config = config_in.trigger_config
-        if config_in.schedule_config is not None: agent_config.schedule_config = config_in.schedule_config
-        if config_in.context_window is not None: agent_config.context_window = config_in.context_window
+        await self._check_update_permissions(agent_config, current_user)
+        self._apply_config_updates(agent_config, config_in)
 
         self.session.add(agent_config)
         await self.session.commit()
         await self.session.refresh(agent_config)
         return agent_config
+
+    async def _check_update_permissions(self, agent_config: AgentConfig, current_user: User):
+        if agent_config.course_id:
+            course = await self.session.get(Course, agent_config.course_id)
+            if not course:
+                return # Orphaned config, allow admin? Or fail? Logic was pass.
+
+            if (
+                current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+                and course.owner_id != current_user.id
+            ):
+                raise HTTPException(status_code=403, detail="Not enough permissions")
+        else:
+             if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    def _apply_config_updates(self, agent_config: AgentConfig, config_in: AgentConfigCreate):
+        if config_in.system_prompt is not None:
+            agent_config.system_prompt = config_in.system_prompt
+        if config_in.model_provider is not None:
+            agent_config.model_provider = config_in.model_provider
+        if config_in.model is not None:
+            agent_config.model = config_in.model
+
+        if config_in.api_key is not None:
+            if config_in.api_key == "":
+                agent_config.encrypted_api_key = None
+            else:
+                agent_config.encrypted_api_key = config_in.api_key
+
+        if config_in.settings is not None:
+            agent_config.settings = config_in.settings
+        if config_in.trigger_config is not None:
+            agent_config.trigger_config = config_in.trigger_config
+        if config_in.schedule_config is not None:
+            agent_config.schedule_config = config_in.schedule_config
+        if config_in.context_window is not None:
+            agent_config.context_window = config_in.context_window
 
     async def delete_agent_config(self, agent_id: str, current_user: User):
         agent_config = await self.session.get(AgentConfig, UUID(agent_id))
@@ -153,12 +181,16 @@ class AgentConfigService:
             raise HTTPException(status_code=404, detail="Agent config not found")
 
         if agent_config.course_id:
-             course = await self.session.get(Course, agent_config.course_id)
-             if course and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
-                  raise HTTPException(status_code=403, detail="Not enough permissions")
+            course = await self.session.get(Course, agent_config.course_id)
+            if (
+                course
+                and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+                and course.owner_id != current_user.id
+            ):
+                raise HTTPException(status_code=403, detail="Not enough permissions")
         else:
-             if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-                  raise HTTPException(status_code=403, detail="Not enough permissions")
+            if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
 
         await self.session.delete(agent_config)
         await self.session.commit()
@@ -169,15 +201,19 @@ class AgentConfigService:
             raise HTTPException(status_code=404, detail="Agent config not found")
 
         if agent_config.course_id:
-             course = await self.session.get(Course, agent_config.course_id)
-             if course and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
-                  raise HTTPException(status_code=403, detail="Not enough permissions")
+            course = await self.session.get(Course, agent_config.course_id)
+            if (
+                course
+                and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+                and course.owner_id != current_user.id
+            ):
+                raise HTTPException(status_code=403, detail="Not enough permissions")
 
         # Deactivate others of same type in this course
         if agent_config.course_id:
             query = select(AgentConfig).where(
                 AgentConfig.course_id == agent_config.course_id,
-                AgentConfig.type == agent_config.type
+                AgentConfig.type == agent_config.type,
             )
             others = await self.session.exec(query)
             for other in others.all():
@@ -196,12 +232,16 @@ class AgentConfigService:
 
         if agent_config.course_id:
             course = await self.session.get(Course, agent_config.course_id)
-            if course and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
+            if (
+                course
+                and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+                and course.owner_id != current_user.id
+            ):
                 raise HTTPException(status_code=403, detail="Not enough permissions")
         else:
             if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
                 raise HTTPException(status_code=403, detail="Not enough permissions")
-        
+
         return agent_config
 
     async def get_agent_keys(self, agent_config_id: UUID) -> List[AgentKey]:
@@ -209,21 +249,23 @@ class AgentConfigService:
         result = await self.session.exec(query)
         return result.all()
 
-    async def update_agent_keys(self, agent_config_id: UUID, keys_data: dict, current_user: User) -> AgentConfig:
+    async def update_agent_keys(
+        self, agent_config_id: UUID, keys_data: dict, current_user: User
+    ) -> AgentConfig:
         # Verify permissions and existence
         agent_config = await self.get_course_agent_config(agent_config_id, current_user)
-        
+
         # keys_data = {"room_key": "val", "global_key": "val", "backup_key": "val"}
-        
+
         # 1. Fetch existing keys
         existing_keys = await self.get_agent_keys(agent_config_id)
         existing_map = {k.key_type: k for k in existing_keys}
-        
+
         for k_type, k_val in keys_data.items():
             if not k_val:
                 # If explicitly sent empty, delete/clear.
                 if k_type in existing_map:
-                     await self.session.delete(existing_map[k_type])
+                    await self.session.delete(existing_map[k_type])
                 continue
 
             if k_type in existing_map:
@@ -231,13 +273,10 @@ class AgentConfigService:
                 self.session.add(existing_map[k_type])
             else:
                 new_key = AgentKey(
-                    agent_config_id=agent_config_id,
-                    key_type=k_type,
-                    encrypted_api_key=k_val
+                    agent_config_id=agent_config_id, key_type=k_type, encrypted_api_key=k_val
                 )
                 self.session.add(new_key)
-        
+
         await self.session.commit()
         await self.session.refresh(agent_config)
         return agent_config
-

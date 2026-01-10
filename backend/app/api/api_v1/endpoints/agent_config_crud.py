@@ -16,6 +16,7 @@ router = APIRouter()
 
 # CRUD for Agent Config
 
+
 @router.get("/{course_id}", response_model=List[AgentConfigRead])
 async def read_agent_configs(
     course_id: UUID,
@@ -32,6 +33,7 @@ async def read_agent_configs(
     query = select(AgentConfig).where(AgentConfig.course_id == course_id)
     result = await session.exec(query)
     return result.all()
+
 
 @router.put("/{course_id}/{agent_type}", response_model=AgentConfigRead)
 async def update_agent_config(
@@ -50,10 +52,12 @@ async def update_agent_config(
         raise HTTPException(status_code=404, detail="Course not found")
 
     if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
-         raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Check if exists
-    query = select(AgentConfig).where(AgentConfig.course_id == course_id, AgentConfig.type == agent_type)
+    query = select(AgentConfig).where(
+        AgentConfig.course_id == course_id, AgentConfig.type == agent_type
+    )
     result = await session.exec(query)
     agent_config = result.first()
 
@@ -62,7 +66,7 @@ async def update_agent_config(
         agent_config.system_prompt = config_in.system_prompt
         agent_config.model_provider = config_in.model_provider
         if config_in.api_key:
-            agent_config.encrypted_api_key = config_in.api_key # In real app, encrypt here!
+            agent_config.encrypted_api_key = config_in.api_key  # In real app, encrypt here!
         if config_in.settings:
             agent_config.settings = config_in.settings
 
@@ -77,8 +81,8 @@ async def update_agent_config(
             type=agent_type,
             system_prompt=config_in.system_prompt,
             model_provider=config_in.model_provider,
-            encrypted_api_key=config_in.api_key, # Encrypt!
-            settings=config_in.settings
+            encrypted_api_key=config_in.api_key,  # Encrypt!
+            settings=config_in.settings,
         )
         session.add(new_config)
         await session.commit()

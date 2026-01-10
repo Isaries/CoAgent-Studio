@@ -9,6 +9,7 @@ from app.services.user_service import UserService
 
 router = APIRouter()
 
+
 @router.get("/me", response_model=UserRead)
 async def read_user_me(
     current_user: User = Depends(deps.get_current_user),
@@ -17,6 +18,7 @@ async def read_user_me(
     Get current user.
     """
     return current_user
+
 
 @router.put("/me", response_model=UserRead)
 async def update_user_me(
@@ -31,6 +33,7 @@ async def update_user_me(
     service = UserService(session)
     return await service.update_user_me(user_in, current_user)
 
+
 @router.get("/", response_model=List[UserRead])
 async def read_users(
     skip: int = 0,
@@ -44,12 +47,13 @@ async def read_users(
     service = UserService(session)
     return await service.get_users(skip, limit)
 
+
 @router.get("/search", response_model=List[UserRead])
 async def search_users(
     q: str,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
-    limit: int = 10
+    limit: int = 10,
 ) -> Any:
     """
     Search users by email, full_name, or username.
@@ -57,6 +61,7 @@ async def search_users(
     """
     service = UserService(session)
     return await service.search_users(q, limit)
+
 
 @router.put("/{user_id}", response_model=UserRead)
 async def update_user(
@@ -72,6 +77,7 @@ async def update_user(
     service = UserService(session)
     return await service.update_user(user_id, user_in, current_user)
 
+
 @router.delete("/{user_id}", response_model=UserRead)
 async def delete_user(
     *,
@@ -80,12 +86,13 @@ async def delete_user(
     current_user: User = Depends(deps.get_current_active_superuser),
 ) -> Any:
     """
-    Delete a user. 
+    Delete a user.
     Super Admin can delete anyone (including Admins/Super Admins).
     Admin can delete Students/Teachers/TAs/Guests.
     """
     service = UserService(session)
     return await service.delete_user(user_id, current_user)
+
 
 @router.post("/", response_model=UserRead)
 async def create_user(
@@ -99,6 +106,7 @@ async def create_user(
     """
     service = UserService(session)
     return await service.create_user(user_in, current_user)
+
 
 @router.post("/me/avatar", response_model=UserRead)
 async def upload_avatar(

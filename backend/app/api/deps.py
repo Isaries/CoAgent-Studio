@@ -17,11 +17,11 @@ class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
         # Priority: Cookie > Header
         authorization: str = request.cookies.get("access_token")
         if not authorization:
-             authorization = request.headers.get("Authorization")
-             if authorization:
-                 scheme, param = get_authorization_scheme_param(authorization) # type: ignore
-                 if scheme.lower() == "bearer":
-                     authorization = param
+            authorization = request.headers.get("Authorization")
+            if authorization:
+                scheme, param = get_authorization_scheme_param(authorization)  # type: ignore
+                if scheme.lower() == "bearer":
+                    authorization = param
 
         if not authorization:
             if self.auto_error:
@@ -34,11 +34,11 @@ class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
                 return None
         return authorization
 
+
 from fastapi.security.utils import get_authorization_scheme_param
 
-reusable_oauth2 = OAuth2PasswordBearerWithCookie(
-    tokenUrl=f"{settings.API_V1_STR}/login/refresh"
-)
+reusable_oauth2 = OAuth2PasswordBearerWithCookie(tokenUrl=f"{settings.API_V1_STR}/login/refresh")
+
 
 async def get_current_user(
     session: AsyncSession = Depends(get_session),
@@ -46,9 +46,7 @@ async def get_current_user(
 ) -> User:
     try:
         try:
-            payload = jwt.decode(
-                token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
-            )
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[security.ALGORITHM])
             token_data = payload.get("sub")
             if token_data is None:
                 raise HTTPException(
@@ -59,16 +57,17 @@ async def get_current_user(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Could not validate credentials",
-            )
+            ) from None
 
         # In SQLModel for async, we use exec/one_or_none
         from uuid import UUID
 
         from sqlmodel import select
+
         try:
             user_id = UUID(token_data)
         except ValueError:
-             raise HTTPException(status_code=403, detail="Invalid token subject")
+            raise HTTPException(status_code=403, detail="Invalid token subject") from None
 
         query = select(User).where(User.id == user_id)
         result = await session.exec(query)
@@ -83,17 +82,18 @@ async def get_current_user(
         raise
     except Exception as e:
         import traceback
+
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Internal Auth Error: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Internal Auth Error: {e!s}") from e
+
 
 async def get_current_active_superuser(
     current_user: User = Depends(get_current_user),
 ) -> User:
     if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(
-            status_code=400, detail="The user doesn't have enough privileges"
-        )
+        raise HTTPException(status_code=400, detail="The user doesn't have enough privileges")
     return current_user
+
 
 async def get_current_active_super_admin(
     current_user: User = Depends(get_current_user),

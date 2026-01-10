@@ -11,6 +11,7 @@ CTX = CryptContext(schemes=["bcrypt"], deprecated="auto")
 PWD_HASH = CTX.hash("admin")
 EMAIL = "admin@example.com"
 
+
 def run():
     print(f"Connecting to SQLite: {DB_FILE}")
     try:
@@ -30,10 +31,10 @@ def run():
 
         # Insert Admin
         # Assuming is_active/is_superuser are boolean (1/0 in SQLite)
-        query = '''
+        query = """
         INSERT INTO "user" (id, email, hashed_password, role, is_active, created_at, full_name, is_superuser)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        '''
+        """
         c.execute(query, (uid, EMAIL, PWD_HASH, "admin", 1, now, "Super Admin", 1))
 
         conn.commit()
@@ -42,6 +43,7 @@ def run():
 
     except Exception as e:
         print(f"Error: {e}")
+
 
 if __name__ == "__main__":
     run()

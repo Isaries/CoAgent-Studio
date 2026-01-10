@@ -7,6 +7,7 @@ class ConnectionManager:
     def __init__(self):
         # Dictionary to store connections: room_id -> List of WebSockets
         self.active_connections: Dict[str, List[WebSocket]] = {}
+        self.background_tasks = set()
 
     async def connect(self, websocket: WebSocket, room_id: str):
         await websocket.accept()
@@ -31,5 +32,6 @@ class ConnectionManager:
                 except RuntimeError:
                     # Handle cases where connection might be closed already
                     pass
+
 
 manager = ConnectionManager()

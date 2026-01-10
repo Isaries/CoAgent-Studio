@@ -18,6 +18,7 @@ from app.services.course_service import CourseService
 
 router = APIRouter()
 
+
 @router.post("/", response_model=CourseRead)
 async def create_course(
     *,
@@ -30,13 +31,14 @@ async def create_course(
     Allowed: Admin, Teacher.
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER]:
-         raise HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions",
         )
 
     service = CourseService(session)
     return await service.create_course(course_in, current_user)
+
 
 @router.get("/", response_model=List[CourseRead])
 async def read_courses(
@@ -60,6 +62,7 @@ async def read_courses(
 
     return courses
 
+
 @router.get("/{course_id}", response_model=CourseRead)
 async def read_course(
     course_id: UUID,
@@ -74,6 +77,7 @@ async def read_course(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     return course
+
 
 @router.put("/{course_id}", response_model=CourseRead)
 async def update_course(
@@ -90,6 +94,7 @@ async def update_course(
     service = CourseService(session)
     return await service.update_course(course_id, course_in, current_user)
 
+
 @router.delete("/{course_id}", response_model=CourseRead)
 async def delete_course(
     *,
@@ -104,10 +109,12 @@ async def delete_course(
     service = CourseService(session)
     return await service.delete_course(course_id, current_user)
 
+
 class EnrollmentRequest(SQLModel):
     user_email: Optional[str] = None
     user_id: Optional[UUID] = None
     role: str = "student"
+
 
 @router.post("/{course_id}/enroll")
 async def enroll_user(
@@ -120,8 +127,11 @@ async def enroll_user(
     Enroll a user by email or ID into a course.
     """
     service = CourseService(session)
-    message = await service.enroll_user(course_id, enrollment.user_email, enrollment.user_id, enrollment.role, current_user)
+    message = await service.enroll_user(
+        course_id, enrollment.user_email, enrollment.user_id, enrollment.role, current_user
+    )
     return {"message": message}
+
 
 @router.get("/{course_id}/members", response_model=List[CourseMember])
 async def read_course_members(
@@ -144,7 +154,7 @@ async def read_course_members(
             email=user.email,
             full_name=user.full_name,
             avatar_url=user.avatar_url,
-            role=role
+            role=role,
         )
 
     # Ensure owner is in the list as 'teacher' if not already
@@ -157,15 +167,16 @@ async def read_course_members(
         # Let's keep it simple: If owner not in links, we fetch.
         owner = await session.get(User, owner_id)
         if owner:
-             members_dict[owner.id] = CourseMember(
+            members_dict[owner.id] = CourseMember(
                 user_id=owner.id,
                 email=owner.email,
                 full_name=owner.full_name,
                 avatar_url=owner.avatar_url,
-                role="teacher"
+                role="teacher",
             )
 
     return list(members_dict.values())
+
 
 @router.put("/{course_id}/members/{user_id}", response_model=Any)
 async def update_course_member_role(
@@ -182,6 +193,7 @@ async def update_course_member_role(
     service = CourseService(session)
     await service.update_member_role(course_id, user_id, member_update.role, current_user)
     return {"message": "Role updated"}
+
 
 @router.delete("/{course_id}/members/{user_id}")
 async def remove_course_member(

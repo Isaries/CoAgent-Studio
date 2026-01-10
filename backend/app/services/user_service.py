@@ -20,8 +20,8 @@ class UserService:
         # But User.id is UUID.
         try:
             return await self.session.get(User, UUID(user_id))
-        except:
-             return None
+        except Exception:
+            return None
 
     async def get_users(self, skip: int = 0, limit: int = 100) -> List[User]:
         query = select(User).offset(skip).limit(limit)
@@ -29,25 +29,32 @@ class UserService:
         return results.all()
 
     async def search_users(self, q: str, limit: int = 10) -> List[User]:
-        query = select(User).where(
-            or_(
-                User.email.contains(q),
-                User.full_name.contains(q),
-                User.username.contains(q)
+        query = (
+            select(User)
+            .where(
+                or_(User.email.contains(q), User.full_name.contains(q), User.username.contains(q))
             )
-        ).limit(limit)
+            .limit(limit)
+        )
         result = await self.session.exec(query)
         return result.all()
 
     async def create_user(self, user_in: UserCreate, current_user: User) -> User:
         # Permission: Only Super Admin creates Admins
-        if user_in.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and current_user.role != "super_admin":
-             raise HTTPException(status_code=403, detail="Only Super Admins can create Admin accounts")
+        if (
+            user_in.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+            and current_user.role != "super_admin"
+        ):
+            raise HTTPException(
+                status_code=403, detail="Only Super Admins can create Admin accounts"
+            )
 
         # Check existing
         conditions = []
-        if user_in.email: conditions.append(User.email == user_in.email)
-        if user_in.username: conditions.append(User.username == user_in.username)
+        if user_in.email:
+            conditions.append(User.email == user_in.email)
+        if user_in.username:
+            conditions.append(User.username == user_in.username)
 
         if conditions:
             query = select(User).where(or_(*conditions))
@@ -73,19 +80,34 @@ class UserService:
         user_data = user.dict(exclude_unset=True)
         update_data = user_in.dict(exclude_unset=True)
 
-        if user.id == current_user.id and "role" in update_data and current_user.role == "super_admin":
-             if update_data["role"] != "super_admin":
-                  raise HTTPException(status_code=400, detail="Super Admins cannot change their own role")
+        if (
+            user.id == current_user.id
+            and update_data.get("role")
+            and current_user.role == "super_admin"
+            and update_data["role"] != "super_admin"
+        ):
+            raise HTTPException(
+                status_code=400, detail="Super Admins cannot change their own role"
+            )
 
         # 2. Modify other admins
-        if user.id != current_user.id:
-            if user.role in ["admin", "super_admin"] and current_user.role != "super_admin":
-                raise HTTPException(status_code=403, detail="Only Super Admins can modify other Admins")
+        if (
+            user.id != current_user.id
+            and user.role in ["admin", "super_admin"]
+            and current_user.role != "super_admin"
+        ):
+            raise HTTPException(
+                status_code=403, detail="Only Super Admins can modify other Admins"
+            )
 
         # 3. Promote to admin
-        if "role" in update_data and update_data["role"] in ["admin", "super_admin"]:
-             if current_user.role != "super_admin":
-                  raise HTTPException(status_code=403, detail="Only Super Admins can promote users to Admin")
+        if (
+            update_data.get("role") in ["admin", "super_admin"]
+            and current_user.role != "super_admin"
+        ):
+            raise HTTPException(
+                status_code=403, detail="Only Super Admins can promote users to Admin"
+            )
 
         # Password handling
         if update_data.get("password"):
@@ -106,8 +128,10 @@ class UserService:
         update_data = user_in.dict(exclude_unset=True)
 
         # Security restrictions
-        if "role" in update_data: del update_data["role"]
-        if "email" in update_data: del update_data["email"]
+        if "role" in update_data:
+            del update_data["role"]
+        if "email" in update_data:
+            del update_data["email"]
 
         if update_data.get("password"):
             current_user.hashed_password = security.get_password_hash(update_data["password"])
@@ -131,7 +155,9 @@ class UserService:
             raise HTTPException(status_code=400, detail="Cannot delete your own account")
 
         if user.role in ["admin", "super_admin"] and current_user.role != "super_admin":
-             raise HTTPException(status_code=403, detail="Only Super Admins can delete Admin accounts")
+            raise HTTPException(
+                status_code=403, detail="Only Super Admins can delete Admin accounts"
+            )
 
         self.session.delete(user)
         await self.session.commit()
@@ -140,16 +166,16 @@ class UserService:
     async def upload_avatar(self, file: UploadFile, current_user: User) -> User:
         # Validate
         if file.content_type not in ["image/jpeg", "image/png", "image/jpg"]:
-             raise HTTPException(status_code=400, detail="Invalid file type")
+            raise HTTPException(status_code=400, detail="Invalid file type")
 
-        FILE_SIZE_LIMIT = 2 * 1024 * 1024
+        file_size_limit = 2 * 1024 * 1024
 
         # Path resolution - tricky without dependency injection of config
         # Assuming relative path from THIS file.
         # this file: backend/app/services/user_service.py
         # static: backend/static/avatars
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        static_dir = os.path.join(BASE_DIR, "static", "avatars")
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        static_dir = os.path.join(base_dir, "static", "avatars")
 
         if not os.path.exists(static_dir):
             os.makedirs(static_dir)
@@ -162,9 +188,10 @@ class UserService:
         with open(file_path, "wb") as buffer:
             while True:
                 chunk = await file.read(1024 * 1024)
-                if not chunk: break
+                if not chunk:
+                    break
                 real_file_size += len(chunk)
-                if real_file_size > FILE_SIZE_LIMIT:
+                if real_file_size > file_size_limit:
                     buffer.close()
                     os.remove(file_path)
                     raise HTTPException(status_code=400, detail="File too large")

@@ -8,21 +8,34 @@ from openai import AsyncOpenAI
 
 class LLMService(ABC):
     @abstractmethod
-    async def generate_response(self, prompt: str, system_prompt: Optional[str] = None, api_key: str = None, model: str = None) -> str:
+    async def generate_response(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> str:
         pass
+
 
 class GeminiService(LLMService):
     def __init__(self):
         self._lock = asyncio.Lock()
 
-    async def generate_response(self, prompt: str, system_prompt: Optional[str] = None, api_key: str = None, model: str = None) -> str:
+    async def generate_response(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> str:
         if not api_key:
-             return "Error: API Key missing for Gemini"
+            return "Error: API Key missing for Gemini"
 
         # Use lock to prevent race condition on global configuration
         async with self._lock:
             genai.configure(api_key=api_key)
-            model_name = model or 'gemini-1.5-pro'
+            model_name = model or "gemini-1.5-pro"
             genai_model = genai.GenerativeModel(model_name)
 
             # Combine system prompt if provided
@@ -33,8 +46,15 @@ class GeminiService(LLMService):
             response = await genai_model.generate_content_async(full_prompt)
         return response.text
 
+
 class OpenAIService(LLMService):
-    async def generate_response(self, prompt: str, system_prompt: Optional[str] = None, api_key: str = None, model: str = None) -> str:
+    async def generate_response(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> str:
         if not api_key:
             return "Error: API Key missing for OpenAI"
 
@@ -47,11 +67,9 @@ class OpenAIService(LLMService):
 
         model_name = model or "gpt-4o"
 
-        response = await client.chat.completions.create(
-            model=model_name,
-            messages=messages
-        )
+        response = await client.chat.completions.create(model=model_name, messages=messages)
         return response.choices[0].message.content
+
 
 class LLMFactory:
     @staticmethod

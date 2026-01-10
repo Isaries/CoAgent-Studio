@@ -1,8 +1,12 @@
+from typing import Optional
+
 from app.core.llm_service import LLMFactory
 
 
 class AgentCore:
-    def __init__(self, provider: str, api_key: str, system_prompt: str, model: str = None):
+    def __init__(
+        self, provider: str, api_key: str, system_prompt: str, model: Optional[str] = None
+    ):
         self.provider = provider
         self.api_key = api_key
         self.system_prompt = system_prompt
@@ -14,5 +18,5 @@ class AgentCore:
             prompt=input_text,
             system_prompt=self.system_prompt,
             api_key=self.api_key,
-            model=self.model
+            model=self.model,
         )

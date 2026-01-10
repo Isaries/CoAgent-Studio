@@ -12,6 +12,7 @@ from app.models.user import User, UserRole
 
 router = APIRouter()
 
+
 @router.post("/", response_model=AnnouncementRead)
 async def create_announcement(
     *,
@@ -28,16 +29,22 @@ async def create_announcement(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
+    if (
+        current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+        and course.owner_id != current_user.id
+    ):
         # Check if user is TA
         from app.models.course import UserCourseLink
+
         link = await session.get(UserCourseLink, (current_user.id, course.id))
         is_ta = link and link.role == "ta"
 
         if not is_ta:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    announcement = Announcement.model_validate(announcement_in, update={"author_id": current_user.id})
+    announcement = Announcement.model_validate(
+        announcement_in, update={"author_id": current_user.id}
+    )
     # OR safer approach since model_validate with update might not be avail in older pydantic?
     # Actually, SQLModel uses Pydantic V2.
     # Let's use constructor.
@@ -46,6 +53,7 @@ async def create_announcement(
     await session.commit()
     await session.refresh(announcement)
     return announcement
+
 
 @router.get("/", response_model=List[AnnouncementRead])
 async def read_announcements(
@@ -56,6 +64,10 @@ async def read_announcements(
     """
     Get announcements for a course.
     """
-    query = select(Announcement).where(Announcement.course_id == course_id).order_by(Announcement.created_at.desc())
+    query = (
+        select(Announcement)
+        .where(Announcement.course_id == course_id)
+        .order_by(Announcement.created_at.desc())
+    )
     result = await session.exec(query)
     return result.all()

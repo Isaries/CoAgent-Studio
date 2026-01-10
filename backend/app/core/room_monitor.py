@@ -31,9 +31,7 @@ class RoomMonitor:
         print("Room Monitor Stopped")
 
     async def _monitor_loop(self):
-        async_session = sessionmaker(
-            engine, class_=AsyncSession, expire_on_commit=False
-        )
+        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         while self.is_running:
             try:
@@ -43,7 +41,7 @@ class RoomMonitor:
 
                 if active_room_ids:
                     # Create one session per check cycle to keep short lived
-                     async with async_session() as session:
+                    async with async_session() as session:
                         for room_id in active_room_ids:
                             try:
                                 await check_and_process_time_triggers(room_id, session, manager)
@@ -53,6 +51,7 @@ class RoomMonitor:
             except Exception as e:
                 print(f"Error in Room Monitor Loop: {e}")
 
-            await asyncio.sleep(1) # Check every 1 second
+            await asyncio.sleep(1)  # Check every 1 second
+
 
 room_monitor = RoomMonitor()
