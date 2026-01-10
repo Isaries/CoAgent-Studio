@@ -268,12 +268,12 @@ const updateProfile = async () => {
 
           <template v-if="authStore.isAdmin">
             <div class="divider text-xs opacity-50 uppercase tracking-widest">Admin Tools</div>
-            <li><router-link to="/admin/database" active-class="active">Database</router-link></li>
             <li>
               <router-link to="/admin/system-agents" active-class="active"
                 >System Agents</router-link
               >
             </li>
+            <li><router-link to="/admin/database" active-class="active">Database</router-link></li>
           </template>
 
           <div class="divider"></div>
