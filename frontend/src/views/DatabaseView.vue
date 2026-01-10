@@ -308,7 +308,7 @@ onMounted(() => {
                 :title="String(row[key])"
               >
                 <!-- Define value for cleaner template -->
-                <template v-for="value in [row[key]]">
+                <template v-for="(value, vIdx) in [row[key]]" :key="vIdx">
                   <!-- Avatars -->
                   <span
                     v-if="

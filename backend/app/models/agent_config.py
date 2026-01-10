@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class AgentType(str):
@@ -43,6 +43,8 @@ class AgentConfig(AgentConfigBase, table=True):
     @property
     def has_api_key(self) -> bool:
         return bool(self.encrypted_api_key)
+
+    keys: List["AgentKey"] = Relationship(back_populates="agent_config", sa_relationship_kwargs={"cascade": "all, delete-orphan"}) # Auto-delete keys when config is deleted
 
 class AgentConfigCreate(AgentConfigBase):
     api_key: Optional[str] = None # Input only

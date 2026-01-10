@@ -2,7 +2,7 @@
 import type { CourseMember } from '../../types/course'
 import iconUser from '../../assets/iconUser.png'
 
-const props = defineProps<{
+defineProps<{
   members: CourseMember[]
   courseOwnerId?: string
   isStudent: boolean

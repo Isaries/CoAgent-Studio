@@ -45,6 +45,7 @@ const saveAgent = async (type: 'design' | 'analytics') => {
   const config = configs.value[type]
   try {
     await api.put(`/agents/system/${type}`, {
+      type: type,
       system_prompt: config.prompt,
       api_key: config.apiKey,
       model_provider: config.provider,

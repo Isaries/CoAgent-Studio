@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,7 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
 from app.core.security import mask_api_key
-from app.models.agent_config import AgentConfigCreate, AgentConfigRead, AgentType
+from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentConfigRead, AgentType
 from app.models.user import User, UserRole
 from app.services.agent_config_service import AgentConfigService
 
@@ -118,11 +118,23 @@ async def create_course_agent_config(
 
     if is_first:
         # Call activate service logic
-        await service.activate_agent(str(new_config.id), current_user)
-        # Refresh to get active state
-        await session.refresh(new_config)
-
+        # activate_agent commits, so new_config becomes expired if we don't refresh or use return
+        new_config = await service.activate_agent(str(new_config.id), current_user)
+    
+    # Refresh to be safe if not activated (create commits too, but just returned)
+    # Actually create returns refreshed object.
+    
     c_read = AgentConfigRead.model_validate(new_config)
+    
+    # Access attribute carefully logic
+    # If new_config is expired, this access crashes in Async
+    # We should ensure it's fresh.
+    # If is_first was false, create returns fresh.
+    # If is_first was true, activate returns fresh.
+    # BUT, to be absolutely safe against session commits expiring it:
+    # (Actually if we returned from service functions that verify refresh, it's ok)
+    pass
+    
     if new_config.encrypted_api_key:
         c_read.masked_api_key = mask_api_key(new_config.encrypted_api_key)
 
@@ -187,11 +199,54 @@ async def delete_agent_config(
     await service.delete_agent_config(str(config_id), current_user)
     return
 
+@router.get("/{agent_id}/keys", response_model=Dict[str, str])
+async def get_agent_keys(
+    *,
+    agent_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    service = AgentConfigService(session)
+    
+    # Verify existence and permission
+    await service.get_course_agent_config(agent_id, current_user)
+            
+    # Service returns list of AgentKey sqlmodels.
+    keys = await service.get_agent_keys(agent_id)
+    
+    from app.core.security import mask_api_key
+    # Convert directly to dict to avoid model object lingering
+    return {k.key_type: mask_api_key(k.encrypted_api_key) for k in keys}
+
+@router.put("/{agent_id}/keys", response_model=AgentConfigRead)
+async def update_agent_keys(
+    *,
+    agent_id: UUID,
+    keys_data: Dict[str, Optional[str]], # {"room_key": "...", "global_key": "..."}
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Update API keys for an agent configuration.
+    """
+    service = AgentConfigService(session)
+    
+    # Update logic moved to service, including permission check and refresh
+    updated_config = await service.update_agent_keys(agent_id, keys_data, current_user)
+    
+    c_read = AgentConfigRead.model_validate(updated_config)
+    
+    if updated_config.encrypted_api_key:
+         c_read.masked_api_key = mask_api_key(updated_config.encrypted_api_key)
+         
+    return c_read
+
 class DesignRequest(BaseModel):
     requirement: str
     target_agent_type: str # teacher or student
     course_context: str # Title or description
-    api_key: str # User provided temporarily or from stored setting
+    api_key: Optional[str] = None # User provided temporarily
+    course_id: Optional[UUID] = None # Context to look up stored key
     provider: str = "gemini"
 
 class DesignResponse(BaseModel):
@@ -212,24 +267,40 @@ async def generate_agent_prompt(
          raise HTTPException(status_code=403, detail="Not enough permissions")
 
     service = AgentConfigService(session)
-    # Get system agent config for Design Agent
+    
+    # 1. Get System Prompt for Design Agent (Instruction)
+    # We still use the System's "Instruction" for the Design Agent itself.
     configs = await service.get_system_agent_configs(current_user)
     sys_config = next((c for c in configs if c.type == AgentType.DESIGN), None)
-
     sys_prompt = sys_config.system_prompt if sys_config else None
 
-    # Priority: Request Key -> System Config Key
+    # 2. Determine API Key
+    # Priority: Request -> Course Config -> Error
     api_key = request.api_key
-    if not api_key and sys_config:
-        api_key = sys_config.encrypted_api_key
+
+    if not api_key and request.course_id:
+        # Look up course config
+        course_configs = await service.get_course_agent_configs(request.course_id, current_user)
+        design_config = next((c for c in course_configs if c.type == AgentType.DESIGN), None)
+        if design_config and design_config.encrypted_api_key:
+             api_key = design_config.encrypted_api_key
+    
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API Key is required. Please set it in the Design Agent settings for this course.")
 
     from app.core.specialized_agents import DesignAgent
     agent = DesignAgent(provider=request.provider, api_key=api_key, system_prompt=sys_prompt)
 
-    result = await agent.generate_system_prompt(
-        target_agent_type=request.target_agent_type,
-        context=request.course_context,
-        requirement=request.requirement
-    )
+    try:
+        result = await agent.generate_system_prompt(
+            target_agent_type=request.target_agent_type,
+            context=request.course_context,
+            requirement=request.requirement
+        )
+    except Exception as e:
+        # Map common auth errors
+        if "401" in str(e) or "invalid api key" in str(e).lower():
+             raise HTTPException(status_code=400, detail="Invalid API Key provided.")
+        raise HTTPException(status_code=500, detail=str(e))
 
     return {"generated_prompt": result}

@@ -11,6 +11,7 @@ const courseId = ref('')
 // Config State
 const aiFrequency = ref(0.2)
 const aiMode = ref('teacher_only') // off, teacher_only, both
+const isAnalyticsActive = ref(false)
 
 const fetchSettings = async () => {
   try {
@@ -19,6 +20,7 @@ const fetchSettings = async () => {
     courseId.value = room.course_id
     aiMode.value = room.ai_mode || 'teacher_only'
     aiFrequency.value = room.ai_frequency
+    isAnalyticsActive.value = !!room.is_analytics_active
   } catch (e) {
     console.error('Failed to fetch settings', e)
   }
@@ -28,7 +30,8 @@ const saveSettings = async () => {
   try {
     await api.put(`/rooms/${roomId}`, {
       ai_mode: aiMode.value,
-      ai_frequency: aiFrequency.value
+      ai_frequency: aiFrequency.value,
+      is_analytics_active: isAnalyticsActive.value
     })
 
     alert('Settings saved!')
@@ -114,6 +117,18 @@ onMounted(() => {
           <span>被動 (僅在被標記時回覆)</span>
           <span>平衡 (隨機參與討論)</span>
           <span>主動 (頻繁引導討論)</span>
+        </div>
+      </div>
+
+      <!-- Analytics Agent Toggle -->
+      <div class="form-control mb-4 border-t pt-4">
+        <label class="label cursor-pointer justify-start gap-4">
+          <span class="label-text font-bold text-lg">啟用 Analytics Agent</span>
+          <input type="checkbox" class="toggle toggle-secondary" v-model="isAnalyticsActive" />
+        </label>
+        <div class="text-xs opacity-70 mt-1">
+          當啟用時，Analytics Agent 將會分析此聊天室的對話內容並生成報告（需在課程設定中配置 API
+          Key）。
         </div>
       </div>
     </div>

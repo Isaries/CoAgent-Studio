@@ -46,12 +46,8 @@ export function useCourse(courseId: string) {
   }
 
   const deleteCourse = async () => {
-    try {
-      await courseService.deleteCourse(courseId)
-      return true
-    } catch (e) {
-      throw e
-    }
+    await courseService.deleteCourse(courseId)
+    return true
   }
 
   const deleteRoom = async (roomId: string) => {

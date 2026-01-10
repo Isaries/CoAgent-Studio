@@ -32,11 +32,17 @@ export interface AgentSettings {
   [key: string]: any
 }
 
+export interface AgentKey {
+  id: string
+  key_type: string
+  masked_key?: string
+}
+
 export interface AgentConfig {
   id: string
   name: string
   course_id: string
-  type: 'teacher' | 'student'
+  type: 'teacher' | 'student' | 'design' | 'analytics'
   system_prompt: string
   model_provider: string
   model: string
@@ -49,6 +55,8 @@ export interface AgentConfig {
   updated_at: string
   api_key?: string | null // For updates
   masked_api_key?: string // From read
+
+  keys?: Record<string, string> // Mapped for UI convenience (type -> masked_key)
 }
 
 export interface GeneratePromptRequest {
@@ -56,6 +64,7 @@ export interface GeneratePromptRequest {
   target_agent_type: string
   course_context: string
   api_key?: string
+  course_id?: string
   provider: string
 }
 

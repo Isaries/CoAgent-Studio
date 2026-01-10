@@ -12,6 +12,12 @@ export const agentService = {
   updateAgent: (agentId: string, data: Partial<AgentConfig>) =>
     api.put<AgentConfig>(`/agents/${agentId}`, data),
 
+  getKeys: (agentId: string) =>
+    api.get<Record<string, string>>(`/agents/${agentId}/keys`).then((res) => res.data),
+
+  updateKeys: (agentId: string, keys: Record<string, string | null>) =>
+    api.put<AgentConfig>(`/agents/${agentId}/keys`, keys).then((res) => res.data),
+
   deleteAgent: (agentId: string) => api.delete(`/agents/${agentId}`),
 
   activateAgent: (agentId: string) => api.put(`/agents/${agentId}/activate`),

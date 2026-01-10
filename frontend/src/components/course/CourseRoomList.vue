@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Room } from '../../types/course'
 
-const props = defineProps<{
+defineProps<{
   rooms: Room[]
   isStudent: boolean
 }>()

@@ -6,6 +6,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.agent_config import AgentConfig, AgentConfigCreate
+from app.models.agent_key import AgentKey
 from app.models.course import Course
 from app.models.user import User, UserRole
 
@@ -187,3 +188,56 @@ class AgentConfigService:
         self.session.add(agent_config)
         await self.session.commit()
         return agent_config
+
+    async def get_course_agent_config(self, agent_id: UUID, current_user: User) -> AgentConfig:
+        agent_config = await self.session.get(AgentConfig, agent_id)
+        if not agent_config:
+            raise HTTPException(status_code=404, detail="Agent config not found")
+
+        if agent_config.course_id:
+            course = await self.session.get(Course, agent_config.course_id)
+            if course and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN] and course.owner_id != current_user.id:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
+        else:
+            if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+        return agent_config
+
+    async def get_agent_keys(self, agent_config_id: UUID) -> List[AgentKey]:
+        query = select(AgentKey).where(AgentKey.agent_config_id == agent_config_id)
+        result = await self.session.exec(query)
+        return result.all()
+
+    async def update_agent_keys(self, agent_config_id: UUID, keys_data: dict, current_user: User) -> AgentConfig:
+        # Verify permissions and existence
+        agent_config = await self.get_course_agent_config(agent_config_id, current_user)
+        
+        # keys_data = {"room_key": "val", "global_key": "val", "backup_key": "val"}
+        
+        # 1. Fetch existing keys
+        existing_keys = await self.get_agent_keys(agent_config_id)
+        existing_map = {k.key_type: k for k in existing_keys}
+        
+        for k_type, k_val in keys_data.items():
+            if not k_val:
+                # If explicitly sent empty, delete/clear.
+                if k_type in existing_map:
+                     await self.session.delete(existing_map[k_type])
+                continue
+
+            if k_type in existing_map:
+                existing_map[k_type].encrypted_api_key = k_val
+                self.session.add(existing_map[k_type])
+            else:
+                new_key = AgentKey(
+                    agent_config_id=agent_config_id,
+                    key_type=k_type,
+                    encrypted_api_key=k_val
+                )
+                self.session.add(new_key)
+        
+        await self.session.commit()
+        await self.session.refresh(agent_config)
+        return agent_config
+

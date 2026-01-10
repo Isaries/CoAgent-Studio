@@ -8,7 +8,8 @@ from sqlmodel import Field, Relationship, SQLModel
 class RoomBase(SQLModel):
     name: str
     description: Optional[str] = None
-    is_ai_active: bool = Field(default=True)
+    is_ai_active: bool = Field(default=True) # Teacher/Student toggle
+    is_analytics_active: bool = Field(default=False) # Analytics toggle
 
     ai_frequency: float = Field(default=0.5) # 0.0 to 1.0
     ai_mode: str = Field(default="teacher_only") # off, teacher_only, both
@@ -37,5 +38,6 @@ class RoomUpdate(SQLModel):
     name: Optional[str] = None
     description: Optional[str] = None
     is_ai_active: Optional[bool] = None
+    is_analytics_active: Optional[bool] = None
     ai_frequency: Optional[float] = None
     ai_mode: Optional[str] = None

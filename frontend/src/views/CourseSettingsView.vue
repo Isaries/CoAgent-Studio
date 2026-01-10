@@ -8,6 +8,7 @@ import { useAuthStore } from '../stores/auth'
 import { useCourse } from '../composables/useCourse'
 import { useToastStore } from '../stores/toast'
 import { useConfirm } from '../composables/useConfirm'
+import AgentKeyManager from '../components/AgentKeyManager.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -18,7 +19,7 @@ const courseId = route.params.id as string
 const { course, fetchCourseData } = useCourse(courseId)
 
 // State
-const activeTab = ref<'teacher' | 'student'>('teacher')
+const activeTab = ref<'teacher' | 'student' | 'analytics'>('teacher')
 const configs = ref<AgentConfig[]>([])
 const selectedConfigId = ref<string | null>(null)
 const loading = ref(false)
@@ -26,9 +27,16 @@ const loading = ref(false)
 // Editor State
 const editName = ref('')
 const editPrompt = ref('')
-const editApiKey = ref('')
+const editApiKey = ref('') // For Teacher/Student
 const editProvider = ref('gemini')
 const editModel = ref('')
+
+// Analytics Specific
+const editAnalyticsKeys = ref({
+  room_key: '',
+  global_key: '',
+  backup_key: ''
+})
 
 // Advanced State
 const editContextWindow = ref(10)
@@ -40,6 +48,10 @@ const editScheduleConfig = ref<ScheduleConfig>({
   general: { mode: 'none', rules: [] }
 })
 const syncSchedule = ref(false)
+
+// Design Agent Config State
+const designConfig = ref<AgentConfig | null>(null)
+const designApiKey = ref('')
 
 // Helper for Schedule Rules
 
@@ -143,12 +155,17 @@ const generatePrompt = async () => {
       requirement: req,
       target_agent_type: activeTab.value,
       course_context: designDb.value.context || course.value?.title || '',
-      api_key: editApiKey.value,
+      api_key: editApiKey.value, // Temporary key from main editor used? No, should be from design block
+      course_id: courseId,
       provider: editProvider.value
     })
     editPrompt.value = res.data.generated_prompt
-  } catch (e) {
-    alert('Generation failed')
+  } catch (e: any) {
+    if (e.response && e.response.status === 400 && e.response.data.detail) {
+      toast.error(e.response.data.detail)
+    } else {
+      toast.error('Generation failed')
+    }
   } finally {
     designDb.value.loading = false
   }
@@ -161,7 +178,7 @@ const isOwner = computed(() => {
 // Filtered Configs for current tab
 const currentConfigs = computed(() => {
   return configs.value
-    .filter((c) => c.type === activeTab.value)
+    .filter((c: any) => c.type === activeTab.value && c.type !== 'design')
     .sort(
       (a, b) =>
         (b.is_active ? 1 : 0) - (a.is_active ? 1 : 0) ||
@@ -186,6 +203,12 @@ const fetchConfigs = async () => {
   try {
     const res = await agentService.getAgents(courseId)
     configs.value = res.data
+
+    // Extract Design Config
+    designConfig.value = configs.value.find((c: any) => c.type === 'design') || null
+    if (designConfig.value && designConfig.value.masked_api_key) {
+      // We don't populate the actual key, just signal it exists
+    }
 
     // If no selected, select active one for current tab
     if (!selectedConfigId.value) {
@@ -212,6 +235,22 @@ const selectConfig = (config: any) => {
   // Advanced
   editContextWindow.value = config.context_window || 10
   editTriggerConfig.value = config.trigger_config || { type: 'message_count', value: 10 }
+
+  // Analytics Keys
+  editAnalyticsKeys.value = { room_key: '', global_key: '', backup_key: '' }
+  if (config.type === 'analytics') {
+    // Fetch keys (masked)
+    // We can do this async but selectConfig is sync. We should probably do it in valid way.
+    // Ideally we load keys when selected.
+    // Let's call the service
+    agentService.getKeys(config.id).then((keys) => {
+      editAnalyticsKeys.value = {
+        room_key: keys.room_key || '',
+        global_key: keys.global_key || '',
+        backup_key: keys.backup_key || ''
+      }
+    })
+  }
 
   // Settings & Schedule
   const settings = config.settings || {}
@@ -240,9 +279,15 @@ const selectConfig = (config: any) => {
 
 const startNewConfig = () => {
   selectedConfigId.value = null
-  editName.value = `New ${activeTab.value === 'teacher' ? 'Teacher' : 'Student'} Brain`
+  let defaultName = 'New Brain'
+  if (activeTab.value === 'teacher') defaultName = 'New Teacher Brain'
+  else if (activeTab.value === 'student') defaultName = 'New Student Brain'
+  else if (activeTab.value === 'analytics') defaultName = 'New Analytics Brain'
+
+  editName.value = defaultName
   editPrompt.value = ''
   editApiKey.value = ''
+  editAnalyticsKeys.value = { room_key: '', global_key: '', backup_key: '' }
   editProvider.value = 'gemini'
   editModel.value = ''
 
@@ -314,6 +359,40 @@ const saveConfig = async () => {
       const res = await agentService.createAgent(courseId, payload)
       selectedConfigId.value = res.data.id
     }
+
+    // Save Analytics Keys if applicable
+
+    if (activeTab.value === 'analytics' && selectedConfigId.value) {
+      const keysToSend: any = {}
+      const kMap = editAnalyticsKeys.value as any
+
+      for (const k of ['room_key', 'global_key', 'backup_key']) {
+        const val = kMap[k]
+        if (val && !val.includes('****')) {
+          // New value entered
+          keysToSend[k] = val
+        } else if (val === '') {
+          // Explicitly empty (cleared or never set) -> Send empty to ensure it's removed/cleared in backend
+          keysToSend[k] = ''
+        }
+        // If valid mask (****), ignore (don't send, so backend keeps existing)
+      }
+
+      if (Object.keys(keysToSend).length > 0) {
+        await agentService.updateKeys(selectedConfigId.value, keysToSend)
+      }
+
+      // Always refresh keys to get updated state (masked values)
+      if (course.value?.id) {
+        const refreshedKeys = await agentService.getKeys(selectedConfigId.value)
+        editAnalyticsKeys.value = {
+          room_key: refreshedKeys.room_key || '',
+          global_key: refreshedKeys.global_key || '',
+          backup_key: refreshedKeys.backup_key || ''
+        }
+      }
+    }
+
     await fetchConfigs()
     toast.success('Saved!')
   } catch (e: any) {
@@ -352,6 +431,38 @@ const handleClearApiKey = async () => {
   editApiKey.value = '' // Reset to empty to show placeholder or clean state
 }
 
+const saveDesignAgentKey = async () => {
+  if (!designApiKey.value && designApiKey.value !== 'CLEAR_KEY') return
+
+  const payload: any = {
+    name: 'Design Agent Config',
+    type: 'design',
+    system_prompt: 'System Design Agent', // Placeholder, not used but required by schema
+    model_provider: 'gemini', // Default or make configurable?
+    api_key: designApiKey.value === 'CLEAR_KEY' ? '' : designApiKey.value
+  }
+
+  try {
+    if (designConfig.value) {
+      await agentService.updateAgent(designConfig.value.id, payload)
+    } else {
+      await agentService.createAgent(courseId, payload)
+    }
+    toast.success('Design Agent Key Saved for this Course')
+    designApiKey.value = ''
+    await fetchConfigs()
+  } catch (e) {
+    console.error(e)
+    toast.error('Failed to save Design Agent Key')
+  }
+}
+
+const handleClearDesignKey = async () => {
+  if (!(await confirm('Clear Key', 'Remove stored Design Agent Key?'))) return
+  designApiKey.value = 'CLEAR_KEY'
+  await saveDesignAgentKey()
+}
+
 // Watchers
 watch(activeTab, () => {
   startNewConfig()
@@ -385,6 +496,12 @@ onMounted(async () => {
             :class="{ 'tab-active': activeTab === 'student' }"
             @click="activeTab = 'student'"
             >Student</a
+          >
+          <a
+            class="tab"
+            :class="{ 'tab-active': activeTab === 'analytics' }"
+            @click="activeTab = 'analytics'"
+            >Analytics</a
           >
         </div>
       </div>
@@ -492,53 +609,15 @@ onMounted(async () => {
             />
           </div>
 
-          <div class="form-control mb-6">
-            <label class="label">
-              <span class="label-text">API Key</span>
-              <span class="label-text-alt text-gray-500">Leave empty to keep existing</span>
-            </label>
-            <div class="join">
-              <input
-                type="password"
-                v-model="editApiKey"
-                :disabled="!canEdit"
-                placeholder="Enter new API Key to update..."
-                class="input input-bordered join-item w-full"
-              />
-              <button
-                v-if="canEdit && selectedConfig && selectedConfig.masked_api_key"
-                @click="handleClearApiKey"
-                class="btn btn-warning join-item"
-                :class="{ 'btn-active': editApiKey === 'CLEAR_KEY' }"
-                type="button"
-              >
-                {{ editApiKey === 'CLEAR_KEY' ? 'Clearing...' : 'Clear' }}
-              </button>
-            </div>
-
-            <div v-if="editApiKey === 'CLEAR_KEY'" class="label text-xs text-warning">
-              Key will be removed upon saving.
-            </div>
-            <div
-              v-else-if="selectedConfig && selectedConfig.masked_api_key && !editApiKey"
-              class="label text-xs text-success flex gap-1 items-center"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              </svg>
-              Encryption Active. Current Key: {{ selectedConfig.masked_api_key }}
-            </div>
-          </div>
+          <!-- API Keys Section -->
+          <AgentKeyManager
+            :agent-type="activeTab"
+            :can-edit="canEdit"
+            v-model:simple-key="editApiKey"
+            v-model:analytics-keys="editAnalyticsKeys"
+            :masked-simple-key="selectedConfig?.masked_api_key"
+            @clear-simple-key="handleClearApiKey"
+          />
 
           <div class="grid grid-cols-2 gap-4 mb-6">
             <div class="form-control">
@@ -581,6 +660,45 @@ onMounted(async () => {
                 <p class="mb-2 text-sm text-gray-600">
                   Describe the persona and behavior you want.
                 </p>
+
+                <!-- Design Agent API Key Block -->
+                <div class="form-control mb-4 p-3 bg-base-100 rounded border border-base-200">
+                  <label class="label pt-0"
+                    ><span class="label-text font-bold text-xs"
+                      >Design Agent API Key (for this course)</span
+                    ></label
+                  >
+                  <div class="join w-full">
+                    <input
+                      type="password"
+                      v-model="designApiKey"
+                      :placeholder="
+                        designConfig?.masked_api_key
+                          ? `Using: ${designConfig.masked_api_key}`
+                          : 'Enter API Key for Generator...'
+                      "
+                      class="input input-sm input-bordered join-item w-full"
+                    />
+                    <button
+                      @click="saveDesignAgentKey"
+                      class="btn btn-sm btn-primary join-item"
+                      :disabled="!designApiKey"
+                    >
+                      Save Key
+                    </button>
+                    <button
+                      v-if="designConfig?.masked_api_key"
+                      @click="handleClearDesignKey"
+                      class="btn btn-sm btn-ghost join-item text-error"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div class="text-[10px] text-gray-400 mt-1">
+                    If set, this key will be used for auto-generation for this course.
+                  </div>
+                </div>
+
                 <textarea
                   v-model="designDb.requirement"
                   class="textarea textarea-bordered w-full mb-2"
