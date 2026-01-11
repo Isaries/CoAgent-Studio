@@ -129,7 +129,7 @@ async def logout() -> Any:
     return {"message": "Logged out successfully"}
 
 
-@router.post("/login/test-token", response_model=UserRead)
+@router.post("/login/test-token")
 async def test_token(current_user: User = Depends(deps.get_current_user)) -> Any:
     """
     Test access token

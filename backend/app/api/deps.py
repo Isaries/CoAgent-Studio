@@ -14,6 +14,7 @@ from app.models.user import User
 
 class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
     async def __call__(self, request: Request) -> Optional[str]:
+        print("DEBUG: OAuth2PasswordBearerWithCookie called", flush=True)
         # Priority: Cookie > Header
         authorization: str = request.cookies.get("access_token")
         if not authorization:
