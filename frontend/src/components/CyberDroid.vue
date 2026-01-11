@@ -351,14 +351,14 @@ const generateKnowledgeBurst = (xPercent: number, yPercent: number) => {
     // Create Nodes (Symbols)
     for(let i=0; i<burstCount; i++) {
         const angle = Math.random() * Math.PI * 2
-        const speed = 0.2 + Math.random() * 0.3
+        const speed = 0.1 + Math.random() * 0.15
         nodes.push({
             id: Date.now() + i + Math.random(), // Add random to ensure unique IDs
-            x: xPercent + (Math.random()-0.5)*2,
-            y: yPercent + (Math.random()-0.5)*2,
+            x: xPercent + (Math.random()-0.5)*1.5,
+            y: yPercent + (Math.random()-0.5)*1.5,
             text: SYMBOLS_POOL[Math.floor(Math.random() * SYMBOLS_POOL.length)] || '∑',
             vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 0.2, // Float upward slightly
+            vy: Math.sin(angle) * speed - 0.1, // Float upward slightly
             opacity: 1,
             scale: 0.5 + Math.random() * 0.5
         })
@@ -387,8 +387,8 @@ const animateUI = () => {
     knowledgeNodes.value.forEach(node => {
         node.x += node.vx
         node.y += node.vy
-        node.opacity -= 0.015
-        node.vy -= 0.005 // Gravity/Float acceleration
+        node.opacity -= 0.006 // Much slower fade
+        node.vy -= 0.002 // Gentler float
     })
     
     // Update Lines (inherit opacity from nodes) using average
