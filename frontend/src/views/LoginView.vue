@@ -129,7 +129,7 @@ const handleLogin = async () => {
             <h1
               @click="handleSecretTrigger"
               :class="[
-                'text-4xl font-black mb-2 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r animate-gradient-x select-none cursor-default truncate transition-all duration-1000',
+                'text-4xl font-black mb-4 tracking-tight text-transparent bg-clip-text bg-gradient-to-r animate-gradient-x select-none cursor-default pb-2 transition-all duration-1000',
                 themeColors.textGradient
               ]"
             >
