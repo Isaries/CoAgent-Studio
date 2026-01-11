@@ -497,7 +497,7 @@ const fireLaser = () => {
     impactGroup = new THREE.Points(pGeo, new THREE.PointsMaterial({ color: COLOR_GOLD, size: 0.15, transparent: true, blending: THREE.AdditiveBlending }))
     scene.add(impactGroup)
 
-    isLaserActive = true; laserDuration = 50 // Longer duration
+    isLaserActive = true; laserDuration = 15 // Short pulse
 
     // 5. Knowledge/Neural UI Trigger
     generateKnowledgeBurst((mouseX + 1) * 50, (-mouseY + 1) * 50)
@@ -562,10 +562,10 @@ function animate(time: number) {
           laserGroup.position.copy(new THREE.Vector3().setFromMatrixPosition(visorMesh.matrixWorld)) 
       }
       
-      // Muzzle Flash Logic (Ephemeral: only visible for 5 frames)
-      // Total duration is 50, so if laserDuration < 45, hide it.
+      // Muzzle Flash Logic (Ephemeral: only visible for first 3 frames)
+      // Total duration is 15, so if laserDuration < 12, hide it.
       if (muzzleGroup) {
-          if (laserDuration > 45) {
+          if (laserDuration > 12) {
              const s = 1 + Math.random() * 0.5
              muzzleGroup.scale.set(s, s, s)
              muzzleGroup.rotation.z += 0.5
