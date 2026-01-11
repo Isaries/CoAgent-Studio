@@ -6,15 +6,7 @@ import MessageBubble from '../components/chat/MessageBubble.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
 import api from '../api'
 
-// Basic Message Interface (MVP)
-interface Message {
-  sender: string
-  content: string
-  isSelf: boolean
-  isSystem?: boolean
-  isAi?: boolean
-  timestamp?: string
-}
+import type { Message } from '../types/chat'
 
 const route = useRoute()
 const authStore = useAuthStore()

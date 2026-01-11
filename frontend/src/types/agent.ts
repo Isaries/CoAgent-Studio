@@ -71,3 +71,10 @@ export interface GeneratePromptRequest {
 export interface GeneratePromptResponse {
   generated_prompt: string
 }
+
+export interface DesignDbState {
+  requirement: string
+  context: string
+  loading: boolean
+  refineCurrent: boolean
+}

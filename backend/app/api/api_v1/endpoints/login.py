@@ -54,7 +54,7 @@ async def login_access_token(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=settings.SECURE_COOKIES,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
@@ -62,7 +62,7 @@ async def login_access_token(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=True,
+        secure=settings.SECURE_COOKIES,
         samesite="lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         path=f"{settings.API_V1_STR}/login/refresh",
@@ -114,7 +114,7 @@ async def refresh_token(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=settings.SECURE_COOKIES,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
@@ -178,7 +178,7 @@ async def impersonate_user(
             key="original_access_token",
             value=current_token,
             httponly=True,
-            secure=True,
+            secure=settings.SECURE_COOKIES,
             samesite="lax",
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
@@ -187,7 +187,7 @@ async def impersonate_user(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=settings.SECURE_COOKIES,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
@@ -197,7 +197,7 @@ async def impersonate_user(
         key="is_impersonating",
         value="true",
         httponly=False,
-        secure=True,
+        secure=settings.SECURE_COOKIES,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
@@ -216,7 +216,7 @@ async def stop_impersonate(request: Request) -> Any:
         key="access_token",
         value=original_token,
         httponly=True,
-        secure=True,
+        secure=settings.SECURE_COOKIES,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )

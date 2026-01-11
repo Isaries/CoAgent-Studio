@@ -7,13 +7,7 @@ const route = useRoute()
 // Handle the case where params.id might be undefined (global analytics route)
 const courseId = route.params.id as string | undefined
 
-interface Report {
-  id: string
-  course_id: string
-  content: string
-  created_at: string
-  report_type: string
-}
+import type { Report } from '../types/analytics'
 
 const reports = ref<Report[]>([])
 const loading = ref(false)

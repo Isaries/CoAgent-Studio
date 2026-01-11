@@ -7,6 +7,10 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     PROJECT_NAME: str = "CoAgent Studio"
     API_V1_STR: str = "/api/v1"
+    
+    # COOKIES
+    SECURE_COOKIES: bool = False # Default to False for easier dev access, set True in prod
+
 
     # SECURITY
     SECRET_KEY: str  # Required, must be set in .env

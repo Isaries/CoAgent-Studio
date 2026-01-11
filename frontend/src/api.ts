@@ -27,10 +27,11 @@ api.interceptors.response.use(
         await api.post(REFRESH_URL)
         return api(originalRequest)
       } catch (refreshError) {
-        // Refresh failed - let the store handle logout or catch block in component handle it
-        // Ideally, we should redirect to login if we know it's a session expiry
-        // import router is available
-        // router.push('/login') // Moved to catch block in store usually, but global handler is safer
+        // Refresh failed - force logout
+        // Using window.location instead of router to ensure full state reset
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
         return Promise.reject(refreshError)
       }
     }
