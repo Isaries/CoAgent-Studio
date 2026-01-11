@@ -360,7 +360,7 @@ const generateKnowledgeBurst = (xPercent: number, yPercent: number) => {
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed - 0.1, // Float upward slightly
             opacity: 1,
-            scale: 0.5 + Math.random() * 0.5
+            scale: 0.8 + Math.random() * 0.7
         })
     }
     knowledgeNodes.value.push(...nodes)
@@ -680,7 +680,7 @@ onUnmounted(() => {
             left: node.x + '%', 
             top: node.y + '%', 
             opacity: node.opacity,
-            fontSize: (1.2 * node.scale) + 'rem',
+            fontSize: (2.0 * node.scale) + 'rem',
             textShadow: '0 0 10px rgba(0, 255, 255, 0.8)'
          }">
          {{ node.text }}
