@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+const REFRESH_URL = '/login/refresh'
+
 const api = axios.create({
   baseURL: '/api/v1', // Proxy will handle this in dev, or env var
   headers: {
@@ -15,14 +17,14 @@ api.interceptors.response.use(
     const originalRequest = error.config
 
     // Prevent infinite loop: if the failed request was the refresh attempt, don't retry
-    if (originalRequest.url.includes('/login/refresh')) {
+    if (originalRequest.url.includes(REFRESH_URL)) {
       return Promise.reject(error)
     }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
       try {
-        await api.post('/login/refresh')
+        await api.post(REFRESH_URL)
         return api(originalRequest)
       } catch (refreshError) {
         // Refresh failed - let the store handle logout or catch block in component handle it
