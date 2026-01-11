@@ -13,7 +13,7 @@ export interface RobotParts {
 }
 
 const createTechMaterial = (color: number, wireframe = false, opacity = 1) => {
-  return new THREE.MeshBasicMaterial({
+  const mat = new THREE.MeshBasicMaterial({
     color: color,
     wireframe: wireframe,
     transparent: true,
@@ -21,22 +21,31 @@ const createTechMaterial = (color: number, wireframe = false, opacity = 1) => {
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending
   })
+  mat.userData = { originalColor: color }
+  return mat
 }
 
 const createSolidMaterial = (color: number) => {
-  return new THREE.MeshPhongMaterial({
+  const mat = new THREE.MeshPhongMaterial({
     color: color,
     emissive: color,
     emissiveIntensity: 0.1,
     shininess: 120,
     flatShading: true
   })
+  mat.userData = { originalColor: color }
+  return mat
 }
 
-export const createCyberDroid = (scene: THREE.Scene): RobotParts => {
+export const createRobot = (
+  scene: THREE.Scene,
+  x: number,
+  y: number,
+  z: number
+): RobotParts => {
   // --- Robot Assembly ---
   const robotGroup = new THREE.Group()
-  robotGroup.position.set(6, -1, 0)
+  robotGroup.position.set(x, y, z)
   scene.add(robotGroup)
 
   // 1. Torso: Industrial Frame
@@ -337,6 +346,19 @@ export const createCyberDroid = (scene: THREE.Scene): RobotParts => {
   ring3.rotation.set(1.2, -0.4, 0)
   satellitesGroup.add(ring3)
 
+  return {
+    robotGroup,
+    headGroup,
+    torsoGroup,
+    leftArmGroup,
+    rightArmGroup,
+    coreReactor,
+    visorMesh,
+    satellitesGroup
+  }
+}
+
+export const createEnvironment = (scene: THREE.Scene): void => {
   // 6. Background Particles
   const pGeo = new THREE.BufferGeometry()
   const pCount = 300
@@ -358,15 +380,4 @@ export const createCyberDroid = (scene: THREE.Scene): RobotParts => {
       })
     )
   )
-
-  return {
-    robotGroup,
-    headGroup,
-    torsoGroup,
-    leftArmGroup,
-    rightArmGroup,
-    coreReactor,
-    visorMesh,
-    satellitesGroup
-  }
 }

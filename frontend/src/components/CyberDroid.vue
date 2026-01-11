@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import * as THREE from 'three'
-import { createCyberDroid } from '../utils/robot-factory'
+import { createRobot, createEnvironment, type RobotParts } from '../utils/robot-factory'
 import { disposeGroup } from '../utils/three-utils'
 import { useKnowledgeEffect } from '../composables/useKnowledgeEffect'
 import { VISUAL_COLORS } from '../types/visuals'
@@ -14,21 +14,37 @@ const props = defineProps<{
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 
 // Three.js State
-let scene: THREE.Scene
-let camera: THREE.PerspectiveCamera
-let renderer: THREE.WebGLRenderer
+let scene: THREE.Scene | undefined
+let camera: THREE.PerspectiveCamera | undefined
+let renderer: THREE.WebGLRenderer | undefined
 let frameId: number
 
-// Robot Parts
-let robotGroup: THREE.Group
-let headGroup: THREE.Group
-let torsoGroup: THREE.Group
-let satellitesGroup: THREE.Group
-let leftArmGroup: THREE.Group
-let rightArmGroup: THREE.Group
-let coreReactor: THREE.Mesh
-let visorMesh: THREE.Mesh
-let laserGroup: THREE.Group | null = null
+// Robot Instances
+interface RobotInstance extends RobotParts {
+  // Gesture State
+  action: 'idle' | 'scan' | 'inspect'
+  actionTimer: number
+  // Target Rotations for smooth lerping
+  leftArmTargetX: number
+  leftArmTargetZ: number
+  rightArmTargetX: number
+  rightArmTargetZ: number
+  // Holograms
+  scanHologram: THREE.Group 
+  inspectHologram: THREE.Mesh
+  // Physics
+  recoilImpulse: number
+}
+let robots: RobotInstance[] = []
+
+// Smoke System
+interface SmokeParticle {
+  mesh: THREE.Mesh
+  vel: THREE.Vector3
+  life: number
+  maxLife: number
+}
+let smokeParticles: SmokeParticle[] = []
 
 // Interaction State
 let mouseX = 0
@@ -47,6 +63,82 @@ const {
   getNodeById
 } = useKnowledgeEffect()
 const isShaking = ref(false)
+
+const createRobotInstance = (scene: THREE.Scene, x: number, y: number, z: number): RobotInstance => {
+  const parts = createRobot(scene, x, y, z)
+  
+  // --- Create Holograms ---
+  
+  // 1. Scan Hologram Group (Left Hand)
+  const scanGroup = new THREE.Group()
+  scanGroup.position.set(0, -2.5, 0) // Tip at wrist/hand
+  parts.leftArmGroup.add(scanGroup)
+
+  // A. Scan Beam (The Cone)
+  const scanGeo = new THREE.ConeGeometry(0.3, 1.5, 32, 1, true)
+  scanGeo.translate(0, -0.75, 0) // Pivot at tip
+  scanGeo.rotateX(-Math.PI / 2) // Point forward
+  const scanMat = new THREE.MeshBasicMaterial({
+    color: VISUAL_COLORS.CYAN,
+    transparent: true,
+    opacity: 0,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    wireframe: true
+  })
+  const scanBeam = new THREE.Mesh(scanGeo, scanMat)
+  scanBeam.name = 'scanBeam'
+  scanGroup.add(scanBeam)
+
+  // B. The Crystal (Floating inside)
+  const crystalGeo = new THREE.OctahedronGeometry(0.3, 0)
+  const crystalMat = new THREE.MeshBasicMaterial({
+    color: VISUAL_COLORS.WHITE, // White core
+    transparent: true,
+    opacity: 0,
+    wireframe: true, // Tech crystal
+    blending: THREE.AdditiveBlending
+  })
+  const crystal = new THREE.Mesh(crystalGeo, crystalMat)
+  crystal.position.set(0, 0, 1.2) // Position inside the cone (Z-axis alignment)
+  crystal.rotation.x = -Math.PI / 2 // Align with cone logic
+  crystal.name = 'scanCrystal'
+  scanGroup.add(crystal)
+
+  // 2. Inspect Screen (Right Hand)
+  const screenGeo = new THREE.PlaneGeometry(0.8, 0.5)
+  const screenMat = new THREE.MeshBasicMaterial({
+    color: VISUAL_COLORS.CYAN,
+    transparent: true,
+    opacity: 0,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  })
+  const inspectHologram = new THREE.Mesh(screenGeo, screenMat)
+  inspectHologram.position.set(0, -2.5, 0.5) // Floating above hand
+  inspectHologram.rotation.x = -Math.PI / 4 // Angled up
+  parts.rightArmGroup.add(inspectHologram)
+
+  // Store original colors for Admin switching
+  scanMat.userData = { originalColor: VISUAL_COLORS.CYAN }
+  crystalMat.userData = { originalColor: VISUAL_COLORS.WHITE }
+  screenMat.userData = { originalColor: VISUAL_COLORS.CYAN }
+
+  return {
+    ...parts,
+    action: 'idle',
+    actionTimer: 0,
+    leftArmTargetX: 0,
+    leftArmTargetZ: 0,
+    rightArmTargetX: 0,
+    rightArmTargetZ: 0,
+    scanHologram: scanGroup,
+    inspectHologram,
+    recoilImpulse: 0
+  }
+}
 
 const initThreeJS = () => {
   if (!canvasRef.value) return
@@ -80,281 +172,499 @@ const initThreeJS = () => {
   const ambientLight = new THREE.AmbientLight(0x202020)
   scene.add(ambientLight)
 
-  // --- Robot Assembly via Factory ---
-  const parts = createCyberDroid(scene)
-  robotGroup = parts.robotGroup
-  headGroup = parts.headGroup
-  torsoGroup = parts.torsoGroup
-  satellitesGroup = parts.satellitesGroup
-  leftArmGroup = parts.leftArmGroup
-  rightArmGroup = parts.rightArmGroup
-  coreReactor = parts.coreReactor
-  visorMesh = parts.visorMesh
+  // --- Environment ---
+  createEnvironment(scene)
+
+  // --- Robot Assembly (Dual Robots) ---
+  // Left Guard
+  robots.push(createRobotInstance(scene, -7, -1, 0))
+  // Right Guard
+  robots.push(createRobotInstance(scene, 7, -1, 0))
 
   animate(0)
 }
 
 // Effects State
-let muzzleGroup: THREE.Group | null = null
-let impactGroup: THREE.Points | null = null
+let muzzleGroups: THREE.Group[] = []
+let laserGroups: THREE.Group[] = []
+let impactGroups: THREE.Points[] = []
+
+const cleanupLaserEffects = () => {
+  if (!scene) return
+
+  laserGroups.forEach((g) => {
+    scene!.remove(g)
+    disposeGroup(g)
+  })
+  laserGroups = []
+
+  muzzleGroups.forEach((g) => {
+    scene!.remove(g)
+    disposeGroup(g)
+  })
+  muzzleGroups = []
+
+  impactGroups.forEach((g) => {
+    scene!.remove(g)
+    disposeGroup(g)
+  })
+  impactGroups = []
+}
 
 const fireLaser = () => {
-  if (!visorMesh) return
-  // 0. Cleanup (Fix Memory Leaks)
-  if (laserGroup) {
-    scene.remove(laserGroup)
-    disposeGroup(laserGroup)
-    laserGroup = null
-  }
-  if (muzzleGroup) {
-    scene.remove(muzzleGroup)
-    disposeGroup(muzzleGroup)
-    muzzleGroup = null
-  }
-  if (impactGroup) {
-    scene.remove(impactGroup)
-    disposeGroup(impactGroup)
-    impactGroup = null
-  }
+  if (robots.length === 0 || !camera || !scene) return
 
-  // 1. Math
-  const origin = new THREE.Vector3()
-  visorMesh.getWorldPosition(origin)
+  // 0. Cleanup previous shots
+  cleanupLaserEffects()
+
+  // 1. Target Calculation
   const vector = new THREE.Vector3(mouseX, mouseY, 0.5)
   vector.unproject(camera)
   const dir = vector.sub(camera.position).normalize()
   const distance = (0 - camera.position.z) / dir.z
   const target = camera.position.clone().add(dir.multiplyScalar(distance))
 
-  // 2. Muzzle Flash (At Visor)
-  muzzleGroup = new THREE.Group()
-  muzzleGroup.position.copy(origin)
-  scene.add(muzzleGroup)
+  // 2. Trigger for EACH robot
+  robots.forEach((robot) => {
+    const visor = robot.visorMesh
+    if (!visor) return
 
-  // Bright Core Flash
-  const flashGeo = new THREE.SphereGeometry(0.5, 8, 8)
-  const flashMat = new THREE.MeshBasicMaterial({
-    color: VISUAL_COLORS.WHITE,
-    transparent: true,
-    opacity: 1
-  })
-  muzzleGroup.add(new THREE.Mesh(flashGeo, flashMat))
-  // Energy Ring ring
-  const flashRing = new THREE.Mesh(
-    new THREE.TorusGeometry(0.6, 0.05, 4, 16),
-    new THREE.MeshBasicMaterial({ color: VISUAL_COLORS.CYAN, transparent: true })
-  )
-  flashRing.lookAt(target)
-  muzzleGroup.add(flashRing)
+    // Trigger Mechanical Recoil
+    robot.recoilImpulse = 0.6 // Sharp kickback
 
-  // 3. The Beam (Ice Cyan Multi-Layer Gradient)
-  laserGroup = new THREE.Group()
-  const distanceVec = new THREE.Vector3().subVectors(target, origin)
-  const len = distanceVec.length()
+    const origin = new THREE.Vector3()
+    visor.getWorldPosition(origin)
 
-  // Core (Needle Sharp - White)
-  const coreMat = new THREE.MeshBasicMaterial({
-    color: VISUAL_COLORS.WHITE,
-    transparent: true,
-    opacity: 1,
-    blending: THREE.AdditiveBlending
-  })
-  const coreGeo = new THREE.CylinderGeometry(0.04, 0.04, len, 8)
-  coreGeo.rotateX(-Math.PI / 2)
-  coreGeo.translate(0, 0, len / 2)
-  laserGroup.add(new THREE.Mesh(coreGeo, coreMat))
+    // --- Smoke Eject ---
+    for(let i=0; i<12; i++) {
+        const size = 0.1 + Math.random() * 0.2
+        const smokeGeo = new THREE.PlaneGeometry(size, size)
+        smokeGeo.rotateZ(Math.random() * Math.PI)
+        const smokeMat = new THREE.MeshBasicMaterial({
+            color: 0xaaaaaa,
+            transparent: true,
+            opacity: 0.4 + Math.random() * 0.2,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        })
+        const mesh = new THREE.Mesh(smokeGeo, smokeMat)
+        mesh.position.copy(origin)
+        // Offset slightly
+        mesh.position.x += (Math.random() - 0.5) * 0.2
+        mesh.position.y += (Math.random() - 0.5) * 0.2
+        mesh.position.z += (Math.random() - 0.5) * 0.2
+        
+        // Upward velocity with drift
+        const vel = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.02,
+            0.03 + Math.random() * 0.03, // Up
+            (Math.random() - 0.5) * 0.02
+        )
+        
+        scene!.add(mesh) // 262
+        smokeParticles.push({
+            mesh,
+            vel,
+            life: 0,
+            maxLife: 60 + Math.random() * 40
+        })
+    }
 
-  // Multi-Layer Glow (Soft Gradient Bloom)
-  const layers = [
-    { r: 0.15, op: 0.6 }, // Inner High Energy
-    { r: 0.3, op: 0.3 }, // Mid Glow
-    { r: 0.6, op: 0.1 } // Outer Halo
-  ]
+    // --- Muzzle Flash ---
+    const muzzleGroup = new THREE.Group()
+    muzzleGroup.position.copy(origin)
+    scene!.add(muzzleGroup) // 274
+    muzzleGroups.push(muzzleGroup)
 
-  layers.forEach((layer, idx) => {
-    const mat = new THREE.MeshBasicMaterial({
-      color: props.isAdminMode ? VISUAL_COLORS.RED : VISUAL_COLORS.LASER_GLOW,
+    const flashGeo = new THREE.SphereGeometry(0.5, 8, 8)
+    const flashMat = new THREE.MeshBasicMaterial({
+      color: VISUAL_COLORS.WHITE,
       transparent: true,
-      opacity: layer.op,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false // Important for layering transparency
+      opacity: 1
     })
-    const geo = new THREE.CylinderGeometry(layer.r, layer.r * 1.2, len, 8) // Slight taper
-    geo.rotateX(-Math.PI / 2)
-    geo.translate(0, 0, len / 2)
-    const mesh = new THREE.Mesh(geo, mat)
-    mesh.name = `glow_${idx}`
-    laserGroup!.add(mesh)
-  })
+    muzzleGroup.add(new THREE.Mesh(flashGeo, flashMat))
+    const flashRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.6, 0.05, 4, 16),
+      new THREE.MeshBasicMaterial({ color: VISUAL_COLORS.CYAN, transparent: true })
+    )
+    flashRing.lookAt(target)
+    muzzleGroup.add(flashRing)
 
-  laserGroup.position.copy(origin)
-  laserGroup.lookAt(target)
-  scene.add(laserGroup)
+    // --- The Beam ---
+    const laserGroup = new THREE.Group()
+    const distanceVec = new THREE.Vector3().subVectors(target, origin)
+    const len = distanceVec.length()
 
-  // 4. Impact Sparks (At Hit)
-  const pCount = 30
-  const pGeo = new THREE.BufferGeometry()
-  const pPos = new Float32Array(pCount * 3)
-  const pVel: number[] = [] // Store velocities in JS array for simple anim
-  for (let i = 0; i < pCount; i++) {
-    pPos[i * 3] = target.x
-    pPos[i * 3 + 1] = target.y
-    pPos[i * 3 + 2] = target.z
-    pVel.push((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.5)
-  }
-  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3))
-  pGeo.userData = { vel: pVel } // Attach data
-  impactGroup = new THREE.Points(
-    pGeo,
-    new THREE.PointsMaterial({
-      color: VISUAL_COLORS.GOLD,
-      size: 0.15,
+    // Core
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: VISUAL_COLORS.WHITE,
       transparent: true,
+      opacity: 1,
       blending: THREE.AdditiveBlending
     })
-  )
-  scene.add(impactGroup)
+    const coreGeo = new THREE.CylinderGeometry(0.04, 0.04, len, 8)
+    coreGeo.rotateX(-Math.PI / 2)
+    coreGeo.translate(0, 0, len / 2)
+    laserGroup.add(new THREE.Mesh(coreGeo, coreMat))
+
+    // Layers
+    const layers = [
+      { r: 0.15, op: 0.6 },
+      { r: 0.3, op: 0.3 },
+      { r: 0.6, op: 0.1 }
+    ]
+    layers.forEach((layer, idx) => {
+      const mat = new THREE.MeshBasicMaterial({
+        color: props.isAdminMode ? VISUAL_COLORS.RED : VISUAL_COLORS.LASER_GLOW,
+        transparent: true,
+        opacity: layer.op,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
+      const geo = new THREE.CylinderGeometry(layer.r, layer.r * 1.2, len, 8)
+      geo.rotateX(-Math.PI / 2)
+      geo.translate(0, 0, len / 2)
+      const mesh = new THREE.Mesh(geo, mat)
+      mesh.name = `glow_${idx}`
+      laserGroup.add(mesh)
+    })
+
+    laserGroup.position.copy(origin)
+    laserGroup.lookAt(target)
+    scene!.add(laserGroup)
+    laserGroups.push(laserGroup)
+
+    // --- Impact Sparks ---
+    const pCount = 30
+    const pGeo = new THREE.BufferGeometry()
+    const pPos = new Float32Array(pCount * 3)
+    const pVel: number[] = []
+    for (let i = 0; i < pCount; i++) {
+      pPos[i * 3] = target.x
+      pPos[i * 3 + 1] = target.y
+      pPos[i * 3 + 2] = target.z
+      pVel.push(
+        (Math.random() - 0.5) * 0.5,
+        (Math.random() - 0.5) * 0.5,
+        (Math.random() - 0.5) * 0.5
+      )
+    }
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3))
+    pGeo.userData = { vel: pVel }
+    const impactGroup = new THREE.Points(
+      pGeo,
+      new THREE.PointsMaterial({
+        color: VISUAL_COLORS.GOLD,
+        size: 0.15,
+        transparent: true,
+        blending: THREE.AdditiveBlending
+      })
+    )
+    scene!.add(impactGroup)
+    impactGroups.push(impactGroup)
+  }) // End robots loop
 
   isLaserActive = true
-  laserDuration = 15 // Short pulse
+  laserDuration = 15
 
   // 5. Knowledge/Neural UI Trigger
   generateKnowledgeBurst((mouseX + 1) * 50, (-mouseY + 1) * 50)
-  // animateUI is handled by composable, but we need to ensure it starts if loop stopped
-  // The composable handles loop internally if we call animateUI once.
-  // But better to check if loop is running references logic in composable?
-  // Actually the composable checks length > 0 at end of frame.
-  // So if length was 0, loop stopped. We need to restart it.
-  // Let's call it once.
   animateUI()
 }
 
 function animate(time: number) {
   frameId = requestAnimationFrame(animate)
+  if (!camera || !scene || !renderer) return
+
   time *= 0.001
 
-  if (!robotGroup) return
+  // 1. Calculate World Mouse Position (Z=4 plane approx 'focus')
+  const vector = new THREE.Vector3(mouseX, mouseY, 0.5)
+  vector.unproject(camera)
+  const dir = vector.sub(camera.position).normalize()
+  const distance = (4 - camera.position.z) / dir.z // Project to Z=4 (closer to robots) to feel more "in their face"
+  const worldMouse = camera.position.clone().add(dir.multiplyScalar(distance))
 
-  // Robot Patrol Movement (Figure-8)
-  const patrolSpeed = 0.5
-  robotGroup.position.x = Math.cos(time * patrolSpeed) * 9
-  robotGroup.position.y = Math.sin(time * patrolSpeed * 2) * 4 - 1 // -1 is vertical offset
+  // Update Smoke Particles
+  for (let i = smokeParticles.length - 1; i >= 0; i--) {
+     const p = smokeParticles[i]
+     if (!p) continue
 
-  const hover = Math.sin(time * 2) * 0.1
-  robotGroup.position.y += hover
+     p.life++
+     p.mesh.position.add(p.vel)
+     p.mesh.lookAt(camera.position) // Billboard
+     
+     // Fade out
+     const material = p.mesh.material as THREE.MeshBasicMaterial
+     material.opacity = 0.6 * (1 - p.life / p.maxLife)
+     
+     if (p.life >= p.maxLife) {
+        scene.remove(p.mesh)
+        smokeParticles.splice(i, 1)
+     }
+  }
 
-  // Satellites (Horizontal Spin)
-  if (satellitesGroup) satellitesGroup.rotation.y = time * 0.5
+  // Animate ALL robots
+  robots.forEach((robot, index) => {
+    if (!robot.robotGroup) return
 
-  // Data Cores Animation
-  if (satellitesGroup) {
-    satellitesGroup.children.forEach((child) => {
-      if (child instanceof THREE.Group && child.children.length === 3) {
-        const inner = child.children[0]
-        const shell = child.children[1]
-        const ring = child.children[2]
+    const {
+      robotGroup,
+      headGroup,
+      torsoGroup,
+      satellitesGroup,
+      leftArmGroup,
+      rightArmGroup,
+      coreReactor,
+      scanHologram,
+      inspectHologram
+    } = robot
 
-        if (inner) {
-          inner.rotation.y = time * 2
-          inner.rotation.z = time
-        }
-        if (shell) {
-          shell.rotation.x = time
-          shell.rotation.y = -time * 0.5
-        }
-        if (ring) {
-          ring.rotation.x = Math.PI / 2 + Math.sin(time) * 0.5
-        }
+    // --- Orbital Patrol (Lissajous Curve) ---
+    // A wide figure-8 knot that covers the screen but avoids collision via Z-depth
+    const t = time * 0.2 + (index * Math.PI) // Phase shift of 180 degrees for second robot
+
+    // Visual Range Config
+    const ampX = 11  // Wide horizontal sweep
+    const ampY = 4   // Vertical variation
+    const ampZ = 4   // Depth (to pass behind/in-front)
+
+    // The Path
+    const targetX = Math.cos(t) * ampX
+    const targetY = Math.sin(2 * t) * ampY - 1 // -1 vertical offset to center on screen
+    const targetZ = Math.sin(t) * ampZ         // Z-depth ensures they don't collide at crossing
+
+    // Smooth lerp to target (adds weight/inertia)
+    // Note: Since 't' is continuous, direct assignment is fine, but lerp softens sudden jumps if t resets (it shouldn't)
+    robotGroup.position.x = targetX
+    robotGroup.position.y = targetY
+    robotGroup.position.z = targetZ
+
+    // Bank/Tilt into the turn (Dynamic flying effect)
+    // We calculate the derivative (velocity) to know where it's going
+    const velX = -Math.sin(t) * ampX
+    // const velY = 2 * Math.cos(2 * t) * ampY
+    
+    // Tilt body based on horizontal velocity
+    robotGroup.rotation.z = -velX * 0.05 
+    // Slight forward lean
+    robotGroup.rotation.x = 0.1
+
+    // --- True 3D LookAt Logic ---
+    if (headGroup) {
+       // 1. Store current rotation
+       const startQ = headGroup.quaternion.clone()
+       
+       // 2. Calculate target rotation
+       // We force the head to look at worldMouse
+       headGroup.lookAt(worldMouse)
+       const targetQ = headGroup.quaternion.clone()
+       
+       // 3. Revert and Slerp
+       headGroup.quaternion.copy(startQ)
+       headGroup.quaternion.slerp(targetQ, 0.15) // 0.15 speed for snappy but smooth tracking
+       
+       // 4. Apply Mechanical Recoil (Additive PITCH UP)
+       if (robot.recoilImpulse > 0.01) {
+          headGroup.rotateX(-robot.recoilImpulse * 0.5) // Kick back (Negative X is usually up/back for head)
+          robot.recoilImpulse *= 0.85 // Decay
+       } else {
+          robot.recoilImpulse = 0
+       }
+    }
+    
+    // --- Random Gestures State Machine ---
+    let targetScanOpacity = 0
+    let targetInspectOpacity = 0
+
+    if (robot.action === 'idle') {
+      // 0.5% chance to trigger an action per frame
+      if (Math.random() < 0.005) {
+         if (Math.random() > 0.5) {
+           robot.action = 'scan'
+           robot.actionTimer = 200 // Frames to hold
+           // Left arm scans forward
+           robot.leftArmTargetX = -1.5 
+           robot.leftArmTargetZ = 0.5
+           // Right arm relaxed
+           robot.rightArmTargetX = 0
+           robot.rightArmTargetZ = 0
+         } else {
+           robot.action = 'inspect'
+           robot.actionTimer = 150
+           // Both arms inspect
+           robot.leftArmTargetX = -0.5
+           robot.leftArmTargetZ = 0.3
+           robot.rightArmTargetX = -0.5
+           robot.rightArmTargetZ = -0.3
+         }
+      } else {
+        // Idle sway
+        robot.leftArmTargetX = Math.sin(time * 2) * 0.05
+        robot.rightArmTargetX = Math.sin(time * 2 + 1) * 0.05
+        robot.leftArmTargetZ = 0
+        robot.rightArmTargetZ = 0
+      }
+    } else {
+      robot.actionTimer--
+      if (robot.action === 'scan') targetScanOpacity = 0.4
+      if (robot.action === 'inspect') targetInspectOpacity = 0.7
+
+      if (robot.actionTimer <= 0) {
+        robot.action = 'idle'
+      }
+    }
+
+    // Hologram Animation
+    // Traverse scanGroup (Beam + Crystal)
+    scanHologram.children.forEach((child) => {
+      if (child instanceof THREE.Mesh) {
+         // Lerp Opacity
+         child.material.opacity += (targetScanOpacity - child.material.opacity) * 0.05
+         
+         // Rotate Beam
+         if (child.name === 'scanBeam') {
+           child.rotation.z += 0.05
+         }
+         // Rotate Crystal (Artifact) - Tumble on 3 axes
+         if (child.name === 'scanCrystal') {
+           child.rotation.x += 0.02
+           child.rotation.y += 0.03
+         }
       }
     })
-  }
 
-  if (leftArmGroup) leftArmGroup.position.y = 0.5 - hover
-  if (rightArmGroup) rightArmGroup.position.y = 0.5 - hover
-  if (coreReactor) {
-    coreReactor.rotation.x = time * 2
-    coreReactor.rotation.y = time * 3
-  }
+    if (!Array.isArray(inspectHologram.material)) {
+        inspectHologram.material.opacity += (targetInspectOpacity - inspectHologram.material.opacity) * 0.05
+    }
 
-  const targetRotY = mouseX * 0.6
-  const targetRotX = -mouseY * 0.4
-  if (headGroup) {
-    headGroup.rotation.y += (targetRotY - headGroup.rotation.y) * 0.08
-    headGroup.rotation.x += (targetRotX - headGroup.rotation.x) * 0.08
-    if (torsoGroup) torsoGroup.rotation.y = headGroup.rotation.y * 0.2
-  }
+    // Smoothly Lerp Arms to Target
+    const lerpSpeed = 0.05
+    if (leftArmGroup) {
+       leftArmGroup.rotation.x += (robot.leftArmTargetX - leftArmGroup.rotation.x) * lerpSpeed
+       leftArmGroup.rotation.z += (robot.leftArmTargetZ - leftArmGroup.rotation.z) * lerpSpeed
+       // Add bobbing
+       leftArmGroup.position.y = 0.5 + Math.sin(time * 2) * 0.05
+    }
+    if (rightArmGroup) {
+       rightArmGroup.rotation.x += (robot.rightArmTargetX - rightArmGroup.rotation.x) * lerpSpeed
+       rightArmGroup.rotation.z += (robot.rightArmTargetZ - rightArmGroup.rotation.z) * lerpSpeed
+       // Add bobbing
+       rightArmGroup.position.y = 0.5 + Math.sin(time * 2 + 1) * 0.05
+    }
 
-  // Laser Effects Animation
+    // Satellites (Horizontal Spin)
+    if (satellitesGroup) satellitesGroup.rotation.y = time * 0.5
+
+    // Data Cores Animation
+    if (satellitesGroup) {
+      satellitesGroup.children.forEach((child) => {
+        if (child instanceof THREE.Group && child.children.length === 3) {
+          const inner = child.children[0]
+          const shell = child.children[1]
+          const ring = child.children[2]
+
+          if (inner) {
+            inner.rotation.y = time * 2
+            inner.rotation.z = time
+          }
+          if (shell) {
+            shell.rotation.x = time
+            shell.rotation.y = -time * 0.5
+          }
+          if (ring) {
+            ring.rotation.x = Math.PI / 2 + Math.sin(time) * 0.5
+          }
+        }
+      })
+    }
+
+    if (coreReactor) {
+      coreReactor.rotation.x = time * 2
+      coreReactor.rotation.y = time * 3
+    }
+
+    // Head Tracking
+    const targetRotY = mouseX * 0.6
+    const targetRotX = -mouseY * 0.4
+    if (headGroup) {
+      headGroup.rotation.y += (targetRotY - headGroup.rotation.y) * 0.08
+      headGroup.rotation.x += (targetRotX - headGroup.rotation.x) * 0.08
+      if (torsoGroup) torsoGroup.rotation.y = headGroup.rotation.y * 0.2
+    }
+  })
+
+  // Laser Effects
   if (isLaserActive) {
     if (laserDuration > 0) {
-      if (laserGroup && visorMesh) {
+      // Animate Beams
+      if (laserGroups.length > 0) {
         const baseJitter = 0.8 + Math.random() * 0.4
-        laserGroup.traverse((child) => {
-          if (child.name.startsWith('glow_')) {
-            const jitter = baseJitter + Math.random() * 0.2
-            child.scale.set(jitter, 1, jitter)
+        laserGroups.forEach((lg, idx) => {
+          // Update beam position if robot moved (though movement is slow)
+          // Ideally we re-calculate position, but simpler to just jitter here
+          lg.traverse((child) => {
+            if (child.name.startsWith('glow_')) {
+              const jitter = baseJitter + Math.random() * 0.2
+              child.scale.set(jitter, 1, jitter)
+            }
+          })
+          // Sync with visor position
+          const robot = robots[idx]
+          if (robot && robot.visorMesh) {
+            lg.position.copy(
+              new THREE.Vector3().setFromMatrixPosition(robot.visorMesh.matrixWorld)
+            )
           }
         })
-        laserGroup.position.copy(new THREE.Vector3().setFromMatrixPosition(visorMesh.matrixWorld))
       }
 
-      if (muzzleGroup) {
-        if (laserDuration > 12) {
-          const s = 1 + Math.random() * 0.5
-          muzzleGroup.scale.set(s, s, s)
-          muzzleGroup.rotation.z += 0.5
-          if (visorMesh)
-            muzzleGroup.position.copy(
-              new THREE.Vector3().setFromMatrixPosition(visorMesh.matrixWorld)
-            )
-        } else {
-          scene.remove(muzzleGroup)
-          disposeGroup(muzzleGroup)
-          muzzleGroup = null
-        }
-      }
-
-      if (impactGroup) {
-        const posAttribute = impactGroup.geometry.attributes.position
-        const vel = impactGroup.geometry.userData.vel
-        if (posAttribute) {
-          for (let i = 0; i < posAttribute.count; i++) {
-            posAttribute.setXYZ(
-              i,
-              posAttribute.getX(i) + vel[i * 3],
-              posAttribute.getY(i) + vel[i * 3 + 1],
-              posAttribute.getZ(i) + vel[i * 3 + 2]
-            )
+      // Animate Muzzles
+      if (muzzleGroups.length > 0) {
+        muzzleGroups.forEach((mg, idx) => {
+          if (laserDuration > 12) {
+            const s = 1 + Math.random() * 0.5
+            mg.scale.set(s, s, s)
+            mg.rotation.z += 0.5
+            const robot = robots[idx]
+            if (robot && robot.visorMesh) {
+              mg.position.copy(
+                new THREE.Vector3().setFromMatrixPosition(robot.visorMesh.matrixWorld)
+              )
+            }
+          } else {
+            mg.visible = false
           }
-          posAttribute.needsUpdate = true
-        }
-        if (!Array.isArray(impactGroup.material)) impactGroup.material.opacity *= 0.9 // Fade out
+        })
+      }
+
+      // Animate Impacts
+      if (impactGroups.length > 0) {
+        impactGroups.forEach((ig) => {
+          const posAttribute = ig.geometry.attributes.position
+          const vel = ig.geometry.userData.vel
+          if (posAttribute) {
+            for (let i = 0; i < posAttribute.count; i++) {
+              posAttribute.setXYZ(
+                i,
+                posAttribute.getX(i) + vel[i * 3],
+                posAttribute.getY(i) + vel[i * 3 + 1],
+                posAttribute.getZ(i) + vel[i * 3 + 2]
+              )
+            }
+            posAttribute.needsUpdate = true
+          }
+          if (!Array.isArray(ig.material)) ig.material.opacity *= 0.9
+        })
       }
 
       laserDuration--
     } else {
       isLaserActive = false
-      if (laserGroup) {
-        scene.remove(laserGroup)
-        disposeGroup(laserGroup)
-        laserGroup = null
-      }
-      if (muzzleGroup) {
-        scene.remove(muzzleGroup)
-        disposeGroup(muzzleGroup)
-        muzzleGroup = null
-      }
-      if (impactGroup) {
-        scene.remove(impactGroup)
-        disposeGroup(impactGroup)
-        impactGroup = null
-      }
-    }
-  } else {
-    if (Math.random() > 0.99) {
-      // Random idle behavior or auto-fire
+      cleanupLaserEffects()
     }
   }
+
   renderer.render(scene, camera)
 }
 
@@ -363,11 +673,11 @@ const onWindowResize = () => {
     camera.aspect = window.innerWidth / window.innerHeight
     camera.updateProjectionMatrix()
     renderer.setSize(window.innerWidth, window.innerHeight)
-    if (window.innerWidth < 1024) {
-      robotGroup.scale.set(0.7, 0.7, 0.7)
-    } else {
-      robotGroup.scale.set(1, 1, 1)
-    }
+    // Scale is applied in init/animate logic individually now?
+    // Actually scale was applied to robotGroup.
+    // We should apply scale to ALL robots
+    const scale = window.innerWidth < 1024 ? 0.7 : 1
+    robots.forEach((r) => r.robotGroup.scale.set(scale, scale, scale))
   }
 }
 const onMouseMove = (e: MouseEvent) => {
@@ -380,20 +690,33 @@ const onMouseDown = () => {
 
 watch(
   () => props.isAdminMode,
-  (newVal) => {
-    const targetColor = newVal ? VISUAL_COLORS.RED : VISUAL_COLORS.CYAN
-    if (robotGroup) {
-      robotGroup.traverse((child) => {
+  (isAdmin) => {
+    robots.forEach((robot) => {
+      robot.robotGroup.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           const mat = child.material
-          if (!Array.isArray(mat) && mat instanceof THREE.MeshBasicMaterial) {
-            if (mat.color.getHex() !== VISUAL_COLORS.GOLD) {
-              mat.color.setHex(targetColor)
-            }
+          // Check if we have the original color stored
+          if (mat.userData && mat.userData.originalColor !== undefined) {
+             const original = mat.userData.originalColor
+             
+             if (isAdmin) {
+               // Admin Mode: Map colors to Red/Dark style
+               if (original === VISUAL_COLORS.CYAN) {
+                 mat.color.setHex(VISUAL_COLORS.RED)
+               } else if (original === VISUAL_COLORS.BLUE) {
+                 mat.color.setHex(VISUAL_COLORS.DARK_RED)
+               } else {
+                 // Keep White / Gold / Dark / Others as acts
+                 mat.color.setHex(original)
+               }
+             } else {
+               // Guest Mode: Revert to exact original
+               mat.color.setHex(original)
+             }
           }
         }
       })
-    }
+    })
   }
 )
 
@@ -410,6 +733,10 @@ onUnmounted(() => {
   window.removeEventListener('mousedown', onMouseDown)
   cancelAnimationFrame(frameId)
   cleanupEffect()
+  cleanupLaserEffects()
+
+  robots.forEach(r => disposeGroup(r.robotGroup))
+  robots = []
 
   // Dispose Scene
   if (scene) disposeGroup(scene)
