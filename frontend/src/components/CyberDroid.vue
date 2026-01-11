@@ -666,7 +666,7 @@ onUnmounted(() => {
              :y1="getNodeById(line.from)?.y + '%'"
              :x2="getNodeById(line.to)?.x + '%'"
              :y2="getNodeById(line.to)?.y + '%'"
-             stroke="cyan"
+             :stroke="isAdminMode ? '#FF0033' : 'cyan'"
              stroke-width="1"
              :stroke-opacity="line.opacity"
              stroke-linecap="round"
@@ -675,13 +675,14 @@ onUnmounted(() => {
     
     <!-- Floating Math Symbols -->
     <div v-for="node in knowledgeNodes" :key="node.id"
-         class="absolute text-cyan-400 font-mono font-bold select-none pointer-events-none flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2"
+         class="absolute font-mono font-bold select-none pointer-events-none flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2"
+         :class="isAdminMode ? 'text-red-500' : 'text-cyan-400'"
          :style="{ 
             left: node.x + '%', 
             top: node.y + '%', 
             opacity: node.opacity,
             fontSize: (2.0 * node.scale) + 'rem',
-            textShadow: '0 0 10px rgba(0, 255, 255, 0.8)'
+            textShadow: isAdminMode ? '0 0 10px rgba(255, 0, 51, 0.8)' : '0 0 10px rgba(0, 255, 255, 0.8)'
          }">
          {{ node.text }}
     </div>
