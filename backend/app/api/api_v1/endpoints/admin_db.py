@@ -114,13 +114,17 @@ async def get_table_data(
         raise HTTPException(status_code=500, detail=error_detail) from e
 
 
-def _get_relation_config(table_name: str, resolve_relations: bool):
+def _get_relation_config(
+    table_name: str, resolve_relations: bool
+) -> tuple[Dict[str, Any] | None, str | None]:
     relation_config = TABLE_RELATIONS.get(table_name) if resolve_relations else None
     alias = relation_config["alias"] if relation_config else None
     return relation_config, alias
 
 
-def _build_select_and_join(table_name: str, relation_config: Dict, alias: str):
+def _build_select_and_join(
+    table_name: str, relation_config: Dict[str, Any] | None, alias: str | None
+) -> tuple[str, str]:
     select_part = f'SELECT * FROM "{table_name}"'
     join_part = ""
     if relation_config:
@@ -132,15 +136,22 @@ def _build_select_and_join(table_name: str, relation_config: Dict, alias: str):
     return select_part, join_part
 
 
-def _build_conditions(columns, alias, search, start_date, end_date, relation_config):
+def _build_conditions(
+    columns: List[Dict[str, Any]],
+    alias: str | None,
+    search: str | None,
+    start_date: str | None,
+    end_date: str | None,
+    relation_config: Dict[str, Any] | None,
+) -> tuple[List[str], Dict[str, Any]]:
     conditions = []
-    params = {}
+    params: Dict[str, Any] = {}
 
     if search:
         filters = _build_search_filters(columns, alias, relation_config)
         if filters:
-             conditions.append("(" + " OR ".join(filters) + ")")
-             params["search_pattern"] = f"%{search}%"
+            conditions.append("(" + " OR ".join(filters) + ")")
+            params["search_pattern"] = f"%{search}%"
 
     if "created_at" in [c["name"] for c in columns]:
         col_created_at = f"{alias}.created_at" if alias else "created_at"
@@ -154,7 +165,11 @@ def _build_conditions(columns, alias, search, start_date, end_date, relation_con
     return conditions, params
 
 
-def _build_search_filters(columns, alias, relation_config) -> List[str]:
+def _build_search_filters(
+    columns: List[Dict[str, Any]],
+    alias: str | None,
+    relation_config: Dict[str, Any] | None,
+) -> List[str]:
     search_filters = []
     for col in columns:
         c_name = col["name"]
@@ -168,14 +183,20 @@ def _build_search_filters(columns, alias, relation_config) -> List[str]:
         ):
             search_filters.append(f"CAST({c_ref} AS TEXT) ILIKE :search_pattern")
         elif c_name in [
-            "email", "username", "full_name", "title", "name",
-            "content", "description", "caption"
+            "email",
+            "username",
+            "full_name",
+            "title",
+            "name",
+            "content",
+            "description",
+            "caption",
         ]:
             search_filters.append(f"{c_ref} ILIKE :search_pattern")
 
     if relation_config and "search_fields" in relation_config:
         for field in relation_config["search_fields"]:
-             search_filters.append(f"{field} ILIKE :search_pattern")
+            search_filters.append(f"{field} ILIKE :search_pattern")
 
     return search_filters
 
@@ -188,7 +209,7 @@ def _parse_date(date_str: str) -> Any:
         return date_str
 
 
-def _build_order_clause(column_names, alias) -> str:
+def _build_order_clause(column_names: List[str], alias: str | None) -> str:
     if "created_at" in column_names:
         col_ref = f"{alias}.created_at" if alias else "created_at"
         return f"ORDER BY {col_ref} DESC"
@@ -198,7 +219,7 @@ def _build_order_clause(column_names, alias) -> str:
     return ""
 
 
-def _filter_sensitive_data(data) -> List[Dict]:
+def _filter_sensitive_data(data: Any) -> List[Dict[str, Any]]:
     clean_data = []
     for row in data:
         row_dict = dict(row)

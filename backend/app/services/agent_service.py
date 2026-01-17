@@ -1,117 +1,17 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from zoneinfo import ZoneInfo
 
+from app.core.scheduler_utils import is_agent_scheduled_now
 from app.core.socket_manager import ConnectionManager
 from app.core.specialized_agents import StudentAgent, TeacherAgent
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.message import Message
 from app.models.room import Room
-
-
-def is_agent_scheduled_now(config: AgentConfig) -> bool:
-    """Check if agent is allowed to run at this current time (UTC+8)."""
-    if not config.schedule_config:
-        return True  # Default to always active if no schedule
-
-    schedule = config.schedule_config
-    if not isinstance(schedule, dict):
-        return True  # Malformed
-
-    # 1. Check Specific Rules (Priority: Override)
-    tz = ZoneInfo("Asia/Taipei")
-    now = datetime.now(tz)
-    current_date_str = now.strftime("%Y-%m-%d")
-    current_time = now.time()
-
-    # Check specifics
-    if _check_specific_rules(schedule, current_date_str, current_time):
-        return True
-
-    # Check if specific rules exist for today but failed (implicit block)
-    specific_rules = schedule.get("specific", [])
-    if isinstance(specific_rules, list):
-        if any(r.get("date") == current_date_str for r in specific_rules):
-            return False
-
-    # 2. Check General Pattern (Fallback)
-    return _check_general_schedule(schedule, current_date_str, current_time, now.weekday())
-
-
-def _check_specific_rules(schedule: Dict, date_str: str, current_time: Any) -> bool:
-    specific_rules = schedule.get("specific", [])
-    if not isinstance(specific_rules, list):
-        return False
-
-    todays_specifics = [r for r in specific_rules if r.get("date") == date_str]
-    for rule in todays_specifics:
-        try:
-            start = datetime.strptime(rule["start"], "%H:%M").time()
-            end = datetime.strptime(rule["end"], "%H:%M").time()
-            if start <= current_time <= end:
-                return True
-        except Exception:
-            continue
-    return False
-
-
-def _check_general_schedule(schedule: Dict, date_str: str, current_time: Any, weekday: int) -> bool:
-    general = schedule.get("general", {})
-    if not general:
-        if "mode" in schedule and "general" not in schedule:
-            general = schedule
-        else:
-            return True
-
-    mode = general.get("mode", "none")
-    if mode == "none":
-        return True
-
-    if not _check_date_range(mode, general, date_str):
-        return False
-
-    return _check_time_rules(mode, general, current_time, weekday)
-
-
-def _check_date_range(mode: str, general: Dict, date_str: str) -> bool:
-    if mode in ["range_daily", "range_weekly"]:
-        s_date = general.get("start_date")
-        e_date = general.get("end_date")
-        if s_date and e_date:
-            if not (s_date <= date_str <= e_date):
-                return False
-    return True
-
-
-def _check_time_rules(mode: str, general: Dict, current_time: Any, weekday: int) -> bool:
-    g_rules = general.get("rules", [])
-    if not g_rules:
-        return False
-
-    for rule in g_rules:
-        try:
-            start_str = rule.get("start_time")
-            end_str = rule.get("end_time")
-            if not start_str or not end_str:
-                continue
-
-            start = datetime.strptime(start_str, "%H:%M").time()
-            end = datetime.strptime(end_str, "%H:%M").time()
-
-            if mode == "range_weekly":
-                allowed_days = rule.get("days", [])
-                if weekday not in allowed_days:
-                    continue
-
-            if start <= current_time <= end:
-                return True
-        except Exception:
-            continue
-    return False
+from app.services.agent_tool_service import UPDATE_TRIGGER_TOOL_DEF, handle_tool_calls
 
 
 async def get_message_count_gap(room_id: UUID, session: AsyncSession) -> int:
@@ -138,7 +38,9 @@ async def get_message_count_gap(room_id: UUID, session: AsyncSession) -> int:
     return len(results.all())
 
 
-async def _get_active_configs(session: AsyncSession, course_id: UUID) -> Tuple[Optional[AgentConfig], Optional[AgentConfig]]:
+async def _get_active_configs(
+    session: AsyncSession, course_id: UUID
+) -> Tuple[Optional[AgentConfig], Optional[AgentConfig]]:
     query = (
         select(AgentConfig)
         .where(AgentConfig.course_id == course_id)
@@ -171,11 +73,16 @@ async def _should_run_by_message_count(config: AgentConfig, msg_gap: int) -> boo
     if trigger.get("type") == "message_count":
         return msg_gap >= trigger.get("value", 10)
     elif not trigger:
-        return True # Default behavior if no trigger config
+        return True  # Default behavior if no trigger config
     return False
 
 
-async def _get_history(session: AsyncSession, room_id: UUID, teacher_config: Optional[AgentConfig], student_config: Optional[AgentConfig]) -> List[Message]:
+async def _get_history(
+    session: AsyncSession,
+    room_id: UUID,
+    teacher_config: Optional[AgentConfig],
+    student_config: Optional[AgentConfig],
+) -> List[Message]:
     limit = max(
         teacher_config.context_window if teacher_config else 10,
         student_config.context_window if student_config else 10,
@@ -201,51 +108,105 @@ async def process_agents(
         return
 
     teacher_config, student_config = await _get_active_configs(session, room.course_id)
-    if not teacher_config and not student_config:
+
+    # Refactor: Support generic list of configs
+    # We still need to distinguish roles for some specific "Interaction" logic (like student proposing to teacher).
+    # But for "Triggering" and "Replying", we can be more generic.
+
+    # Let's keep the _get_active_configs structure for now but iterate over them?
+    # Actually, let's fetch ALL active configs.
+
+    query = (
+        select(AgentConfig)
+        .where(AgentConfig.course_id == room.course_id)
+        .where(AgentConfig.is_active == True)
+    )
+    result = await session.exec(query)
+    all_configs = result.all()
+
+    # Filter by schedule
+    active_configs = []
+    for c in all_configs:
+        if is_agent_scheduled_now(c):
+            active_configs.append(c)
+
+    if not active_configs:
         return
 
     msg_gap = await get_message_count_gap(UUID(room_id), session)
 
-    teacher_should_run = await _should_run_by_message_count(teacher_config, msg_gap)
-    student_should_run = await _should_run_by_message_count(student_config, msg_gap)
+    # We need to reconstruct the "teacher" and "student" for specific orchestration logic
+    # (Student proposes -> Teacher evaluates).
+    # This specific orchestration is "Role Based" interaction.
+    # Future agents might just be "Independent Responders".
 
-    history = await _get_history(session, UUID(room_id), teacher_config, student_config)
+    # Identify Roles
+    teacher_config = next((c for c in active_configs if c.type == AgentType.TEACHER), None)
+    student_config = next((c for c in active_configs if c.type == AgentType.STUDENT), None)
 
-    # Initialize Agents
-    teacher_agent = None
-    if teacher_config and teacher_config.encrypted_api_key:
-        teacher_agent = TeacherAgent(
-            provider=teacher_config.model_provider,
-            api_key=teacher_config.encrypted_api_key,
-            system_prompt=teacher_config.system_prompt,
-            model=teacher_config.model,
-        )
+    # Load history once
+    # We need a unified context window? Or max of all?
+    max_window = max((c.context_window for c in active_configs), default=10)
 
-    student_agent = None
-    if student_config:
-        key = student_config.encrypted_api_key or (
-            teacher_config.encrypted_api_key if teacher_config else None
-        )
-        if key:
-            student_agent = StudentAgent(
-                provider=student_config.model_provider,
-                api_key=key,
-                system_prompt=student_config.system_prompt,
-                model=student_config.model,
-            )
-
-    # Orchestration
-    # 1. Teacher Turn
-    if await _execute_teacher_turn(
-        session, manager, room, teacher_agent, teacher_config, teacher_should_run, history, room_id
-    ):
-        return
-
-    # 2. Student Turn
-    await _execute_student_turn(
-        session, manager, room, student_agent, student_config, student_should_run,
-        teacher_agent, history, room_id
+    hist_query = (
+        select(Message)
+        .where(Message.room_id == room_id)
+        .order_by(Message.created_at.desc())
+        .limit(max_window)
     )
+    hist_result = await session.exec(hist_query)
+    history = list(reversed(hist_result.all()))
+
+    # Initialize Agents Map
+    agents = {}
+    for config in active_configs:
+        if config.encrypted_api_key:
+            # Polymorphic Agent Creation could be here
+            if config.type == AgentType.TEACHER:
+                agents[config.type] = TeacherAgent(
+                    provider=config.model_provider,
+                    api_key=config.encrypted_api_key,
+                    system_prompt=config.system_prompt,
+                    model=config.model,
+                )
+            elif config.type == AgentType.STUDENT:
+                agents[config.type] = StudentAgent(
+                    provider=config.model_provider,
+                    api_key=config.encrypted_api_key,
+                    system_prompt=config.system_prompt,
+                    model=config.model,
+                )
+            # Add other types here
+
+    # Orchestration Logic
+
+    # 1. Independent Triggers (e.g. Teacher deciding to speak, or generic agent)
+    # Currently Teacher logic covers "Reply directly"
+
+    teacher_agent = agents.get(AgentType.TEACHER)
+    if teacher_agent and teacher_config:
+        should_run = await _should_run_by_message_count(teacher_config, msg_gap)
+        if await _execute_teacher_turn(
+            session, manager, room, teacher_agent, teacher_config, should_run, history, room_id
+        ):
+            return  # Teacher spoke, end turn
+
+    # 2. Dependent Triggers (Student proposes)
+    student_agent = agents.get(AgentType.STUDENT)
+    if student_agent and student_config and teacher_agent:
+        # Student needs Teacher to exist to evaluate
+        should_run = await _should_run_by_message_count(student_config, msg_gap)
+        await _execute_student_turn(
+            session,
+            manager,
+            room,
+            student_agent,
+            student_config,
+            should_run,
+            teacher_agent,
+            history,
+            room_id,
+        )
 
 
 async def _execute_teacher_turn(
@@ -256,15 +217,35 @@ async def _execute_teacher_turn(
         force_reply = teacher_config.trigger_config is not None
         if force_reply or teacher_agent.should_reply(history, room.ai_frequency):
             print("[Agent] Teacher deciding to reply...")
-            reply = await teacher_agent.generate_reply(history)
-            await _save_and_broadcast(session, manager, reply, room_id, AgentType.TEACHER, "[Teacher AI]")
-            return True
+
+            # Pass tools to teacher agent
+            # TeacherAgent.generate_reply now accepts tools
+            response = await teacher_agent.generate_reply(history, tools=[UPDATE_TRIGGER_TOOL_DEF])
+
+            if isinstance(response, list):  # List[ToolCall]
+                print(f"[Agent] Teacher triggered {len(response)} tools.")
+                await handle_tool_calls(session, room.course_id, response)
+                return True  # Teacher used a tool, treat as a turn taken
+
+            elif isinstance(response, str):
+                await _save_and_broadcast(
+                    session, manager, response, room_id, AgentType.TEACHER, "[Teacher AI]"
+                )
+                return True
+
     return False
 
 
 async def _execute_student_turn(
-    session, manager, room, student_agent, student_config, should_run,
-    teacher_agent, history, room_id
+    session,
+    manager,
+    room,
+    student_agent,
+    student_config,
+    should_run,
+    teacher_agent,
+    history,
+    room_id,
 ):
     can_student = room.ai_mode == "both"
     if can_student and student_agent and teacher_agent and should_run:
@@ -278,7 +259,9 @@ async def _execute_student_turn(
             print(f"[Agent] Teacher evaluating proposal: {proposal[:50]}...")
             if await teacher_agent.evaluate_student_proposal(proposal, context_str):
                 print("[Agent] Proposal APPROVED.")
-                await _save_and_broadcast(session, manager, proposal, room_id, AgentType.STUDENT, "[Student AI]")
+                await _save_and_broadcast(
+                    session, manager, proposal, room_id, AgentType.STUDENT, "[Student AI]"
+                )
             else:
                 print("[Agent] Proposal DENIED by Teacher.")
 
@@ -325,7 +308,9 @@ async def check_and_process_time_triggers(
             teacher_config.model,
         )
         reply = await agent.generate_reply(history)
-        await _save_and_broadcast(session, manager, reply, room_id, AgentType.TEACHER, "[Teacher AI]")
+        await _save_and_broadcast(
+            session, manager, reply, room_id, AgentType.TEACHER, "[Teacher AI]"
+        )
 
     elif student_action:
         # Construct Agents
@@ -334,23 +319,35 @@ async def check_and_process_time_triggers(
         )
         if key:
             s_agent = StudentAgent(
-                student_config.model_provider, key, student_config.system_prompt, student_config.model
+                student_config.model_provider,
+                key,
+                student_config.system_prompt,
+                student_config.model,
             )
             proposal = await s_agent.generate_proposal(history)
 
             # Teacher Eval
             if teacher_config and teacher_config.has_api_key:
                 t_agent = TeacherAgent(
-                    teacher_config.model_provider, teacher_config.encrypted_api_key,
-                    teacher_config.system_prompt, teacher_config.model
+                    teacher_config.model_provider,
+                    teacher_config.encrypted_api_key,
+                    teacher_config.system_prompt,
+                    teacher_config.model,
                 )
                 context_str = "\n".join([f"{m.sender_id}: {m.content}" for m in history])
                 if await t_agent.evaluate_student_proposal(proposal, context_str):
-                     await _save_and_broadcast(session, manager, proposal, room_id, AgentType.STUDENT, "[Student AI]")
+                    await _save_and_broadcast(
+                        session, manager, proposal, room_id, AgentType.STUDENT, "[Student AI]"
+                    )
 
 
 async def _get_time_context(session: AsyncSession, room_id: UUID) -> Tuple[float, float, float]:
-    last_msg_query = select(Message).where(Message.room_id == room_id).order_by(Message.created_at.desc()).limit(1)
+    last_msg_query = (
+        select(Message)
+        .where(Message.room_id == room_id)
+        .order_by(Message.created_at.desc())
+        .limit(1)
+    )
     last_msg = (await session.exec(last_msg_query)).first()
 
     silence_duration = 999999
@@ -359,23 +356,34 @@ async def _get_time_context(session: AsyncSession, room_id: UUID) -> Tuple[float
             silence_duration = (datetime.utcnow() - last_msg.created_at).total_seconds()
         except Exception:
             # Fallback for TZ mixup
-             silence_duration = (datetime.utcnow() - last_msg.created_at.replace(tzinfo=None)).total_seconds()
+            silence_duration = (
+                datetime.utcnow() - last_msg.created_at.replace(tzinfo=None)
+            ).total_seconds()
 
     # Last Teacher
-    t_last = (await session.exec(
-        select(Message).where(Message.room_id == room_id, Message.agent_type == AgentType.TEACHER)
-        .order_by(Message.created_at.desc()).limit(1)
-    )).first()
+    t_last = (
+        await session.exec(
+            select(Message)
+            .where(Message.room_id == room_id, Message.agent_type == AgentType.TEACHER)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+    ).first()
     t_since = (datetime.utcnow() - t_last.created_at).total_seconds() if t_last else 999999
 
     # Last Student
-    s_last = (await session.exec(
-        select(Message).where(Message.room_id == room_id, Message.agent_type == AgentType.STUDENT)
-        .order_by(Message.created_at.desc()).limit(1)
-    )).first()
+    s_last = (
+        await session.exec(
+            select(Message)
+            .where(Message.room_id == room_id, Message.agent_type == AgentType.STUDENT)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+    ).first()
     s_since = (datetime.utcnow() - s_last.created_at).total_seconds() if s_last else 999999
 
     return silence_duration, t_since, s_since
+
 
 def _check_time_trigger(config: AgentConfig, since: float, silence: float) -> bool:
     if not config:

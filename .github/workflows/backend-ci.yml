@@ -1,0 +1,80 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'backend/**'
+
+defaults:
+  run:
+    working-directory: ./backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        # Healthcheck is critical for ensuring DB is ready before tests start
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        # Install dev dependencies (if not in requirements.txt, though they usually are)
+        # Assuming dev deps are in requirements.txt or we need to install them specifically.
+        # Based on previous context, user has requirements.txt. 
+        # Check if we need to install mypy/ruff specifically if they are not in requirements.txt
+        pip install mypy types-python-jose types-passlib types-ujson sqlalchemy-stubs ruff black pytest pytest-asyncio httpx
+
+    - name: Lint with Ruff
+      run: |
+        ruff check .
+
+    - name: Format check with Black
+      run: |
+        black --check .
+
+    - name: Type Check with MyPy
+      run: |
+        mypy .
+
+    - name: Run Tests
+      env:
+        # Override settings for testing
+        POSTGRES_SERVER: localhost
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        POSTGRES_DB: test_db
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
+        SECRET_KEY: "test_secret_key_for_ci_pipeline_only"
+        # Mock API Keys
+        OPENAI_API_KEY: "mock_openai_key"
+        GEMINI_API_KEY: "mock_gemini_key"
+      run: |
+        pytest tests/ -v

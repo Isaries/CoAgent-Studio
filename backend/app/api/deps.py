@@ -1,22 +1,42 @@
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
+from jose.exceptions import JWTError  # explicit import
 from pydantic import ValidationError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core import security
 from app.core.config import settings
 from app.core.db import get_session
-from app.models.user import User
+from app.models.user import User, UserRole
+
+
+def require_role(allowed_roles: list[str]) -> Callable[[User], Any]:
+    """
+    Dependency to ensure the user has one of the allowed roles.
+    Super Admin is always allowed.
+    """
+
+    async def _checker(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role == UserRole.SUPER_ADMIN:
+            return current_user
+
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+            )
+        return current_user
+
+    return _checker
 
 
 class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
     async def __call__(self, request: Request) -> Optional[str]:
         print("DEBUG: OAuth2PasswordBearerWithCookie called", flush=True)
         # Priority: Cookie > Header
-        authorization: str = request.cookies.get("access_token")
+        authorization: Optional[str] = request.cookies.get("access_token")
         if not authorization:
             authorization = request.headers.get("Authorization")
             if authorization:
@@ -54,7 +74,7 @@ async def get_current_user(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Could not validate credentials",
                 )
-        except (jwt.JWTError, ValidationError):
+        except (JWTError, ValidationError):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Could not validate credentials",

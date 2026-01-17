@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  db_test:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=test_db
+    ports:
+      - "5433:5432" # Map to a different port to avoid conflict with local dev DB
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend_test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db_test:5432/test_db
+      - SECRET_KEY=test_secret_key_for_docker
+      - POSTGRES_SERVER=db_test
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=test_db
+      - OPENAI_API_KEY=mock_key
+      - GEMINI_API_KEY=mock_key
+    depends_on:
+      db_test:
+        condition: service_healthy
+    command: pytest tests/ -v
+    volumes:
+      - .:/app

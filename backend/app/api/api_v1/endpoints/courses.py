@@ -1,7 +1,7 @@
 from typing import Any, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -24,18 +24,12 @@ async def create_course(
     *,
     session: AsyncSession = Depends(deps.get_session),
     course_in: CourseCreate,
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.require_role([UserRole.ADMIN, UserRole.TEACHER])),
 ) -> Any:
     """
     Create new course.
     Allowed: Admin, Teacher.
     """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions",
-        )
-
     service = CourseService(session)
     return await service.create_course(course_in, current_user)
 
@@ -85,7 +79,7 @@ async def update_course(
     session: AsyncSession = Depends(deps.get_session),
     course_id: UUID,
     course_in: CourseUpdate,
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.require_role([UserRole.ADMIN, UserRole.TEACHER])),
 ) -> Any:
     """
     Update a course.
@@ -100,7 +94,7 @@ async def delete_course(
     *,
     session: AsyncSession = Depends(deps.get_session),
     course_id: UUID,
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.require_role([UserRole.ADMIN, UserRole.TEACHER])),
 ) -> Any:
     """
     Delete a course.

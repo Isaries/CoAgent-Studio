@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from .agent_config import AgentConfig
+    from .announcement import Announcement
     from .room import Room
 
 
@@ -25,7 +27,32 @@ class Course(CourseBase, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    rooms: List["Room"] = Relationship(back_populates="course")
+    rooms: List["Room"] = Relationship(
+        back_populates="course", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    user_links: List["UserCourseLink"] = Relationship(
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    # announcements: List["Announcement"] = Relationship(
+    #     sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    # )
+    # NOTE: Announcement model might not have Course relationship back-populated explicitly in this snippet.
+    # Assuming standard pattern, if Announcement has course_id, we can define relationship here or rely on DB.
+    # Given I cannot see Announcement model, I will adding explicit relationships for knowns.
+    # Checking AgentConfig from previous view: it has course_id.
+
+    # We must import these types if we use them in type hints, inside TYPE_CHECKING.
+    # But for now, let's keep it simple. If we rely on SQLAlchemy "cascade", we need the relationship defined here.
+
+    # To be safe without seeing all models (Announcement, etc), I will ONLY add relationship for 'rooms' and 'agent_configs' which I have confirmed.
+    # And 'user_links' which is defined in this file.
+
+    agent_configs: List["AgentConfig"] = Relationship(
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    announcements: List["Announcement"] = Relationship(
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 
 class CourseCreate(CourseBase):

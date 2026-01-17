@@ -2,15 +2,10 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlmodel import delete, or_, select
+from sqlmodel import or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models.agent_config import AgentConfig
-from app.models.analytics import AnalyticsReport
-from app.models.announcement import Announcement
 from app.models.course import Course, CourseCreate, CourseUpdate, UserCourseLink
-from app.models.message import Message
-from app.models.room import Room, UserRoomLink
 from app.models.user import User, UserRole
 
 
@@ -100,79 +95,26 @@ class CourseService:
         return course
 
     async def delete_course(self, course_id: UUID, current_user: User) -> Course:
-        try:
-            course = await self.get_course_by_id(course_id)
-            if not course:
-                raise HTTPException(status_code=404, detail="Course not found")
+        course = await self.get_course_by_id(course_id)
+        if not course:
+            raise HTTPException(status_code=404, detail="Course not found")
 
-            if (
-                current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-                and course.owner_id != current_user.id
-            ):
-                raise HTTPException(status_code=403, detail="Not enough permissions")
+        # Double check permission service-side (Owner-only or Admin)
+        if (
+            current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+            and course.owner_id != current_user.id
+        ):
+            raise HTTPException(status_code=403, detail="Not enough permissions")
 
-            # Cascade Delete
-            print(f"DEBUG: Deleting Course {course_id} - Start Cascade")
+        # Cascade Delete handled by SQLAlchemy/Database
+        # We need to ensure we loaded the relationships or that the DB handles it.
+        # Since we added `ondelete` cascade in models (via sa_relationship_kwargs), session.delete will trigger queries to delete children OR let DB do it.
+        # Actually in async SQLModel without enforcing FK constraints in DB schema manually, SQLAlchemy emits DELETE for children if loaded?
+        # Typically `cascade="all, delete-orphan"` in SQLAlchemy ORM works by deleting loaded objects or emitting DELETE statements.
 
-            # 1. Enrollments
-            print("DEBUG: Deleting UserCourseLink...")
-            await self.session.exec(
-                delete(UserCourseLink).where(UserCourseLink.course_id == course_id)
-            )
-
-            # 2. Announcements
-            print("DEBUG: Deleting Announcement...")
-            await self.session.exec(delete(Announcement).where(Announcement.course_id == course_id))
-
-            # 3. AgentConfigs
-            print("DEBUG: Deleting AgentConfig...")
-            await self.session.exec(delete(AgentConfig).where(AgentConfig.course_id == course_id))
-
-            # 3.5. Analytics Reports (Defensive: catch if table missing)
-            print("DEBUG: Deleting AnalyticsReport...")
-            try:
-                await self.session.exec(
-                    delete(AnalyticsReport).where(AnalyticsReport.course_id == course_id)
-                )
-            except Exception as e:
-                print(
-                    f"WARNING: Failed to delete AnalyticsReport. Table might be missing or DB error. Error: {e}"
-                )
-                # We allow proceeding because if table is missing, data is effectively 'gone' or unreachable anyway.
-
-            # 4. Rooms & Messages
-            print("DEBUG: Fetching Rooms...")
-            rooms_result = await self.session.exec(
-                select(Room.id).where(Room.course_id == course_id)
-            )
-            room_ids = rooms_result.all()
-
-            if room_ids:
-                print(f"DEBUG: Deleting Messages for {len(room_ids)} rooms...")
-                await self.session.exec(delete(Message).where(Message.room_id.in_(room_ids)))
-                print("DEBUG: Deleting UserRoomLink...")
-                await self.session.exec(
-                    delete(UserRoomLink).where(UserRoomLink.room_id.in_(room_ids))
-                )
-                print("DEBUG: Deleting Rooms...")
-                await self.session.exec(delete(Room).where(Room.course_id == course_id))
-
-            print("DEBUG: Deleting Course object...")
-            await self.session.delete(course)
-            await self.session.commit()
-            print("DEBUG: Course Deleted Successfully.")
-            return course
-        except HTTPException:
-            raise
-        except Exception as e:
-            import traceback
-
-            traceback.print_exc()
-            print(f"CRITICAL ERROR in delete_course: {e}")
-            # Expose error to user for debugging
-            raise HTTPException(
-                status_code=500, detail=f"Delete Failed: {e!s} Type: {type(e).__name__}"
-            ) from e
+        await self.session.delete(course)
+        await self.session.commit()
+        return course
 
     async def enroll_user(
         self,

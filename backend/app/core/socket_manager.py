@@ -9,20 +9,20 @@ class ConnectionManager:
         self.active_connections: Dict[str, List[WebSocket]] = {}
         self.background_tasks = set()
 
-    async def connect(self, websocket: WebSocket, room_id: str):
+    async def connect(self, websocket: WebSocket, room_id: str) -> None:
         await websocket.accept()
         if room_id not in self.active_connections:
             self.active_connections[room_id] = []
         self.active_connections[room_id].append(websocket)
 
-    def disconnect(self, websocket: WebSocket, room_id: str):
+    def disconnect(self, websocket: WebSocket, room_id: str) -> None:
         if room_id in self.active_connections:
             if websocket in self.active_connections[room_id]:
                 self.active_connections[room_id].remove(websocket)
             if not self.active_connections[room_id]:
                 del self.active_connections[room_id]
 
-    async def broadcast(self, message: str, room_id: str):
+    async def broadcast(self, message: str, room_id: str) -> None:
         if room_id in self.active_connections:
             # Create a copy of the list to iterate safely in case of disconnects during iteration
             # though disconnect usually happens in the read loop context.

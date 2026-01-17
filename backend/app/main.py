@@ -29,7 +29,7 @@ if os.path.exists(static_dir):
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     return {"message": "Welcome to CoAgent Studio API"}
 
 
@@ -37,10 +37,10 @@ from app.core.room_monitor import room_monitor  # noqa: E402
 
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     await room_monitor.start()
 
 
 @app.on_event("shutdown")
-async def shutdown_event():
+async def shutdown_event() -> None:
     await room_monitor.stop()

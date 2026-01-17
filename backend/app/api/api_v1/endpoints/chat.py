@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, List
+from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
@@ -56,7 +56,7 @@ async def get_room_messages(
     return messages_out
 
 
-async def get_current_user_ws(token: str, session: AsyncSession) -> User:
+async def get_current_user_ws(token: str, session: AsyncSession) -> Optional[User]:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         token_data = payload.get("sub")
@@ -75,7 +75,7 @@ async def websocket_endpoint(
     room_id: str,
     token: str = Query(...),
     session: AsyncSession = Depends(get_session),
-):
+) -> None:
     # Authenticate
     user = await get_current_user_ws(token, session)
     if not user:

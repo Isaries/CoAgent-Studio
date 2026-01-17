@@ -11,7 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api import deps
 from app.core import security
 from app.core.config import settings
-from app.models.user import User, UserRead, UserRole
+from app.models.user import User, UserRole
 
 router = APIRouter()
 

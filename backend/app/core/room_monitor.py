@@ -13,14 +13,14 @@ class RoomMonitor:
         self.is_running = False
         self.task = None
 
-    async def start(self):
+    async def start(self) -> None:
         if self.is_running:
             return
         self.is_running = True
         self.task = asyncio.create_task(self._monitor_loop())
         print("Room Monitor Started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         self.is_running = False
         if self.task:
             self.task.cancel()
@@ -30,7 +30,7 @@ class RoomMonitor:
                 pass
         print("Room Monitor Stopped")
 
-    async def _monitor_loop(self):
+    async def _monitor_loop(self) -> None:
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         while self.is_running:

@@ -86,9 +86,7 @@ class UserService:
             and current_user.role == "super_admin"
             and update_data["role"] != "super_admin"
         ):
-            raise HTTPException(
-                status_code=400, detail="Super Admins cannot change their own role"
-            )
+            raise HTTPException(status_code=400, detail="Super Admins cannot change their own role")
 
         # 2. Modify other admins
         if (
@@ -96,9 +94,7 @@ class UserService:
             and user.role in ["admin", "super_admin"]
             and current_user.role != "super_admin"
         ):
-            raise HTTPException(
-                status_code=403, detail="Only Super Admins can modify other Admins"
-            )
+            raise HTTPException(status_code=403, detail="Only Super Admins can modify other Admins")
 
         # 3. Promote to admin
         if (

@@ -36,18 +36,8 @@ class AgentConfigService:
 
         if agent_config:
             # Update
-            agent_config.system_prompt = config_in.system_prompt
-            agent_config.model_provider = config_in.model_provider
-            agent_config.model = config_in.model
-            if config_in.api_key is not None:
-                if config_in.api_key == "":
-                    agent_config.encrypted_api_key = None
-                else:
-                    agent_config.encrypted_api_key = config_in.api_key
-            if config_in.settings:
-                # Merge or Replace? Pydantic dict handles it?
-                # Model definition usually implies JSON replacement for SA JSON columns.
-                agent_config.settings = config_in.settings
+            # Update
+            self._apply_config_updates(agent_config, config_in)
 
             self.session.add(agent_config)
             await self.session.commit()
@@ -92,7 +82,7 @@ class AgentConfigService:
         result = await self.session.exec(query)
         return result.all()
 
-    async def create_course_agent_config(
+    async def create_and_initialize_config(
         self, course_id: UUID, config_in: AgentConfigCreate, current_user: User
     ) -> AgentConfig:
         course = await self.session.get(Course, course_id)
@@ -105,6 +95,20 @@ class AgentConfigService:
         ):
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
+        # 1. Existing Configs Check (Name Duplicate & Auto-Activate)
+        query = select(AgentConfig).where(
+            AgentConfig.course_id == course_id, AgentConfig.type == config_in.type
+        )
+        existing_configs = (await self.session.exec(query)).all()
+
+        if any(c.name == config_in.name for c in existing_configs):
+            raise HTTPException(
+                status_code=400, detail="A brain with this name already exists for this agent type."
+            )
+
+        # Auto-activate if it's the first one of this type
+        is_first = len(existing_configs) == 0
+
         agent_config = AgentConfig(
             course_id=course_id,
             type=config_in.type,
@@ -116,6 +120,7 @@ class AgentConfigService:
             trigger_config=config_in.trigger_config,
             schedule_config=config_in.schedule_config,
             context_window=config_in.context_window,
+            is_active=is_first,  # Set active state during creation
         )
         self.session.add(agent_config)
         await self.session.commit()
@@ -141,7 +146,7 @@ class AgentConfigService:
         if agent_config.course_id:
             course = await self.session.get(Course, agent_config.course_id)
             if not course:
-                return # Orphaned config, allow admin? Or fail? Logic was pass.
+                return  # Orphaned config, allow admin? Or fail? Logic was pass.
 
             if (
                 current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
@@ -149,7 +154,7 @@ class AgentConfigService:
             ):
                 raise HTTPException(status_code=403, detail="Not enough permissions")
         else:
-             if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
                 raise HTTPException(status_code=403, detail="Not enough permissions")
 
     def _apply_config_updates(self, agent_config: AgentConfig, config_in: AgentConfigCreate):

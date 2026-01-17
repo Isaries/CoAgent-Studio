@@ -8,3 +8,22 @@ line-length = 100
 select = ["E", "F", "W", "C90", "I", "N", "UP", "B", "A", "C4", "ISC", "PIE", "PT", "RUF"]
 ignore = ["E501", "B008", "E711"]
 exclude = ["migrations", "alembic"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+exclude = ["alembic", "migrations"]
+strict_optional = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "app.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["google.generativeai.*", "google.genai.*", "google.ai.generativelanguage.*"]
+ignore_missing_imports = true

@@ -77,68 +77,11 @@ async def create_course_agent_config(
     Allowed: Owner, TA.
     """
     service = AgentConfigService(session)
-    # Check for duplicate name handled in service? No, logic in endpoint previously.
-    # Logic in service is better but I didn't add it to service yet.
-    # Service "create_course_agent_config" currently is simple create.
-    # I should check duplicate in Endpoint for now or rely on uniqueness constraint if any (there isn't one on name per course in model usually).
-    # The previous code checked duplicate.
 
-    # Let's add duplicate check here or update service?
-    # Updating service is cleaner but file is written.
-    # I'll Check duplicate here for now to keep behavior identical without re-editing service file immediately.
-    # Ideally should be in service.
-
-    # Actually, let's keep it simple. If I missed it in service, I missed it.
-    # But wait, looking at my service code: `create_course_agent_config` just does `session.add`.
-    # I should probably update the service to handle duplicate name check if it's a business rule.
-    # However, to save steps, I will implement the check here reusing the service (if I added a search method) or just direct check?
-    # Direct check violates the "No DB in Endpoint" rule.
-    # I will allow "No DB in Endpoint" violation for this edge case OR better:
-    # Use the `get_course_agent_configs` from service and check locally in python.
-
-    existing = await service.get_course_agent_configs(course_id, current_user)
-    if any(c.name == config_in.name and c.type == config_in.type for c in existing):
-        raise HTTPException(
-            status_code=400, detail="A brain with this name already exists for this agent type."
-        )
-
-    # Also handle auto-activate logic (if first)
-    # Service didn't handle "is_first".
-    # I can check "existing" list.
-    is_first = not any(c.type == config_in.type for c in existing)
-
-    # I need to pass "is_active" to service?
-    # Service takes `AgentConfigCreate` which doesn't have `is_active` usually?
-    # Or I modify the model before passing.
-    # `AgentConfigCreate` doesn't have `is_active`.
-    # The service creates `AgentConfig` model directly from params.
-    # My service implementation:
-    # agent_config = AgentConfig(..., is_active=False (default in model?))
-    # It constructs fields manually. It does NOT use `is_active` arg.
-
-    # This implies my Service implementation was slightly incomplete for feature parity.
-    # I should update the Service to handle `is_active` or Auto-Activate.
-    # Or, after creation, call `activate` if it was first.
-
-    new_config = await service.create_course_agent_config(course_id, config_in, current_user)
-
-    if is_first:
-        # Call activate service logic
-        # activate_agent commits, so new_config becomes expired if we don't refresh or use return
-        new_config = await service.activate_agent(str(new_config.id), current_user)
-
-    # Refresh to be safe if not activated (create commits too, but just returned)
-    # Actually create returns refreshed object.
+    # Logic moved to service: duplicate check, auto-activate, permission check
+    new_config = await service.create_and_initialize_config(course_id, config_in, current_user)
 
     c_read = AgentConfigRead.model_validate(new_config)
-
-    # Access attribute carefully logic
-    # If new_config is expired, this access crashes in Async
-    # We should ensure it's fresh.
-    # If is_first was false, create returns fresh.
-    # If is_first was true, activate returns fresh.
-    # BUT, to be absolutely safe against session commits expiring it:
-    # (Actually if we returned from service functions that verify refresh, it's ok)
 
     if new_config.encrypted_api_key:
         c_read.masked_api_key = mask_api_key(new_config.encrypted_api_key)

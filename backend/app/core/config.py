@@ -7,10 +7,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     PROJECT_NAME: str = "CoAgent Studio"
     API_V1_STR: str = "/api/v1"
-    
-    # COOKIES
-    SECURE_COOKIES: bool = False # Default to False for easier dev access, set True in prod
 
+    # COOKIES
+    SECURE_COOKIES: bool = False  # Default to False for easier dev access, set True in prod
 
     # SECURITY
     SECRET_KEY: str  # Required, must be set in .env
@@ -29,6 +28,9 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
 
     # ADMIN
+    # APPLICATION
+    TIMEZONE: str = "Asia/Taipei"
+
     # ADMIN
     SUPER_ADMIN: str = "admin"
     SUPER_ADMIN_PASSWORD: str = "admin"

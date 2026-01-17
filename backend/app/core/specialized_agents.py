@@ -1,5 +1,5 @@
 import random
-from typing import Optional
+from typing import Optional, Union
 
 from app.core.agent_core import AgentCore
 
@@ -20,7 +20,9 @@ class TeacherAgent(AgentCore):
         # 2. Probability check
         return random.random() < ai_frequency
 
-    async def generate_reply(self, message_history: list) -> str:
+    async def generate_reply(
+        self, message_history: list, tools: Optional[list] = None
+    ) -> Union[str, list]:
         # Construct context
         context = "\n".join([f"{m.sender_id}: {m.content}" for m in message_history[-10:]])
         prompt = f"""
@@ -32,7 +34,7 @@ class TeacherAgent(AgentCore):
         Task: You are the teacher. Provide guidance, answer questions, or facilitate discussion.
         Response:
         """
-        return await self.run(prompt)
+        return await self.run(prompt, tools=tools)
 
     async def evaluate_student_proposal(self, student_proposal: str, context: str) -> bool:
         """
@@ -82,7 +84,11 @@ class DesignAgent(AgentCore):
     """
 
     def __init__(
-        self, provider: str, api_key: str, system_prompt: Optional[str] = None, model: Optional[str] = None
+        self,
+        provider: str,
+        api_key: str,
+        system_prompt: Optional[str] = None,
+        model: Optional[str] = None,
     ):
         super().__init__(
             provider, api_key, system_prompt or self.DEFAULT_SYSTEM_PROMPT, model=model
@@ -111,7 +117,11 @@ class AnalyticsAgent(AgentCore):
     """
 
     def __init__(
-        self, provider: str, api_key: str, system_prompt: Optional[str] = None, model: Optional[str] = None
+        self,
+        provider: str,
+        api_key: str,
+        system_prompt: Optional[str] = None,
+        model: Optional[str] = None,
     ):
         super().__init__(
             provider, api_key, system_prompt or self.DEFAULT_SYSTEM_PROMPT, model=model
