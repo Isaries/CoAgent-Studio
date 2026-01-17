@@ -1,19 +1,18 @@
-import asyncio
 from typing import Any, List, Optional
 from uuid import UUID
 
+# Process agents is now run_agent_cycle_task in worker, handled via arq
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
-from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
 from app.core.config import settings
 from app.core.db import get_session
 from app.core.socket_manager import manager
-from app.models.message import Message
 from app.models.user import User
-from app.services.agent_service import process_agents
+from app.schemas.socket import SocketMessage
+from app.services.chat_service import ChatService
 
 router = APIRouter()
 
@@ -27,33 +26,11 @@ async def get_room_messages(
     """
     Get chat history for a room.
     """
-    query = (
-        select(Message, User)
-        .outerjoin(User, Message.sender_id == User.id)
-        .where(Message.room_id == room_id)
-        .order_by(Message.created_at.asc())
-    )
-    result = await session.exec(query)
-
-    messages_out = []
-    for msg, user in result:
-        sender = "Unknown"
-        if user:
-            sender = user.full_name or user.username or user.email or "Unknown"
-        elif msg.agent_type:
-            sender = f"{msg.agent_type.capitalize()} AI"
-
-        messages_out.append(
-            {
-                "sender": sender,
-                "content": msg.content,
-                "agent_type": msg.agent_type,
-                "sender_id": msg.sender_id,
-                "created_at": (msg.created_at.isoformat() + "Z") if msg.created_at else None,
-            }
-        )
-
-    return messages_out
+    """
+    Get chat history for a room.
+    """
+    chat_service = ChatService(session)
+    return await chat_service.get_room_messages(room_id)
 
 
 async def get_current_user_ws(token: str, session: AsyncSession) -> Optional[User]:
@@ -73,10 +50,17 @@ async def get_current_user_ws(token: str, session: AsyncSession) -> Optional[Use
 async def websocket_endpoint(
     websocket: WebSocket,
     room_id: str,
-    token: str = Query(...),
+    token: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_session),
 ) -> None:
-    # Authenticate
+    # Authenticate via Query Token OR Cookie
+    if not token:
+        token = websocket.cookies.get("access_token")
+
+    if not token:
+        await websocket.close(code=1008)
+        return
+
     user = await get_current_user_ws(token, session)
     if not user:
         await websocket.close(code=1008)
@@ -88,22 +72,56 @@ async def websocket_endpoint(
             data = await websocket.receive_text()
 
             # Save User Message
-            user_msg = Message(content=data, room_id=UUID(room_id), sender_id=user.id)
-            session.add(user_msg)
-            await session.commit()  # Commit to get ID and timestamp
-            await session.refresh(user_msg)
+            chat_service = ChatService(session)
+            user_msg = await chat_service.save_user_message(room_id, user, data)
 
-            # Broadcast User Message (with format "name|timestamp|content")
+            # Broadcast User Message (JSON)
             display_name = user.full_name or user.username or user.email or "Unknown"
             timestamp = (user_msg.created_at.isoformat() + "Z") if user_msg.created_at else ""
-            await manager.broadcast(f"{display_name}|{timestamp}|{data}", room_id)
+
+            socket_msg = SocketMessage(
+                type="message",
+                sender=display_name,
+                content=data,
+                timestamp=timestamp,
+                room_id=room_id,
+                metadata={"is_ai": False, "sender_id": str(user.id)},
+            )
+            await manager.broadcast(socket_msg.model_dump(), room_id)
 
             # Trigger Agents
-            # Fix RUF006: Maintain a strong reference to the task
-            task = asyncio.create_task(process_agents(room_id, session, manager, user_msg))
-            manager.background_tasks.add(task)
-            task.add_done_callback(manager.background_tasks.discard)
+            # Trigger Agents (Via Task Queue)
+            # Create ARQ pool on fly or usage global?
+            # Ideally usage global from app.state.arq_pool, but for simplicity/safety let's create local for now or use global helper
+            # Better: context manager pool or global.
+
+            # Let's rely on app.state
+            # But inside websocket endpoint 'request.app' is available via websocket.app
+
+
+            # Enqueue Job
+            try:
+                # Assuming api_v1.endpoints.chat has access to global pool
+                # Or we can create one quickly (overhead?)
+                # Best practice: use app.state.arq_pool
+                if hasattr(websocket.app.state, "arq_pool"):
+                    await websocket.app.state.arq_pool.enqueue_job(
+                        "run_agent_cycle_task", room_id, str(user_msg.id)
+                    )
+                else:
+                    # Fallback or Log Error
+                    print("ARQ Pool not initialized")
+            except Exception as e:
+                print(f"Failed to enqueue agent task: {e}")
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id)
-        await manager.broadcast(f"Client #{user.email} left", room_id)
+        # Broadcast System Message
+        sys_msg = SocketMessage(
+            type="system",
+            sender="System",
+            content=f"Client #{user.email} left",
+            timestamp="",  # Use current time if needed
+            room_id=room_id,
+        )
+        await manager.broadcast(sys_msg.model_dump(), room_id)

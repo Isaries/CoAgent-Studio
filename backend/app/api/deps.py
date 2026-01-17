@@ -1,11 +1,14 @@
 from typing import Any, Callable, Optional
 
+import structlog
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from jose.exceptions import JWTError  # explicit import
 from pydantic import ValidationError
 from sqlmodel.ext.asyncio.session import AsyncSession
+
+logger = structlog.get_logger()
 
 from app.core import security
 from app.core.config import settings
@@ -70,11 +73,13 @@ async def get_current_user(
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[security.ALGORITHM])
             token_data = payload.get("sub")
             if token_data is None:
+                logger.warning("auth_failed", reason="missing_sub_in_token")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Could not validate credentials",
                 )
-        except (JWTError, ValidationError):
+        except (JWTError, ValidationError) as e:
+            logger.warning("auth_failed", reason="jwt_validation_error", error=str(e))
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Could not validate credentials",

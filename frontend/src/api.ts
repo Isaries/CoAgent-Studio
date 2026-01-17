@@ -14,11 +14,28 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Dynamic import to avoid circular dependency if store imports api
+    // But usually store uses API. To be safe, we can import store here if pinia is active.
+    // However, pinia instance must be active. This api.ts is imported by components.
+    // Better: use direct store import but inside the interceptor or ensure app setup
+    const { useToastStore } = await import('./stores/toast')
+    const toast = useToastStore()
+
     const originalRequest = error.config
 
     // Prevent infinite loop: if the failed request was the refresh attempt, don't retry
     if (originalRequest.url.includes(REFRESH_URL)) {
       return Promise.reject(error)
+    }
+
+    // Handle 500 Server Errors
+    if (error.response?.status >= 500) {
+      toast.error(`Server Error: ${error.response.statusText || 'Internal Server Error'}`)
+    }
+
+    // Handle 403 Forbidden (Permission)
+    if (error.response?.status === 403) {
+      toast.warning('Access Denied: You do not have permission.')
     }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -28,8 +45,8 @@ api.interceptors.response.use(
         return api(originalRequest)
       } catch (refreshError) {
         // Refresh failed - force logout
-        // Using window.location instead of router to ensure full state reset
         if (window.location.pathname !== '/login') {
+          toast.info('Session expired, please login again.')
           window.location.href = '/login'
         }
         return Promise.reject(refreshError)

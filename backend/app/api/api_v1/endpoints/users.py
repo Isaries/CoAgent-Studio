@@ -1,10 +1,11 @@
 from typing import Any, List
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
 from app.models.user import User, UserCreate, UserRead, UserUpdate
+from app.services.permission_service import permission_service
 from app.services.user_service import UserService
 
 router = APIRouter()
@@ -39,11 +40,14 @@ async def read_users(
     skip: int = 0,
     limit: int = 100,
     session: AsyncSession = Depends(deps.get_session),
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Retrieve users. Only Admin.
+    Retrieve users. Admin or Super Admin.
     """
+    if not await permission_service.check(current_user, "list_users", None, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     service = UserService(session)
     return await service.get_users(skip, limit)
 
@@ -69,11 +73,18 @@ async def update_user(
     session: AsyncSession = Depends(deps.get_session),
     user_id: str,
     user_in: UserUpdate,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Update a user (e.g. role promotion). Only Admin.
+    Update a user (e.g. role promotion). Admin only.
     """
+    user_to_edit = await session.get(User, user_id)
+    if not user_to_edit:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not await permission_service.check(current_user, "manage_users", user_to_edit, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     service = UserService(session)
     return await service.update_user(user_id, user_in, current_user)
 
@@ -83,13 +94,18 @@ async def delete_user(
     *,
     session: AsyncSession = Depends(deps.get_session),
     user_id: str,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
     Delete a user.
-    Super Admin can delete anyone (including Admins/Super Admins).
-    Admin can delete Students/Teachers/TAs/Guests.
     """
+    user_to_delete = await session.get(User, user_id)
+    if not user_to_delete:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not await permission_service.check(current_user, "manage_users", user_to_delete, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     service = UserService(session)
     return await service.delete_user(user_id, current_user)
 
@@ -99,11 +115,14 @@ async def create_user(
     *,
     session: AsyncSession = Depends(deps.get_session),
     user_in: UserCreate,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
     Create new user (Admin only).
     """
+    if not await permission_service.check(current_user, "manage_users", None, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     service = UserService(session)
     return await service.create_user(user_in, current_user)
 

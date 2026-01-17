@@ -14,3 +14,6 @@ test-docker:
 
 clean-docker:
 	docker-compose -f docker-compose.test.yml down -v
+
+worker:
+	arq app.worker.WorkerSettings --watch app

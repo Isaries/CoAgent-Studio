@@ -30,7 +30,7 @@ interface RobotInstance extends RobotParts {
   rightArmTargetX: number
   rightArmTargetZ: number
   // Holograms
-  scanHologram: THREE.Group 
+  scanHologram: THREE.Group
   inspectHologram: THREE.Mesh
   // Physics
   recoilImpulse: number
@@ -64,11 +64,16 @@ const {
 } = useKnowledgeEffect()
 const isShaking = ref(false)
 
-const createRobotInstance = (scene: THREE.Scene, x: number, y: number, z: number): RobotInstance => {
+const createRobotInstance = (
+  scene: THREE.Scene,
+  x: number,
+  y: number,
+  z: number
+): RobotInstance => {
   const parts = createRobot(scene, x, y, z)
-  
+
   // --- Create Holograms ---
-  
+
   // 1. Scan Hologram Group (Left Hand)
   const scanGroup = new THREE.Group()
   scanGroup.position.set(0, -2.5, 0) // Tip at wrist/hand
@@ -114,7 +119,7 @@ const createRobotInstance = (scene: THREE.Scene, x: number, y: number, z: number
     opacity: 0,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
-    depthWrite: false,
+    depthWrite: false
   })
   const inspectHologram = new THREE.Mesh(screenGeo, screenMat)
   inspectHologram.position.set(0, -2.5, 0.5) // Floating above hand
@@ -236,38 +241,38 @@ const fireLaser = () => {
     visor.getWorldPosition(origin)
 
     // --- Smoke Eject ---
-    for(let i=0; i<12; i++) {
-        const size = 0.1 + Math.random() * 0.2
-        const smokeGeo = new THREE.PlaneGeometry(size, size)
-        smokeGeo.rotateZ(Math.random() * Math.PI)
-        const smokeMat = new THREE.MeshBasicMaterial({
-            color: 0xaaaaaa,
-            transparent: true,
-            opacity: 0.4 + Math.random() * 0.2,
-            depthWrite: false,
-            side: THREE.DoubleSide
-        })
-        const mesh = new THREE.Mesh(smokeGeo, smokeMat)
-        mesh.position.copy(origin)
-        // Offset slightly
-        mesh.position.x += (Math.random() - 0.5) * 0.2
-        mesh.position.y += (Math.random() - 0.5) * 0.2
-        mesh.position.z += (Math.random() - 0.5) * 0.2
-        
-        // Upward velocity with drift
-        const vel = new THREE.Vector3(
-            (Math.random() - 0.5) * 0.02,
-            0.03 + Math.random() * 0.03, // Up
-            (Math.random() - 0.5) * 0.02
-        )
-        
-        scene!.add(mesh) // 262
-        smokeParticles.push({
-            mesh,
-            vel,
-            life: 0,
-            maxLife: 60 + Math.random() * 40
-        })
+    for (let i = 0; i < 12; i++) {
+      const size = 0.1 + Math.random() * 0.2
+      const smokeGeo = new THREE.PlaneGeometry(size, size)
+      smokeGeo.rotateZ(Math.random() * Math.PI)
+      const smokeMat = new THREE.MeshBasicMaterial({
+        color: 0xaaaaaa,
+        transparent: true,
+        opacity: 0.4 + Math.random() * 0.2,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      })
+      const mesh = new THREE.Mesh(smokeGeo, smokeMat)
+      mesh.position.copy(origin)
+      // Offset slightly
+      mesh.position.x += (Math.random() - 0.5) * 0.2
+      mesh.position.y += (Math.random() - 0.5) * 0.2
+      mesh.position.z += (Math.random() - 0.5) * 0.2
+
+      // Upward velocity with drift
+      const vel = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.02,
+        0.03 + Math.random() * 0.03, // Up
+        (Math.random() - 0.5) * 0.02
+      )
+
+      scene!.add(mesh) // 262
+      smokeParticles.push({
+        mesh,
+        vel,
+        life: 0,
+        maxLife: 60 + Math.random() * 40
+      })
     }
 
     // --- Muzzle Flash ---
@@ -387,21 +392,21 @@ function animate(time: number) {
 
   // Update Smoke Particles
   for (let i = smokeParticles.length - 1; i >= 0; i--) {
-     const p = smokeParticles[i]
-     if (!p) continue
+    const p = smokeParticles[i]
+    if (!p) continue
 
-     p.life++
-     p.mesh.position.add(p.vel)
-     p.mesh.lookAt(camera.position) // Billboard
-     
-     // Fade out
-     const material = p.mesh.material as THREE.MeshBasicMaterial
-     material.opacity = 0.6 * (1 - p.life / p.maxLife)
-     
-     if (p.life >= p.maxLife) {
-        scene.remove(p.mesh)
-        smokeParticles.splice(i, 1)
-     }
+    p.life++
+    p.mesh.position.add(p.vel)
+    p.mesh.lookAt(camera.position) // Billboard
+
+    // Fade out
+    const material = p.mesh.material as THREE.MeshBasicMaterial
+    material.opacity = 0.6 * (1 - p.life / p.maxLife)
+
+    if (p.life >= p.maxLife) {
+      scene.remove(p.mesh)
+      smokeParticles.splice(i, 1)
+    }
   }
 
   // Animate ALL robots
@@ -422,17 +427,17 @@ function animate(time: number) {
 
     // --- Orbital Patrol (Lissajous Curve) ---
     // A wide figure-8 knot that covers the screen but avoids collision via Z-depth
-    const t = time * 0.2 + (index * Math.PI) // Phase shift of 180 degrees for second robot
+    const t = time * 0.2 + index * Math.PI // Phase shift of 180 degrees for second robot
 
     // Visual Range Config
-    const ampX = 11  // Wide horizontal sweep
-    const ampY = 4   // Vertical variation
-    const ampZ = 4   // Depth (to pass behind/in-front)
+    const ampX = 11 // Wide horizontal sweep
+    const ampY = 4 // Vertical variation
+    const ampZ = 4 // Depth (to pass behind/in-front)
 
     // The Path
     const targetX = Math.cos(t) * ampX
     const targetY = Math.sin(2 * t) * ampY - 1 // -1 vertical offset to center on screen
-    const targetZ = Math.sin(t) * ampZ         // Z-depth ensures they don't collide at crossing
+    const targetZ = Math.sin(t) * ampZ // Z-depth ensures they don't collide at crossing
 
     // Smooth lerp to target (adds weight/inertia)
     // Note: Since 't' is continuous, direct assignment is fine, but lerp softens sudden jumps if t resets (it shouldn't)
@@ -444,35 +449,35 @@ function animate(time: number) {
     // We calculate the derivative (velocity) to know where it's going
     const velX = -Math.sin(t) * ampX
     // const velY = 2 * Math.cos(2 * t) * ampY
-    
+
     // Tilt body based on horizontal velocity
-    robotGroup.rotation.z = -velX * 0.05 
+    robotGroup.rotation.z = -velX * 0.05
     // Slight forward lean
     robotGroup.rotation.x = 0.1
 
     // --- True 3D LookAt Logic ---
     if (headGroup) {
-       // 1. Store current rotation
-       const startQ = headGroup.quaternion.clone()
-       
-       // 2. Calculate target rotation
-       // We force the head to look at worldMouse
-       headGroup.lookAt(worldMouse)
-       const targetQ = headGroup.quaternion.clone()
-       
-       // 3. Revert and Slerp
-       headGroup.quaternion.copy(startQ)
-       headGroup.quaternion.slerp(targetQ, 0.15) // 0.15 speed for snappy but smooth tracking
-       
-       // 4. Apply Mechanical Recoil (Additive PITCH UP)
-       if (robot.recoilImpulse > 0.01) {
-          headGroup.rotateX(-robot.recoilImpulse * 0.5) // Kick back (Negative X is usually up/back for head)
-          robot.recoilImpulse *= 0.85 // Decay
-       } else {
-          robot.recoilImpulse = 0
-       }
+      // 1. Store current rotation
+      const startQ = headGroup.quaternion.clone()
+
+      // 2. Calculate target rotation
+      // We force the head to look at worldMouse
+      headGroup.lookAt(worldMouse)
+      const targetQ = headGroup.quaternion.clone()
+
+      // 3. Revert and Slerp
+      headGroup.quaternion.copy(startQ)
+      headGroup.quaternion.slerp(targetQ, 0.15) // 0.15 speed for snappy but smooth tracking
+
+      // 4. Apply Mechanical Recoil (Additive PITCH UP)
+      if (robot.recoilImpulse > 0.01) {
+        headGroup.rotateX(-robot.recoilImpulse * 0.5) // Kick back (Negative X is usually up/back for head)
+        robot.recoilImpulse *= 0.85 // Decay
+      } else {
+        robot.recoilImpulse = 0
+      }
     }
-    
+
     // --- Random Gestures State Machine ---
     let targetScanOpacity = 0
     let targetInspectOpacity = 0
@@ -480,24 +485,24 @@ function animate(time: number) {
     if (robot.action === 'idle') {
       // 0.5% chance to trigger an action per frame
       if (Math.random() < 0.005) {
-         if (Math.random() > 0.5) {
-           robot.action = 'scan'
-           robot.actionTimer = 200 // Frames to hold
-           // Left arm scans forward
-           robot.leftArmTargetX = -1.5 
-           robot.leftArmTargetZ = 0.5
-           // Right arm relaxed
-           robot.rightArmTargetX = 0
-           robot.rightArmTargetZ = 0
-         } else {
-           robot.action = 'inspect'
-           robot.actionTimer = 150
-           // Both arms inspect
-           robot.leftArmTargetX = -0.5
-           robot.leftArmTargetZ = 0.3
-           robot.rightArmTargetX = -0.5
-           robot.rightArmTargetZ = -0.3
-         }
+        if (Math.random() > 0.5) {
+          robot.action = 'scan'
+          robot.actionTimer = 200 // Frames to hold
+          // Left arm scans forward
+          robot.leftArmTargetX = -1.5
+          robot.leftArmTargetZ = 0.5
+          // Right arm relaxed
+          robot.rightArmTargetX = 0
+          robot.rightArmTargetZ = 0
+        } else {
+          robot.action = 'inspect'
+          robot.actionTimer = 150
+          // Both arms inspect
+          robot.leftArmTargetX = -0.5
+          robot.leftArmTargetZ = 0.3
+          robot.rightArmTargetX = -0.5
+          robot.rightArmTargetZ = -0.3
+        }
       } else {
         // Idle sway
         robot.leftArmTargetX = Math.sin(time * 2) * 0.05
@@ -519,38 +524,39 @@ function animate(time: number) {
     // Traverse scanGroup (Beam + Crystal)
     scanHologram.children.forEach((child) => {
       if (child instanceof THREE.Mesh) {
-         // Lerp Opacity
-         child.material.opacity += (targetScanOpacity - child.material.opacity) * 0.05
-         
-         // Rotate Beam
-         if (child.name === 'scanBeam') {
-           child.rotation.z += 0.05
-         }
-         // Rotate Crystal (Artifact) - Tumble on 3 axes
-         if (child.name === 'scanCrystal') {
-           child.rotation.x += 0.02
-           child.rotation.y += 0.03
-         }
+        // Lerp Opacity
+        child.material.opacity += (targetScanOpacity - child.material.opacity) * 0.05
+
+        // Rotate Beam
+        if (child.name === 'scanBeam') {
+          child.rotation.z += 0.05
+        }
+        // Rotate Crystal (Artifact) - Tumble on 3 axes
+        if (child.name === 'scanCrystal') {
+          child.rotation.x += 0.02
+          child.rotation.y += 0.03
+        }
       }
     })
 
     if (!Array.isArray(inspectHologram.material)) {
-        inspectHologram.material.opacity += (targetInspectOpacity - inspectHologram.material.opacity) * 0.05
+      inspectHologram.material.opacity +=
+        (targetInspectOpacity - inspectHologram.material.opacity) * 0.05
     }
 
     // Smoothly Lerp Arms to Target
     const lerpSpeed = 0.05
     if (leftArmGroup) {
-       leftArmGroup.rotation.x += (robot.leftArmTargetX - leftArmGroup.rotation.x) * lerpSpeed
-       leftArmGroup.rotation.z += (robot.leftArmTargetZ - leftArmGroup.rotation.z) * lerpSpeed
-       // Add bobbing
-       leftArmGroup.position.y = 0.5 + Math.sin(time * 2) * 0.05
+      leftArmGroup.rotation.x += (robot.leftArmTargetX - leftArmGroup.rotation.x) * lerpSpeed
+      leftArmGroup.rotation.z += (robot.leftArmTargetZ - leftArmGroup.rotation.z) * lerpSpeed
+      // Add bobbing
+      leftArmGroup.position.y = 0.5 + Math.sin(time * 2) * 0.05
     }
     if (rightArmGroup) {
-       rightArmGroup.rotation.x += (robot.rightArmTargetX - rightArmGroup.rotation.x) * lerpSpeed
-       rightArmGroup.rotation.z += (robot.rightArmTargetZ - rightArmGroup.rotation.z) * lerpSpeed
-       // Add bobbing
-       rightArmGroup.position.y = 0.5 + Math.sin(time * 2 + 1) * 0.05
+      rightArmGroup.rotation.x += (robot.rightArmTargetX - rightArmGroup.rotation.x) * lerpSpeed
+      rightArmGroup.rotation.z += (robot.rightArmTargetZ - rightArmGroup.rotation.z) * lerpSpeed
+      // Add bobbing
+      rightArmGroup.position.y = 0.5 + Math.sin(time * 2 + 1) * 0.05
     }
 
     // Satellites (Horizontal Spin)
@@ -612,9 +618,7 @@ function animate(time: number) {
           // Sync with visor position
           const robot = robots[idx]
           if (robot && robot.visorMesh) {
-            lg.position.copy(
-              new THREE.Vector3().setFromMatrixPosition(robot.visorMesh.matrixWorld)
-            )
+            lg.position.copy(new THREE.Vector3().setFromMatrixPosition(robot.visorMesh.matrixWorld))
           }
         })
       }
@@ -697,22 +701,22 @@ watch(
           const mat = child.material
           // Check if we have the original color stored
           if (mat.userData && mat.userData.originalColor !== undefined) {
-             const original = mat.userData.originalColor
-             
-             if (isAdmin) {
-               // Admin Mode: Map colors to Red/Dark style
-               if (original === VISUAL_COLORS.CYAN) {
-                 mat.color.setHex(VISUAL_COLORS.RED)
-               } else if (original === VISUAL_COLORS.BLUE) {
-                 mat.color.setHex(VISUAL_COLORS.DARK_RED)
-               } else {
-                 // Keep White / Gold / Dark / Others as acts
-                 mat.color.setHex(original)
-               }
-             } else {
-               // Guest Mode: Revert to exact original
-               mat.color.setHex(original)
-             }
+            const original = mat.userData.originalColor
+
+            if (isAdmin) {
+              // Admin Mode: Map colors to Red/Dark style
+              if (original === VISUAL_COLORS.CYAN) {
+                mat.color.setHex(VISUAL_COLORS.RED)
+              } else if (original === VISUAL_COLORS.BLUE) {
+                mat.color.setHex(VISUAL_COLORS.DARK_RED)
+              } else {
+                // Keep White / Gold / Dark / Others as acts
+                mat.color.setHex(original)
+              }
+            } else {
+              // Guest Mode: Revert to exact original
+              mat.color.setHex(original)
+            }
           }
         }
       })
@@ -735,7 +739,7 @@ onUnmounted(() => {
   cleanupEffect()
   cleanupLaserEffects()
 
-  robots.forEach(r => disposeGroup(r.robotGroup))
+  robots.forEach((r) => disposeGroup(r.robotGroup))
   robots = []
 
   // Dispose Scene

@@ -88,7 +88,15 @@ const updateProfile = async () => {
 }
 </script>
 
+<script lang="ts">
+import ToastContainer from '../components/common/ToastContainer.vue'
+export default {
+  components: { ToastContainer }
+}
+</script>
+
 <template>
+  <ToastContainer />
   <div
     class="drawer lg:drawer-open"
     :class="{ 'border-4 border-error': authStore.isImpersonating }"

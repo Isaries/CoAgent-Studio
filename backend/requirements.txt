@@ -16,6 +16,9 @@ email-validator>=2.0.0
 ruff==0.4.2
 black==24.2.0
 pre-commit==3.7.0
+structlog>=24.1.0
+redis>=5.0.1
+arq>=0.25.0
 
 # Testing & Typing
 pytest>=8.1.1

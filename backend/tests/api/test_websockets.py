@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -45,25 +45,37 @@ async def test_websocket_connect():
     client = TestClient(app)
     room_id = str(uuid4())
 
-    # We patch process_agents to avoid async background logic logic
-    with patch(
-        "app.api.api_v1.endpoints.chat.process_agents", new_callable=AsyncMock
-    ) as mock_process:
-        # Correct URL: /api/v1/chat/ws/...
-        with client.websocket_connect(f"/api/v1/chat/ws/{room_id}?token={token}") as websocket:
-            # Send text
-            websocket.send_text("Hello World")
+    # Mock ARQ Pool
+    mock_arq_pool = AsyncMock()
+    app.state.arq_pool = mock_arq_pool
 
-            # Receive broadcast (format: name|timestamp|content)
-            data = websocket.receive_text()
-            parts = data.split("|")
+    # 2. Test
+    client = TestClient(app)
+    room_id = str(uuid4())
 
-            # Verify structure
-            assert len(parts) >= 3
-            assert parts[-1] == "Hello World"
+    # Correct URL: /api/v1/chat/ws/...
+    with client.websocket_connect(f"/api/v1/chat/ws/{room_id}?token={token}") as websocket:
+        # Send text
+        websocket.send_text("Hello World")
 
-            # Verify agent trigger
-            assert mock_process.called
+        # Receive broadcast (JSON)
+        data = websocket.receive_text()
+        import json
+
+        msg_obj = json.loads(data)
+
+        # Verify structure
+        assert msg_obj["type"] == "message"
+        assert msg_obj["content"] == "Hello World"
+        assert "sender" in msg_obj
+        assert "timestamp" in msg_obj
+
+        # Verify agent trigger (ARQ job enqueued)
+        # The endpoint calls: await websocket.app.state.arq_pool.enqueue_job("run_agent_cycle_task", room_id, str(user_msg.id))
+        assert mock_arq_pool.enqueue_job.called
+        args = mock_arq_pool.enqueue_job.call_args
+        assert args[0][0] == "run_agent_cycle_task"
+        assert args[0][1] == room_id
 
     # Cleanup
     app.dependency_overrides.clear()

@@ -4,7 +4,7 @@ import { ref } from 'vue'
 export type ToastType = 'info' | 'success' | 'warning' | 'error'
 
 export interface Toast {
-  id: string
+  id: number
   message: string
   type: ToastType
   duration?: number
@@ -12,9 +12,10 @@ export interface Toast {
 
 export const useToastStore = defineStore('toast', () => {
   const toasts = ref<Toast[]>([])
+  let nextId = 1
 
-  const add = (message: string, type: ToastType = 'info', duration: number = 3000) => {
-    const id = Math.random().toString(36).substring(2, 9)
+  const add = (message: string, type: ToastType = 'info', duration = 3000) => {
+    const id = nextId++
     const toast: Toast = { id, message, type, duration }
     toasts.value.push(toast)
 
@@ -25,25 +26,25 @@ export const useToastStore = defineStore('toast', () => {
     }
   }
 
-  const remove = (id: string) => {
+  const remove = (id: number) => {
     const index = toasts.value.findIndex((t) => t.id === id)
-    if (index > -1) {
+    if (index !== -1) {
       toasts.value.splice(index, 1)
     }
   }
 
-  const success = (message: string, duration?: number) => add(message, 'success', duration)
-  const error = (message: string, duration?: number) => add(message, 'error', duration)
-  const warning = (message: string, duration?: number) => add(message, 'warning', duration)
-  const info = (message: string, duration?: number) => add(message, 'info', duration)
+  const error = (msg: string) => add(msg, 'error')
+  const success = (msg: string) => add(msg, 'success')
+  const info = (msg: string) => add(msg, 'info')
+  const warning = (msg: string) => add(msg, 'warning')
 
   return {
     toasts,
     add,
     remove,
-    success,
     error,
-    warning,
-    info
+    success,
+    info,
+    warning
   }
 })

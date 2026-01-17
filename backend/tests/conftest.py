@@ -35,10 +35,10 @@ async def reset_socket_manager():
     Reset the singleton Socket Manager state before and after each test.
     Prevents connection leakage between tests.
     """
-    manager.active_connections = {}
+    manager.registry.active_connections = {}
     manager.background_tasks = set()
     yield
-    manager.active_connections = {}
+    manager.registry.active_connections = {}
     manager.background_tasks = set()
 
 

@@ -1,10 +1,65 @@
+import structlog
+from arq import create_pool
+from arq.connections import RedisSettings
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.api_v1.api import api_router
 from app.core.config import settings
+from app.core.logging import setup_logging
+from app.core.socket_manager import manager
 
-app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
+# Setup Logging
+setup_logging(json_logs=False)  # Set True in Prod via env var ideally, keeping simple for now
+logger = structlog.get_logger()
+
+# Lifespan Events
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("startup_event")
+
+    try:
+        # 1. Connect SocketManager to Redis (for Pub/Sub)
+        await manager.connect_redis(settings.redis_url)
+
+        # 2. Init ARQ Pool (for enqueueing jobs)
+        app.state.arq_pool = await create_pool(
+            RedisSettings(host=settings.REDIS_HOST, port=settings.REDIS_PORT)
+        )
+
+        # 3. Init Cache
+        from app.core.cache import cache
+
+        await cache.connect()
+
+        # 4. Start Room Monitor
+        from app.core.room_monitor import room_monitor
+
+        await room_monitor.start(arq_pool=app.state.arq_pool)
+    except Exception as e:
+        logger.critical(f"Startup Failed: Could not initialize Redis/ARQ dependencies. {e}")
+        raise RuntimeError(
+            "Critical Dependency Failure: Redis or ARQ Pool could not be initialized."
+        ) from e
+
+    yield
+
+    # Shutdown
+    logger.info("shutdown_event")
+    await room_monitor.stop()
+    await app.state.arq_pool.close()
+    await cache.close()
+
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan,
+)
 
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:

@@ -37,12 +37,7 @@ const createSolidMaterial = (color: number) => {
   return mat
 }
 
-export const createRobot = (
-  scene: THREE.Scene,
-  x: number,
-  y: number,
-  z: number
-): RobotParts => {
+export const createRobot = (scene: THREE.Scene, x: number, y: number, z: number): RobotParts => {
   // --- Robot Assembly ---
   const robotGroup = new THREE.Group()
   robotGroup.position.set(x, y, z)

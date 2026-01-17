@@ -33,22 +33,17 @@ const fetchMessages = async () => {
   }
 }
 
-const connectWebSocket = () => {
-  if (!authStore.token) return
+import { useWebSocket } from '../composables/useWebSocket'
 
-  // Dynamic WebSocket Host
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  // If in dev (port 5173), we likely want to hit localhost:8000 or whatever the proxy targets.
-  // But WS doesn't always go through Vite proxy nicely without config.
-  // Ideally: Use env var VITE_API_URL or infer.
-  // Robust inference:
-  const isDev = window.location.port === '5173' // Default Vite port
-  const host = isDev ? 'localhost:8000' : window.location.host
-  const url = `${protocol}//${host}/api/v1/chat/ws/${roomId}?token=${authStore.token}`
+// ... existing imports ...
 
-  ws.value = new WebSocket(url)
+// ... inside setup ...
+// import { useWebSocket } from '../composables/useWebSocket' // REMOVED duplicate
 
-  ws.value.onopen = () => {
+const { status, send, connect } = useWebSocket('', {
+  reconnectInterval: 3000,
+  maxReconnectAttempts: 10,
+  onOpen: () => {
     messages.value.push({
       sender: 'System',
       content: 'Connected to chat...',
@@ -56,56 +51,35 @@ const connectWebSocket = () => {
       isSystem: true,
       timestamp: new Date().toISOString()
     })
-  }
-
-  ws.value.onmessage = (event) => {
-    const raw = event.data as string
-    let sender = 'Unknown'
-    let content = raw
-    let timestamp = ''
-    let isAi = false
-
-    // Format: name|timestamp|content
-    const parts = raw.split('|')
-    if (parts.length >= 3) {
-      sender = parts[0] || 'Unknown'
-      timestamp = parts[1] || ''
-      content = parts.slice(2).join('|')
-    } else if (raw.includes(': ')) {
-      // Fallback for unexpected messages
-      const p = raw.split(': ')
-      sender = p[0] || 'Unknown'
-      content = p.slice(1).join(': ')
+  },
+  onMessage: (msg) => {
+    // msg is already typed as SocketMessage from composable
+    let isAi = !!msg.metadata?.is_ai || msg.sender.includes('AI')
+    if (msg.sender.includes('Teacher AI') || msg.sender.includes('Student AI')) {
+      isAi = true
     }
 
-    if (sender.includes('Teacher AI') || sender.includes('Student AI')) isAi = true
-
-    // We rely on name matching for WS messages for now since we don't send ID in string
-    // Ideally backend should send JSON.
     const safeEmail = authStore.user?.email ?? ''
     const safeName = authStore.user?.full_name ?? ''
-    // Use type assertion if we know username exists or optional chaining if uncertain
     const safeUsername = (authStore.user as any)?.username ?? ''
 
     const isSelf =
-      sender === safeName || sender === safeEmail || (safeUsername && sender === safeUsername)
+      msg.sender === safeName ||
+      msg.sender === safeEmail ||
+      (safeUsername && msg.sender === safeUsername) ||
+      msg.metadata?.sender_id === authStore.user?.id
 
-    messages.value.push({ sender, content, isSelf, isAi, timestamp })
+    messages.value.push({
+      sender: msg.sender,
+      content: msg.content,
+      isSelf,
+      isAi,
+      isSystem: msg.type === 'system',
+      timestamp: msg.timestamp
+    })
     scrollToBottom()
   }
-
-  ws.value.onclose = () => {
-    console.log('WS Closed')
-  }
-}
-
-const handleSend = (text: string) => {
-  if (!ws.value) return
-  ws.value.send(text)
-  // Optimistic UI update or wait for echo?
-  // WebSocket echoes back usually, let's wait for echo to avoid dupes if backend broadcasts to sender too
-  // Our backend DOES broadcast to sender.
-}
+})
 
 const scrollToBottom = () => {
   nextTick(() => {
@@ -115,9 +89,36 @@ const scrollToBottom = () => {
   })
 }
 
+const handleSend = (text: string) => {
+  if (status.value !== 'OPEN') {
+    console.warn('Chat not connected')
+    return
+  }
+  // Backend expects plain text? Or JSON?
+  // Old implementation sent raw text 'data'.
+  // Backend: data = await websocket.receive_text() -> Message(content=data)
+  // So plain text is fine for now.
+  send(text)
+}
+
 onMounted(async () => {
   await fetchMessages()
-  connectWebSocket()
+
+  if (authStore.user) {
+    // user implies logged in (cookie present)
+    // Use current host (via Proxy if dev, or same origin if prod)
+    // This ensures Cookies are sent.
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const host = window.location.host // e.g. localhost:5173 or production.com
+    // We assume Vite proxy forwards /api/v1/chat/ws/... to backend
+    // If proxy handles WS, this works.
+    // If proxy does NOT handle WS (common vite config issue), we might need direct.
+    // But `api.ts` works, so Proxy likely exists.
+    // Let's try Proxy path first.
+    const url = `${protocol}//${host}/api/v1/chat/ws/${roomId}`
+
+    connect(url)
+  }
 })
 
 onUnmounted(() => {

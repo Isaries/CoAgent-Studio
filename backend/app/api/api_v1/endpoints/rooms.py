@@ -9,7 +9,8 @@ from app.api import deps
 from app.models.course import Course
 from app.models.message import Message
 from app.models.room import Room, RoomCreate, RoomRead, RoomUpdate, UserRoomLink
-from app.models.user import User, UserRole
+from app.models.user import User
+from app.services.permission_service import permission_service
 
 router = APIRouter()
 
@@ -29,18 +30,8 @@ async def create_room(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    if (
-        current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-        and course.owner_id != current_user.id
-    ):
-        # Check if TA
-        from app.models.course import UserCourseLink
-
-        link = await session.get(UserCourseLink, (current_user.id, course.id))
-        is_ta = link and link.role == "ta"
-
-        if not is_ta:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+    if not await permission_service.check(current_user, "create", course, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
 
     room = Room.model_validate(room_in)
     session.add(room)
@@ -97,20 +88,8 @@ async def update_room(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
-    course = await session.get(Course, room.course_id)  # Need to check course ownership
-
-    if (
-        current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-        and course.owner_id != current_user.id
-    ):
-        # Check if TA
-        from app.models.course import UserCourseLink
-
-        link = await session.get(UserCourseLink, (current_user.id, course.id))
-        is_ta = link and link.role == "ta"
-
-        if not is_ta:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+    if not await permission_service.check(current_user, "update", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
 
     room_data = room.dict(exclude_unset=True)
     update_data = room_in.dict(exclude_unset=True)
@@ -135,20 +114,8 @@ async def delete_room(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
-    # Verify Course Ownership
-    course = await session.get(Course, room.course_id)
-    if (
-        current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-        and course.owner_id != current_user.id
-    ):
-        # Check if TA
-        from app.models.course import UserCourseLink
-
-        link = await session.get(UserCourseLink, (current_user.id, course.id))
-        is_ta = link and link.role == "ta"
-
-        if not is_ta:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+    if not await permission_service.check(current_user, "delete", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
 
     from sqlmodel import delete
 
@@ -178,19 +145,8 @@ async def assign_user_to_room(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
-    course = await session.get(Course, room.course_id)
-    if (
-        current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-        and course.owner_id != current_user.id
-    ):
-        # Check if TA
-        from app.models.course import UserCourseLink
-
-        link = await session.get(UserCourseLink, (current_user.id, course.id))
-        is_ta = link and link.role == "ta"
-
-        if not is_ta:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+    if not await permission_service.check(current_user, "assign", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Find user
     user_to_assign = None
