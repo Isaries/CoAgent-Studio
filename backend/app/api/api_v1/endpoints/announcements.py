@@ -2,7 +2,7 @@ from typing import Any, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
@@ -19,13 +19,13 @@ async def create_announcement(
     session: AsyncSession = Depends(deps.get_session),
     announcement_in: AnnouncementCreate,
     current_user: User = Depends(deps.get_current_user),
-) -> Any:
+) -> Announcement:  # type: ignore[func-returns-value]
     """
     Create announcement.
     Allowed: Admin, Teacher (if owner), or TA (if enrolled - logic to be added).
     For now: Admin or Course Owner.
     """
-    course = await session.get(Course, announcement_in.course_id)
+    course = await session.get(Course, announcement_in.course_id)  # type: ignore[func-returns-value]
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
@@ -64,10 +64,10 @@ async def read_announcements(
     """
     Get announcements for a course.
     """
-    query = (
+    query: Any = (
         select(Announcement)
         .where(Announcement.course_id == course_id)
-        .order_by(Announcement.created_at.desc())
+        .order_by(col(Announcement.created_at).desc())
     )
     result = await session.exec(query)
     return result.all()

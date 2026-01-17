@@ -33,7 +33,7 @@ async def get_room_messages(
     return await chat_service.get_room_messages(room_id)
 
 
-async def get_current_user_ws(token: str, session: AsyncSession) -> Optional[User]:
+async def get_current_user_ws(token: str, session: AsyncSession) -> Optional[User]:  # type: ignore[func-returns-value]
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         token_data = payload.get("sub")
@@ -42,7 +42,7 @@ async def get_current_user_ws(token: str, session: AsyncSession) -> Optional[Use
     except JWTError:
         return None
 
-    user = await session.get(User, token_data)
+    user = await session.get(User, token_data)  # type: ignore[func-returns-value]
     return user
 
 

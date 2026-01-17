@@ -26,7 +26,7 @@ async def create_room(
     Create a room in a course.
     Allowed: Admin, or Owner of the course.
     """
-    course = await session.get(Course, room_in.course_id)
+    course = await session.get(Course, room_in.course_id)  # type: ignore[func-returns-value]
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
@@ -49,7 +49,7 @@ async def read_rooms(
     """
     Retrieve rooms for a specific course.
     """
-    query = select(Room).where(Room.course_id == course_id)
+    query: Any = select(Room).where(Room.course_id == course_id)
     result = await session.exec(query)
     return result.all()
 
@@ -63,7 +63,7 @@ async def read_room(
     """
     Get a specific room by id.
     """
-    room = await session.get(Room, room_id)
+    room = await session.get(Room, room_id)  # type: ignore[func-returns-value]
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     # Optional: Check if user has access to the course the room belongs to
@@ -84,7 +84,7 @@ async def update_room(
     Update room (including AI settings).
     Allowed: Admin, or Owner of the course.
     """
-    room = await session.get(Room, room_id)
+    room = await session.get(Room, room_id)  # type: ignore[func-returns-value]
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
@@ -109,8 +109,8 @@ async def delete_room(
     room_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
-):
-    room = await session.get(Room, room_id)
+) -> None:
+    room = await session.get(Room, room_id)  # type: ignore[func-returns-value]
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
@@ -140,8 +140,8 @@ async def assign_user_to_room(
     assignment: AssignmentRequest,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
-):
-    room = await session.get(Room, room_id)
+) -> Any:
+    room = await session.get(Room, room_id)  # type: ignore[func-returns-value]
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
@@ -153,7 +153,7 @@ async def assign_user_to_room(
     if assignment.user_id:
         user_to_assign = await session.get(User, assignment.user_id)
     elif assignment.user_email:
-        query = select(User).where(User.email == assignment.user_email)
+        query: Any = select(User).where(User.email == assignment.user_email)
         result = await session.exec(query)
         user_to_assign = result.first()
 

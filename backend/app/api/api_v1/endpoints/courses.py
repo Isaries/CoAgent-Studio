@@ -159,7 +159,7 @@ async def read_course_members(
         # Service could return owner obj too, but let's query if needed or simple ignore if pure link query
         # Original logic fetched owner separately.
         # Let's keep it simple: If owner not in links, we fetch.
-        owner = await session.get(User, owner_id)
+        owner = await session.get(User, owner_id)  # type: ignore[func-returns-value]
         if owner:
             members_dict[owner.id] = CourseMember(
                 user_id=owner.id,

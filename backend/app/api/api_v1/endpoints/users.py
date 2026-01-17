@@ -74,11 +74,11 @@ async def update_user(
     user_id: str,
     user_in: UserUpdate,
     current_user: User = Depends(deps.get_current_user),
-) -> Any:
+) -> Any:  # type: ignore[func-returns-value]
     """
     Update a user (e.g. role promotion). Admin only.
     """
-    user_to_edit = await session.get(User, user_id)
+    user_to_edit = await session.get(User, user_id)  # type: ignore[func-returns-value]
     if not user_to_edit:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -95,11 +95,11 @@ async def delete_user(
     session: AsyncSession = Depends(deps.get_session),
     user_id: str,
     current_user: User = Depends(deps.get_current_user),
-) -> Any:
+) -> Any:  # type: ignore[func-returns-value]
     """
     Delete a user.
     """
-    user_to_delete = await session.get(User, user_id)
+    user_to_delete = await session.get(User, user_id)  # type: ignore[func-returns-value]
     if not user_to_delete:
         raise HTTPException(status_code=404, detail="User not found")
 

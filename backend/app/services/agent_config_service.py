@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -18,7 +18,7 @@ class AgentConfigService:
     async def get_system_agent_configs(self, current_user: User) -> List[AgentConfig]:
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             raise HTTPException(status_code=403, detail="Not enough permissions")
-        query = select(AgentConfig).where(AgentConfig.course_id == None)
+        query: Any = select(AgentConfig).where(AgentConfig.course_id == None)
         result = await self.session.exec(query)
         return result.all()
 
@@ -28,7 +28,7 @@ class AgentConfigService:
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
-        query = select(AgentConfig).where(
+        query: Any = select(AgentConfig).where(
             AgentConfig.course_id == None, AgentConfig.type == agent_type
         )
         result = await self.session.exec(query)
@@ -62,7 +62,7 @@ class AgentConfigService:
     async def get_course_agent_configs(
         self, course_id: UUID, current_user: User
     ) -> List[AgentConfig]:
-        course = await self.session.get(Course, course_id)
+        course = await self.session.get(Course, course_id)  # type: ignore[func-returns-value]
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
 
@@ -85,7 +85,7 @@ class AgentConfigService:
     async def create_and_initialize_config(
         self, course_id: UUID, config_in: AgentConfigCreate, current_user: User
     ) -> AgentConfig:
-        course = await self.session.get(Course, course_id)
+        course = await self.session.get(Course, course_id)  # type: ignore[func-returns-value]
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
 
@@ -130,7 +130,7 @@ class AgentConfigService:
     async def update_agent_config(
         self, agent_id: str, config_in: AgentConfigCreate, current_user: User
     ) -> AgentConfig:
-        agent_config = await self.session.get(AgentConfig, UUID(agent_id))
+        agent_config = await self.session.get(AgentConfig, UUID(agent_id))  # type: ignore[func-returns-value]
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
 
@@ -142,9 +142,9 @@ class AgentConfigService:
         await self.session.refresh(agent_config)
         return agent_config
 
-    async def _check_update_permissions(self, agent_config: AgentConfig, current_user: User):
+    async def _check_update_permissions(self, agent_config: AgentConfig, current_user: User) -> None:
         if agent_config.course_id:
-            course = await self.session.get(Course, agent_config.course_id)
+            course = await self.session.get(Course, agent_config.course_id)  # type: ignore[func-returns-value]
             if not course:
                 return  # Orphaned config, allow admin? Or fail? Logic was pass.
 
@@ -157,7 +157,7 @@ class AgentConfigService:
             if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
                 raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    def _apply_config_updates(self, agent_config: AgentConfig, config_in: AgentConfigCreate):
+    def _apply_config_updates(self, agent_config: AgentConfig, config_in: AgentConfigCreate) -> None:
         if config_in.system_prompt is not None:
             agent_config.system_prompt = config_in.system_prompt
         if config_in.model_provider is not None:
@@ -180,8 +180,8 @@ class AgentConfigService:
         if config_in.context_window is not None:
             agent_config.context_window = config_in.context_window
 
-    async def delete_agent_config(self, agent_id: str, current_user: User):
-        agent_config = await self.session.get(AgentConfig, UUID(agent_id))
+    async def delete_agent_config(self, agent_id: str, current_user: User) -> None:
+        agent_config = await self.session.get(AgentConfig, UUID(agent_id))  # type: ignore[func-returns-value]
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
 
@@ -200,8 +200,8 @@ class AgentConfigService:
         await self.session.delete(agent_config)
         await self.session.commit()
 
-    async def activate_agent(self, agent_id: str, current_user: User):
-        agent_config = await self.session.get(AgentConfig, UUID(agent_id))
+    async def activate_agent(self, agent_id: str, current_user: User) -> AgentConfig:
+        agent_config = await self.session.get(AgentConfig, UUID(agent_id))  # type: ignore[func-returns-value]
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
 
@@ -231,7 +231,7 @@ class AgentConfigService:
         return agent_config
 
     async def get_course_agent_config(self, agent_id: UUID, current_user: User) -> AgentConfig:
-        agent_config = await self.session.get(AgentConfig, agent_id)
+        agent_config = await self.session.get(AgentConfig, agent_id)  # type: ignore[func-returns-value]
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
 
@@ -250,7 +250,7 @@ class AgentConfigService:
         return agent_config
 
     async def get_agent_keys(self, agent_config_id: UUID) -> List[AgentKey]:
-        query = select(AgentKey).where(AgentKey.agent_config_id == agent_config_id)
+        query: Any = select(AgentKey).where(AgentKey.agent_config_id == agent_config_id)
         result = await self.session.exec(query)
         return result.all()
 

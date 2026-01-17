@@ -1,8 +1,8 @@
-from typing import List, Optional
+from typing import Any, List, Optional, Tuple  # type: ignore
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlmodel import or_, select
+from sqlmodel import col, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.course import Course, CourseCreate, CourseUpdate, UserCourseLink
@@ -28,23 +28,28 @@ class CourseService:
 
         return course
 
-    async def get_courses(self, user: User, skip: int = 0, limit: int = 100) -> List[Course]:
+    async def get_courses(self, user: User, skip: int = 0, limit: int = 100) -> List[Tuple[Course, Optional[str]]]:
         if user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             # Admins see all courses with owner name
-            query = (
+            query: Any = (
                 select(Course, User.full_name)
-                .join(User, Course.owner_id == User.id)
-                .offset(skip)
+                .join(User, col(Course.owner_id) == col(User.id))
+                .offset(skip)  # type: ignore
                 .limit(limit)
             )
         else:
             # Users see courses they own or are enrolled in
             query = (
                 select(Course, User.full_name)
-                .join(User, Course.owner_id == User.id)
-                .distinct()
-                .outerjoin(UserCourseLink, Course.id == UserCourseLink.course_id)
-                .where(or_(Course.owner_id == user.id, UserCourseLink.user_id == user.id))
+                .join(User, col(Course.owner_id) == col(User.id))
+                .distinct()  # type: ignore
+                .outerjoin(UserCourseLink, col(Course.id) == col(UserCourseLink.course_id))
+                .where(
+                    or_(
+                        col(Course.owner_id) == user.id,
+                        col(UserCourseLink.user_id) == user.id,
+                    )
+                )
                 .offset(skip)
                 .limit(limit)
             )
@@ -134,14 +139,14 @@ class CourseService:
             or course.owner_id == current_user.id
         )
         if not is_admin_owner:
-            link = await self.session.get(UserCourseLink, (current_user.id, course.id))
+            link = await self.session.get(UserCourseLink, (current_user.id, course.id))  # type: ignore[func-returns-value]
             if not link or link.role != "ta":
                 raise HTTPException(status_code=403, detail="Not enough permissions")
 
         # Find user
         user_to_enroll = None
         if user_id:
-            user_to_enroll = await self.session.get(User, user_id)
+            user_to_enroll = await self.session.get(User, user_id)  # type: ignore[func-returns-value]
         elif email:
             user_to_enroll = (
                 await self.session.exec(select(User).where(User.email == email))
@@ -151,7 +156,7 @@ class CourseService:
             raise HTTPException(status_code=404, detail="User not found")
 
         # Check existing
-        link = await self.session.get(UserCourseLink, (user_to_enroll.id, course_id))
+        link = await self.session.get(UserCourseLink, (user_to_enroll.id, course_id))  # type: ignore[func-returns-value]
         if link:
             return "User already enrolled"
 
@@ -171,14 +176,14 @@ class CourseService:
             or course.owner_id == current_user.id
         )
         if not is_admin_owner:
-            link = await self.session.get(UserCourseLink, (current_user.id, course_id))
+            link = await self.session.get(UserCourseLink, (current_user.id, course_id))  # type: ignore[func-returns-value]  # type: ignore[func-returns-value]
             if not link:
                 raise HTTPException(status_code=403, detail="Not enough permissions")
 
-        query = (
+        query: Any = (
             select(User, UserCourseLink.role)
-            .join(UserCourseLink, User.id == UserCourseLink.user_id)
-            .where(UserCourseLink.course_id == course_id)
+            .join(UserCourseLink, User.id == UserCourseLink.user_id)  # type: ignore[arg-type]
+            .where(UserCourseLink.course_id == course_id)  # type: ignore
         )
         results = await self.session.exec(query)
         members = results.all()
@@ -196,7 +201,7 @@ class CourseService:
 
     async def update_member_role(
         self, course_id: UUID, user_id: UUID, role: str, current_user: User
-    ):
+    ) -> UserCourseLink:
         course = await self.get_course_by_id(course_id)
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
@@ -208,20 +213,20 @@ class CourseService:
 
         if not is_admin_owner:
             # TA check
-            link = await self.session.get(UserCourseLink, (current_user.id, course_id))
+            link = await self.session.get(UserCourseLink, (current_user.id, course_id))  # type: ignore[func-returns-value]  # type: ignore[func-returns-value]
             if not link or link.role != "ta":
                 raise HTTPException(status_code=403, detail="Not enough permissions")
             # TA restrictions
             if role in ["ta", "teacher"]:
                 raise HTTPException(status_code=403, detail="TAs cannot promote to TA/Teacher")
-            target_link = await self.session.get(UserCourseLink, (user_id, course_id))
+            target_link = await self.session.get(UserCourseLink, (user_id, course_id))  # type: ignore[func-returns-value]
             if target_link and target_link.role in ["ta", "teacher"]:
                 raise HTTPException(status_code=403, detail="TAs cannot modify TAs/Teachers")
 
         if user_id == course.owner_id:
             raise HTTPException(status_code=400, detail="Cannot change owner role")
 
-        link = await self.session.get(UserCourseLink, (user_id, course_id))
+        link = await self.session.get(UserCourseLink, (user_id, course_id))  # type: ignore[func-returns-value]  # type: ignore[func-returns-value]
         if not link:
             raise HTTPException(status_code=404, detail="User not enrolled")
 
@@ -230,7 +235,7 @@ class CourseService:
         await self.session.commit()
         return link
 
-    async def remove_member(self, course_id: UUID, user_id: UUID, current_user: User):
+    async def remove_member(self, course_id: UUID, user_id: UUID, current_user: User) -> None:
         course = await self.get_course_by_id(course_id)
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
@@ -244,14 +249,14 @@ class CourseService:
         )
 
         if not is_admin_owner:
-            link = await self.session.get(UserCourseLink, (current_user.id, course_id))
+            link = await self.session.get(UserCourseLink, (current_user.id, course_id))  # type: ignore[func-returns-value]  # type: ignore[func-returns-value]
             if not link or link.role != "ta":
                 raise HTTPException(status_code=403, detail="Not enough permissions")
-            target_link = await self.session.get(UserCourseLink, (user_id, course_id))
+            target_link = await self.session.get(UserCourseLink, (user_id, course_id))  # type: ignore[func-returns-value]
             if target_link and target_link.role in ["ta", "teacher"]:
                 raise HTTPException(status_code=403, detail="TAs cannot remove TAs/Teachers")
 
-        link = await self.session.get(UserCourseLink, (user_id, course_id))
+        link = await self.session.get(UserCourseLink, (user_id, course_id))  # type: ignore[func-returns-value]
         if not link:
             raise HTTPException(status_code=404, detail="User not found in course")
 

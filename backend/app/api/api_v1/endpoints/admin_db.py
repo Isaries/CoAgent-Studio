@@ -103,7 +103,7 @@ async def get_table_data(
             f"{select_part} {join_part} {where_clause} {order_clause} LIMIT :limit OFFSET :offset"
         )
 
-        result = await session.exec(final_query, params=params)
+        result = await session.execute(final_query, params=params)
         data = result.mappings().all()
 
         return _filter_sensitive_data(data)
@@ -118,7 +118,7 @@ def _get_relation_config(
     table_name: str, resolve_relations: bool
 ) -> tuple[Dict[str, Any] | None, str | None]:
     relation_config = TABLE_RELATIONS.get(table_name) if resolve_relations else None
-    alias = relation_config["alias"] if relation_config else None
+    alias = str(relation_config["alias"]) if relation_config else None
     return relation_config, alias
 
 

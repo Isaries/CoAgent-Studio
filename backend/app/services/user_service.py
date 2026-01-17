@@ -1,10 +1,10 @@
 import os
 import uuid
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile
-from sqlmodel import or_, select
+from sqlmodel import col, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core import security
@@ -24,15 +24,19 @@ class UserService:
             return None
 
     async def get_users(self, skip: int = 0, limit: int = 100) -> List[User]:
-        query = select(User).offset(skip).limit(limit)
+        query: Any = select(User).offset(skip).limit(limit)
         results = await self.session.exec(query)
         return results.all()
 
     async def search_users(self, q: str, limit: int = 10) -> List[User]:
-        query = (
+        query: Any = (
             select(User)
             .where(
-                or_(User.email.contains(q), User.full_name.contains(q), User.username.contains(q))
+                or_(
+                    col(User.email).contains(q),
+                    col(User.full_name).contains(q),
+                    col(User.username).contains(q),
+                )
             )
             .limit(limit)
         )
@@ -57,7 +61,7 @@ class UserService:
             conditions.append(User.username == user_in.username)
 
         if conditions:
-            query = select(User).where(or_(*conditions))
+            query: Any = select(User).where(or_(*conditions))
             if (await self.session.exec(query)).first():
                 raise HTTPException(status_code=400, detail="User already exists")
 
@@ -155,7 +159,7 @@ class UserService:
                 status_code=403, detail="Only Super Admins can delete Admin accounts"
             )
 
-        self.session.delete(user)
+        await self.session.delete(user)
         await self.session.commit()
         return user
 
@@ -175,6 +179,9 @@ class UserService:
 
         if not os.path.exists(static_dir):
             os.makedirs(static_dir)
+
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
 
         file_extension = file.filename.split(".")[-1]
         filename = f"{uuid.uuid4()}.{file_extension}"

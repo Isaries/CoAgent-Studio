@@ -1,11 +1,11 @@
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from google import genai
 from google.genai import types
-from openai import AsyncOpenAI
+from openai import NOT_GIVEN, AsyncOpenAI
 from openai.types.chat import ChatCompletionToolParam
 
 
@@ -97,9 +97,9 @@ class GeminiService(LLMService):
 
                                 tool_calls.append(
                                     ToolCall(
-                                        id="call_" + part.function_call.name,
-                                        name=part.function_call.name,
-                                        arguments=args,
+                                        id="call_" + (part.function_call.name or "unknown"),
+                                        name=part.function_call.name or "unknown",
+                                        arguments=args if args else {},
                                     )
                                 )
                             if part.text:
@@ -149,11 +149,14 @@ class OpenAIService(LLMService):
         openai_tools = None
         if tools:
             # Pass directly as OpenAI strictly follows the schema we'll use
-            openai_tools = [ChatCompletionToolParam(**t) for t in tools]
+            # Cast to Any to bypass TypedDict strictness or use cast
+            openai_tools = [cast(ChatCompletionToolParam, t) for t in tools]
 
         try:
             response = await client.chat.completions.create(
-                model=model_name, messages=messages, tools=openai_tools
+                model=model_name,
+                messages=cast(Any, messages),  # Simplify message typing
+                tools=openai_tools or NOT_GIVEN,
             )
 
             message = response.choices[0].message

@@ -1,3 +1,4 @@
+from enum import Enum
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID, uuid4
@@ -10,7 +11,7 @@ if TYPE_CHECKING:
     from .agent_key import AgentKey
 
 
-class AgentType(str):
+class AgentType(str, Enum):
     TEACHER = "teacher"
     STUDENT = "student"
     DESIGN = "design"

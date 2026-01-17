@@ -1,10 +1,11 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 from uuid import UUID
 
 import structlog
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.specialized_agents import StudentAgent, TeacherAgent
 from app.factories.agent_factory import AgentFactory
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.message import Message
@@ -49,7 +50,7 @@ async def publish_message(redis, room_id: str, message: str):
     await redis.publish(f"room_{room_id}", message)
 
 
-async def run_agent_cycle_task(ctx, room_id: str, user_msg_id: str):
+async def run_agent_cycle_task(ctx, room_id: str, user_msg_id: str) -> None:
     """
     ARQ Task to run agent cycle.
     """
@@ -74,7 +75,7 @@ async def run_agent_cycle_task(ctx, room_id: str, user_msg_id: str):
         await process_agents_logic(room_id, session, redis, user_msg)
 
 
-async def run_agent_time_task(ctx, room_id: str, trigger_role: str):  # noqa: C901
+async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:  # noqa: C901
     """
     ARQ Task to run agent time-based trigger.
     trigger_role: "teacher" or "student"
@@ -97,7 +98,8 @@ async def run_agent_time_task(ctx, room_id: str, trigger_role: str):  # noqa: C9
             agent = AgentFactory.create_agent(teacher_config)
             if not agent:
                 return
-            response = await agent.generate_reply(history, tools=[UPDATE_TRIGGER_TOOL_DEF])
+            t_agent = cast(TeacherAgent, agent)
+            response = await t_agent.generate_reply(history, tools=[UPDATE_TRIGGER_TOOL_DEF])
 
             if isinstance(response, str):
                 await _save_and_broadcast(
@@ -111,34 +113,37 @@ async def run_agent_time_task(ctx, room_id: str, trigger_role: str):  # noqa: C9
 
         elif trigger_role == "student" and student_config:
             # Student Logic
-            s_agent = AgentFactory.create_agent(student_config)
-            if s_agent:
+            s_agent_core = AgentFactory.create_agent(student_config)
+            if s_agent_core:
+                s_agent = cast(StudentAgent, s_agent_core)
                 proposal = await s_agent.generate_proposal(history)
 
                 # Teacher Eval (if teacher exists)
                 if teacher_config and teacher_config.has_api_key:
-                    t_agent = AgentFactory.create_agent(teacher_config)
-                    context_str = "\n".join([f"{m.sender_id}: {m.content}" for m in history])
-                    logger.info(
-                        "agent_decision",
-                        role="teacher",
-                        action="evaluate_proposal",
-                        proposal_preview=proposal[:50],
-                    )
-                    if await t_agent.evaluate_student_proposal(proposal, context_str):
-                        logger.info("agent_decision", role="teacher", action="proposal_approved")
-                        await _save_and_broadcast(
-                            session, redis, proposal, room_id, AgentType.STUDENT, "[Student AI]"
+                    t_agent_core = AgentFactory.create_agent(teacher_config)
+                    if t_agent_core:
+                        t_agent_eval = cast(TeacherAgent, t_agent_core)
+                        context_str = "\n".join([f"{m.sender_id}: {m.content}" for m in history])
+                        logger.info(
+                            "agent_decision",
+                            role="teacher",
+                            action="evaluate_proposal",
+                            proposal_preview=proposal[:50],
                         )
+                        if await t_agent_eval.evaluate_student_proposal(proposal, context_str):
+                            logger.info("agent_decision", role="teacher", action="proposal_approved")
+                            await _save_and_broadcast(
+                                session, redis, proposal, room_id, AgentType.STUDENT, "[Student AI]"
+                            )
                     else:
                         logger.info("agent_decision", role="teacher", action="proposal_denied")
 
 
-async def process_agents_logic(room_id: str, session: AsyncSession, redis, last_message: Message):
+async def process_agents_logic(room_id: str, session: AsyncSession, redis, last_message: Message) -> None:
     """
     Trigger Agent logic.
     """
-    room = await session.get(Room, UUID(room_id))
+    room = await session.get(Room, UUID(room_id))  # type: ignore[func-returns-value]
     if not room or room.ai_mode == "off":
         return
 
@@ -258,7 +263,8 @@ async def _execute_teacher_turn(
 
             # Pass tools to teacher agent
             # TeacherAgent.generate_reply now accepts tools
-            response = await teacher_agent.generate_reply(history, tools=[UPDATE_TRIGGER_TOOL_DEF])
+            t_agent = cast(TeacherAgent, teacher_agent)
+            response = await t_agent.generate_reply(history, tools=[UPDATE_TRIGGER_TOOL_DEF])
 
             if isinstance(response, list):  # List[ToolCall]
                 logger.info(
@@ -294,7 +300,8 @@ async def _execute_student_turn(
             logger.info(
                 "agent_decision", role="student", action="propose_start", room_id=str(room.id)
             )
-            proposal = await student_agent.generate_proposal(history)
+            s_agent = cast(StudentAgent, student_agent)
+            proposal = await s_agent.generate_proposal(history)
 
             # Ask Teacher Evaluation
             context_str = "\n".join([f"{m.sender_id}: {m.content}" for m in history])
@@ -305,7 +312,8 @@ async def _execute_student_turn(
                 proposal_preview=proposal[:50],
             )
 
-            if await teacher_agent.evaluate_student_proposal(proposal, context_str):
+            t_agent = cast(TeacherAgent, teacher_agent)
+            if await t_agent.evaluate_student_proposal(proposal, context_str):
                 logger.info("agent_decision", role="teacher", action="proposal_approved")
                 await _save_and_broadcast(
                     session, redis, proposal, room_id, AgentType.STUDENT, "[Student AI]"
@@ -314,7 +322,7 @@ async def _execute_student_turn(
                 logger.info("agent_decision", role="teacher", action="proposal_denied")
 
 
-async def _save_and_broadcast(session, redis, content, room_id, agent_type, prefix):
+async def _save_and_broadcast(session, redis, content, room_id, agent_type, prefix) -> None:
     msg = Message(content=content, room_id=UUID(room_id), agent_type=agent_type)
     session.add(msg)
     await session.commit()
@@ -326,11 +334,11 @@ async def _save_and_broadcast(session, redis, content, room_id, agent_type, pref
     await publish_message(redis, room_id, payload)
 
 
-async def check_and_process_time_triggers(room_id: str, session: AsyncSession, arq_pool):
+async def check_and_process_time_triggers(room_id: str, session: AsyncSession, arq_pool) -> None:
     """
     Fast check. If trigger needed, enqueue job.
     """
-    room = await session.get(Room, UUID(room_id))
+    room = await session.get(Room, UUID(room_id))  # type: ignore[func-returns-value]
     if not room or room.ai_mode == "off":
         return
 

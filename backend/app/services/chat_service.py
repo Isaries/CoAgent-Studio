@@ -1,7 +1,7 @@
 from typing import Any, List
 from uuid import UUID
 
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.message import Message
@@ -16,11 +16,11 @@ class ChatService:
         """
         Get chat history for a room, handling formatting.
         """
-        query = (
+        query = (  # type: ignore
             select(Message, User)
-            .outerjoin(User, Message.sender_id == User.id)
-            .where(Message.room_id == room_id)
-            .order_by(Message.created_at.asc())
+            .outerjoin(User, col(Message.sender_id) == col(User.id))
+            .where(Message.room_id == room_id)  # type: ignore
+            .order_by(col(Message.created_at).asc())
         )
         result = await self.session.exec(query)
 

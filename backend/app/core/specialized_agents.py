@@ -52,7 +52,7 @@ class TeacherAgent(AgentCore):
         Reply with exactly "YES" or "NO".
         """
         response = await self.run(prompt)
-        return "YES" in response.upper()
+        return "YES" in str(response).upper()
 
 
 class StudentAgent(AgentCore):
@@ -73,7 +73,7 @@ class StudentAgent(AgentCore):
         Task: You are a student in this class. You want to contribute to the discussion.
         Draft a short, helpful message. Do not be too formal.
         """
-        return await self.run(prompt)
+        return str(await self.run(prompt))
 
 
 class DesignAgent(AgentCore):
@@ -104,7 +104,7 @@ class DesignAgent(AgentCore):
 
         Generate a system prompt for this {target_agent_type} agent.
         """
-        return await self.run(input_text)
+        return str(await self.run(input_text))
 
 
 class AnalyticsAgent(AgentCore):
@@ -140,4 +140,4 @@ class AnalyticsAgent(AgentCore):
         Task: Generate a concise markdown report summarizing the discussion in this room.
         Highlight key contributors, topics discussed, and any interventions needed.
         """
-        return await self.run(prompt)
+        return str(await self.run(prompt))

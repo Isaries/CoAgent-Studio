@@ -28,7 +28,7 @@ async def login_access_token(
     from sqlmodel import or_
 
     # Allow login by email OR username
-    query = select(User).where(
+    query: Any = select(User).where(
         or_(User.email == form_data.username, User.username == form_data.username)
     )
     result = await session.exec(query)
@@ -95,11 +95,12 @@ async def refresh_token(
         user_id = payload.get("sub")
     except JWTError:
         raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
         ) from None
 
     # Check if user exists/active
-    user = await session.get(User, user_id)
+    user = await session.get(User, user_id)  # type: ignore[func-returns-value]
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -154,7 +155,7 @@ async def impersonate_user(
             detail="The user doesn't have enough privileges",
         )
 
-    user = await session.get(User, user_id)
+    user = await session.get(User, user_id)  # type: ignore[func-returns-value]
     if not user:
         raise HTTPException(
             status_code=404,

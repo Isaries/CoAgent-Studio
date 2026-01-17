@@ -2,7 +2,7 @@ from typing import Any, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
@@ -22,12 +22,12 @@ async def generate_course_analytics(
     course_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
-) -> Any:
+) -> AnalyticsReport:  # type: ignore[func-returns-value]
     """
     Trigger analysis for the entire course (all rooms).
     For MVP, we also just pick the first room to demonstrate specific room analysis.
     """
-    course = await session.get(Course, course_id)
+    course = await session.get(Course, course_id)  # type: ignore[func-returns-value]
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
@@ -42,10 +42,10 @@ async def generate_course_analytics(
 
     # 1. Get Analytics Agent Config
     # Prioritize Active, then Latest
-    query = (
+    query: Any = (
         select(AgentConfig)
         .where(AgentConfig.course_id == course_id, AgentConfig.type == AgentType.ANALYTICS)
-        .order_by(AgentConfig.is_active.desc(), AgentConfig.updated_at.desc())
+        .order_by(col(AgentConfig.is_active).desc(), col(AgentConfig.updated_at).desc())
     )
     result = await session.exec(query)
     config = result.first()
@@ -84,7 +84,7 @@ async def generate_course_analytics(
         msgs_query = (
             select(Message)
             .where(Message.room_id == room.id)
-            .order_by(Message.created_at.desc())
+            .order_by(col(Message.created_at).desc())
             .limit(50)
         )
         msgs_res = await session.exec(msgs_query)
@@ -113,10 +113,10 @@ async def read_analytics_reports(
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    query = (
+    query: Any = (
         select(AnalyticsReport)
         .where(AnalyticsReport.course_id == course_id)
-        .order_by(AnalyticsReport.created_at.desc())
+        .order_by(col(AnalyticsReport.created_at).desc())
     )
     result = await session.exec(query)
     return result.all()

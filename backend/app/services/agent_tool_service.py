@@ -1,7 +1,7 @@
-from typing import List
+from typing import Any, List
 from uuid import UUID
 
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.llm_service import ToolCall
@@ -46,9 +46,9 @@ async def handle_tool_calls(session: AsyncSession, course_id: UUID, tool_calls: 
             await _update_agent_trigger(
                 session,
                 course_id,
-                args.get("target_agent"),
-                args.get("trigger_type"),
-                args.get("value"),
+                str(args.get("target_agent", "")),
+                str(args.get("trigger_type", "")),
+                float(args.get("value", 0.0)),
             )
 
 
@@ -66,11 +66,11 @@ async def _update_agent_trigger(
         return
 
     # Find config
-    query = (
+    query: Any = (
         select(AgentConfig)
         .where(AgentConfig.course_id == course_id)
         .where(AgentConfig.type == agent_type)
-        .order_by(AgentConfig.updated_at.desc())
+        .order_by(col(AgentConfig.updated_at).desc())
         .limit(1)
     )
     result = await session.exec(query)

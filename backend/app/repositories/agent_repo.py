@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 from uuid import UUID
 
 from sqlmodel import col, select
@@ -34,10 +34,10 @@ class AgentConfigRepository:
             s_conf = AgentConfig(**cached_data["student"]) if cached_data.get("student") else None
         else:
             # DB Query
-            query = (
+            query: Any = (
                 select(AgentConfig)
                 .where(AgentConfig.course_id == course_id)
-                .order_by(AgentConfig.updated_at.desc())
+                .order_by(col(AgentConfig.updated_at).desc())
             )
             result = await self.session.exec(query)
             configs = result.all()
@@ -83,10 +83,10 @@ class AgentConfigRepository:
             return cached["silence"], cached["t_since"], cached["s_since"]
 
         # Last User Message (for Silence)
-        last_msg_query = (
+        last_msg_query: Any = (
             select(Message)
             .where(Message.room_id == room_id)
-            .order_by(Message.created_at.desc())
+            .order_by(col(Message.created_at).desc())
             .limit(1)
         )
         last_msg = (await self.session.exec(last_msg_query)).first()
@@ -106,7 +106,7 @@ class AgentConfigRepository:
             await self.session.exec(
                 select(Message)
                 .where(Message.room_id == room_id, Message.agent_type == AgentType.TEACHER)
-                .order_by(Message.created_at.desc())
+                .order_by(col(Message.created_at).desc())
                 .limit(1)
             )
         ).first()
@@ -117,7 +117,7 @@ class AgentConfigRepository:
             await self.session.exec(
                 select(Message)
                 .where(Message.room_id == room_id, Message.agent_type == AgentType.STUDENT)
-                .order_by(Message.created_at.desc())
+                .order_by(col(Message.created_at).desc())
                 .limit(1)
             )
         ).first()
@@ -132,11 +132,11 @@ class AgentConfigRepository:
 
     async def get_message_count_gap(self, room_id: UUID) -> int:
         """Count user messages since the last Agent message."""
-        query = (
+        query: Any = (
             select(Message)
             .where(Message.room_id == room_id)
-            .where(Message.agent_type.isnot(None))
-            .order_by(Message.created_at.desc())
+            .where(col(Message.agent_type).isnot(None))
+            .order_by(col(Message.created_at).desc())
             .limit(1)
         )
         result = await self.session.exec(query)
@@ -145,7 +145,7 @@ class AgentConfigRepository:
         count_query = (
             select(col(Message.id))
             .where(Message.room_id == room_id)
-            .where(Message.agent_type.is_(None))
+            .where(col(Message.agent_type).is_(None))
         )
         if last_agent_msg:
             count_query = count_query.where(Message.created_at > last_agent_msg.created_at)
@@ -154,10 +154,10 @@ class AgentConfigRepository:
         return len(results.all())
 
     async def get_history(self, room_id: UUID, limit: int = 10) -> list[Message]:
-        hist_query = (
+        hist_query: Any = (
             select(Message)
             .where(Message.room_id == room_id)
-            .order_by(Message.created_at.desc())
+            .order_by(col(Message.created_at).desc())
             .limit(limit)
         )
         hist_result = await self.session.exec(hist_query)

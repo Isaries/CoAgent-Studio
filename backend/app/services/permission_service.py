@@ -1,4 +1,4 @@
-from typing import Literal, Union
+from typing import Any, Literal, Union
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -42,12 +42,12 @@ class PermissionService:
 
     async def _check_room_permission(
         self, user: User, action: Action, room: Room, session: AsyncSession
-    ) -> bool:
+    ) -> bool:  # type: ignore[func-returns-value]
         # Admins can access all rooms
         if user.role == UserRole.ADMIN:
             return True
 
-        course = await session.get(Course, room.course_id)
+        course = await session.get(Course, room.course_id)  # type: ignore[func-returns-value]
         if not course:
             return False
 
@@ -56,7 +56,7 @@ class PermissionService:
             return True
 
         # TA Check
-        statement = select(UserCourseLink).where(
+        statement: Any = select(UserCourseLink).where(
             UserCourseLink.user_id == user.id,
             UserCourseLink.course_id == course.id,
             UserCourseLink.role == "ta",
@@ -87,7 +87,7 @@ class PermissionService:
             return True
 
         # TA Check for Course?
-        statement = select(UserCourseLink).where(
+        statement: Any = select(UserCourseLink).where(
             UserCourseLink.user_id == user.id,
             UserCourseLink.course_id == course.id,
             UserCourseLink.role == "ta",

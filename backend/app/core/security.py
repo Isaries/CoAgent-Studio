@@ -46,13 +46,13 @@ def get_password_hash(password: str) -> str:
 cipher_suite = Fernet(settings.ENCRYPTION_KEY)
 
 
-def encrypt_api_key(api_key: str) -> str:
+def encrypt_api_key(api_key: str) -> Optional[str]:
     if not api_key:
         return None
     return cipher_suite.encrypt(api_key.encode()).decode()
 
 
-def decrypt_api_key(encrypted_key: str) -> str:
+def decrypt_api_key(encrypted_key: str) -> Optional[str]:
     if not encrypted_key:
         return None
     try:
@@ -63,7 +63,7 @@ def decrypt_api_key(encrypted_key: str) -> str:
         return encrypted_key
 
 
-def mask_api_key(encrypted_key: str) -> str:
+def mask_api_key(encrypted_key: str) -> Optional[str]:
     """
     Returns masked key: sk******89 or sk****** (if short)
     """

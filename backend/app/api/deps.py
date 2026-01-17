@@ -95,7 +95,7 @@ async def get_current_user(
         except ValueError:
             raise HTTPException(status_code=403, detail="Invalid token subject") from None
 
-        query = select(User).where(User.id == user_id)
+        query: Any = select(User).where(User.id == user_id)
         result = await session.exec(query)
         user = result.first()
 

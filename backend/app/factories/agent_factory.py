@@ -45,7 +45,7 @@ class AgentFactory:
         """
         Helper to create a map of available agents.
         """
-        agents = {}
+        agents: Dict[AgentType, AgentCore] = {}
 
         if teacher_config:
             agent = AgentFactory.create_agent(teacher_config)

@@ -1,5 +1,6 @@
 import logging
 import sys
+from typing import cast
 
 import structlog
 from structlog.types import Processor
@@ -35,7 +36,7 @@ def setup_logging(json_logs: bool = False, log_level: str = "INFO") -> None:
 
     # Configure structlog
     structlog.configure(
-        processors=processors,
+        processors=cast(list[Processor], processors),
         logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
