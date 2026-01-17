@@ -15,6 +15,7 @@ from app.models.course import (
 )
 from app.models.user import User, UserRole
 from app.services.course_service import CourseService
+from app.services.permission_service import permission_service
 
 router = APIRouter()
 
@@ -70,6 +71,10 @@ async def read_course(
     course = await service.get_course_by_id(course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+
+    if not await permission_service.check(current_user, "read", course, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     return course
 
 

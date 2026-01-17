@@ -7,7 +7,7 @@ from app.models.course import Course, UserCourseLink
 from app.models.room import Room
 from app.models.user import User, UserRole
 
-Action = Literal["create", "read", "update", "delete", "assign", "list_users", "manage_users"]
+Action = Literal["create", "read", "update", "delete", "assign", "list_users", "manage_users", "manage_config"]
 Resource = Union[Course, Room, User, None]
 
 
@@ -55,26 +55,23 @@ class PermissionService:
         if course.owner_id == user.id:
             return True
 
-        # TA Check
+        # Check User Link (TA or Student)
         statement: Any = select(UserCourseLink).where(
             UserCourseLink.user_id == user.id,
             UserCourseLink.course_id == course.id,
-            UserCourseLink.role == "ta",
         )
         result = await session.exec(statement)
-        is_ta = result.first() is not None
+        link = result.first()
 
-        if is_ta:
-            # TAs can Read, Update, Assign, Delete rooms within their course
+        if not link:
+            return False
+
+        if link.role == "ta":
             return True
 
-        # Students? (If action is 'read', maybe? But rooms.py endpoints seem to be for management)
-        # Regular students usually don't hit /api/v1/rooms/{id} for management,
-        # but they do need to access chat.
-        # However, the rooms.py endpoints are CRUD for Room object (create, update, delete, assign).
-        # Normal usage for chat is via /api/v1/chat/... which calls validation logic inside get_room_messages.
-        # But rooms.py read_rooms (list) might be used by students?
-        # Let's check rooms.py read_rooms.
+        if link.role == "student":
+            # Student can only READ rooms
+            return action == "read"
 
         return False
 
@@ -86,16 +83,30 @@ class PermissionService:
         if course.owner_id == user.id:
             return True
 
-        # TA Check for Course?
+        # Custom logic for "manage_config" handled via Course permission?
+        # Ideally, we call check(user, "manage_config", course)
+
+        # Check User Link (TA or Student)
         statement: Any = select(UserCourseLink).where(
             UserCourseLink.user_id == user.id,
             UserCourseLink.course_id == course.id,
-            UserCourseLink.role == "ta",
         )
         result = await session.exec(statement)
-        is_ta = result.first() is not None
-        if is_ta:
+        link = result.first()
+
+        if not link:
+            return False
+
+        if link.role == "ta":
             return True
+
+        if link.role == "student":
+            # Student can only READ course details
+            # Cannot manage_config
+            if action == "manage_config":
+                return False
+            return action == "read"
+
 
         return False
 

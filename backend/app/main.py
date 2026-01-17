@@ -95,11 +95,4 @@ async def root() -> dict[str, str]:
 # @app.on_event("startup") ...
 
 
-@app.on_event("startup")
-async def startup_event() -> None:
-    await room_monitor.start()
 
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    await room_monitor.stop()

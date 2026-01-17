@@ -114,9 +114,14 @@ class UserService:
             update_data["hashed_password"] = security.get_password_hash(update_data["password"])
             del update_data["password"]
 
-        for field in user_data:
-            if field in update_data:
-                setattr(user, field, update_data[field])
+        if update_data.get("username") and update_data["username"] != user.username:
+            username_query = select(User).where(User.username == update_data["username"])
+            existing_user_result = await self.session.exec(username_query)
+            if existing_user_result.first():
+                raise HTTPException(status_code=400, detail="Username already taken")
+
+        for field, value in update_data.items():
+             setattr(user, field, value)
 
         self.session.add(user)
         await self.session.commit()
@@ -137,9 +142,8 @@ class UserService:
             current_user.hashed_password = security.get_password_hash(update_data["password"])
             del update_data["password"]
 
-        for field in user_data:
-            if field in update_data:
-                setattr(current_user, field, update_data[field])
+        for field, value in update_data.items():
+            setattr(current_user, field, value)
 
         self.session.add(current_user)
         await self.session.commit()

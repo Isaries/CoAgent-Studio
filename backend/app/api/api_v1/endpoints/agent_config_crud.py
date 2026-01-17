@@ -9,6 +9,7 @@ from app.api import deps
 from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentConfigRead
 from app.models.course import Course
 from app.models.user import User, UserRole
+from app.services.permission_service import permission_service
 
 router = APIRouter()
 
@@ -29,6 +30,9 @@ async def read_agent_configs(
     course = await session.get(Course, course_id)  # type: ignore[func-returns-value]
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+
+    if not await permission_service.check(current_user, "manage_config", course, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
 
     query: Any = select(AgentConfig).where(AgentConfig.course_id == course_id)
     result = await session.exec(query)

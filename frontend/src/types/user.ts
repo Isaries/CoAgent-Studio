@@ -20,4 +20,5 @@ export interface UpdateUserPayload {
   full_name?: string
   role?: string
   password?: string
+  username?: string
 }

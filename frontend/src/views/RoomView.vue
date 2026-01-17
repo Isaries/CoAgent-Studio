@@ -134,7 +134,7 @@ onUnmounted(() => {
         <h1 class="font-bold text-lg truncate">Room: {{ roomId }}</h1>
       </div>
       <div class="flex-none gap-2">
-        <router-link :to="`/rooms/${roomId}/settings`" class="btn btn-sm btn-ghost btn-circle">
+        <router-link v-if="!authStore.isStudent" :to="`/rooms/${roomId}/settings`" class="btn btn-sm btn-ghost btn-circle">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="20"

@@ -12,7 +12,10 @@ from app.core.db import get_session
 from app.core.socket_manager import manager
 from app.models.user import User
 from app.schemas.socket import SocketMessage
+from app.schemas.socket import SocketMessage
 from app.services.chat_service import ChatService
+from app.services.permission_service import permission_service
+from app.models.room import Room
 
 router = APIRouter()
 
@@ -29,6 +32,16 @@ async def get_room_messages(
     """
     Get chat history for a room.
     """
+    Get chat history for a room.
+    """
+    # Check permissions
+    room = await session.get(Room, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    if not await permission_service.check(current_user, "read", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     chat_service = ChatService(session)
     return await chat_service.get_room_messages(room_id)
 
@@ -63,6 +76,24 @@ async def websocket_endpoint(
 
     user = await get_current_user_ws(token, session)
     if not user:
+        await websocket.close(code=1008)
+        return
+
+    # Check Permissions for Room
+    # Need to convert room_id str to UUID? SQLModel seems to handle it, but let's be safe if it's UUID type in DB.
+    # Room model uses UUID.
+    try:
+        r_uuid = UUID(room_id)
+        room = await session.get(Room, r_uuid)
+        if not room:
+            await websocket.close(code=1008)
+            return
+        
+        if not await permission_service.check(user, "read", room, session):
+            await websocket.close(code=1008)
+            return
+
+    except ValueError:
         await websocket.close(code=1008)
         return
 

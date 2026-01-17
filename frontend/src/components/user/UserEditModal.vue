@@ -16,6 +16,7 @@ const targetUser = ref<User | null>(null)
 const form = ref<UpdateUserPayload & { id: string }>({
   id: '',
   full_name: '',
+  username: '',
   role: '',
   password: ''
 })
@@ -25,6 +26,7 @@ const open = (user: User) => {
   form.value = {
     id: user.id,
     full_name: user.full_name,
+    username: user.username,
     role: user.role,
     password: ''
   }
@@ -42,7 +44,8 @@ const submit = async () => {
   try {
     const payload: UpdateUserPayload = {
       full_name: form.value.full_name,
-      role: form.value.role
+      role: form.value.role,
+      username: form.value.username
     }
     if (form.value.password) payload.password = form.value.password
 
@@ -69,6 +72,11 @@ defineExpose({ open, close })
         <div class="form-control">
           <label class="label"><span class="label-text">Full Name</span></label>
           <input type="text" v-model="form.full_name" class="input input-bordered" />
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Username</span></label>
+          <input type="text" v-model="form.username" class="input input-bordered" />
         </div>
 
         <div class="form-control">
