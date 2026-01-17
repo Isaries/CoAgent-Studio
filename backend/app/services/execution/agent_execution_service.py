@@ -74,7 +74,7 @@ async def run_agent_cycle_task(ctx, room_id: str, user_msg_id: str):
         await process_agents_logic(room_id, session, redis, user_msg)
 
 
-async def run_agent_time_task(ctx, room_id: str, trigger_role: str):
+async def run_agent_time_task(ctx, room_id: str, trigger_role: str):  # noqa: C901
     """
     ARQ Task to run agent time-based trigger.
     trigger_role: "teacher" or "student"

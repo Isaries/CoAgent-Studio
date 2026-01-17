@@ -3,11 +3,10 @@ from typing import Dict, Union
 import structlog
 from fastapi import WebSocket
 
-logger = structlog.get_logger()
-
-
 from app.core.connection_registry import ConnectionRegistry
 from app.core.message_broker import RedisMessageBroker
+
+logger = structlog.get_logger()
 
 
 class ConnectionManager:

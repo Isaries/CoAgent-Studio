@@ -25,12 +25,12 @@ async def mock_room_monitor():
     Prevent the background RoomMonitor from running during tests.
     """
     with patch("app.core.room_monitor.RoomMonitor.start", new_callable=AsyncMock) as mock_start:
-        with patch("app.core.room_monitor.RoomMonitor.stop", new_callable=AsyncMock) as mock_stop:
+        with patch("app.core.room_monitor.RoomMonitor.stop", new_callable=AsyncMock):
             yield mock_start
 
 
 @pytest.fixture(autouse=True)
-async def reset_socket_manager():
+async def _reset_socket_manager():
     """
     Reset the singleton Socket Manager state before and after each test.
     Prevents connection leakage between tests.
@@ -48,7 +48,7 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture(scope="session")
-async def setup_db_schema():
+async def _setup_db_schema():
     """
     Session-scoped fixture to initializes the DB schema ONCE.
     This avoids the overhead of creating tables for every test.
@@ -62,7 +62,7 @@ async def setup_db_schema():
 
 
 @pytest.fixture()
-async def db_engine(setup_db_schema):
+async def db_engine(_setup_db_schema):
     """
     Function-scoped engine to ensure it is attached to the current test's event loop.
     Depends on setup_db_schema to ensure tables exist.
@@ -203,7 +203,7 @@ class MockLLMRegistry:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(MockLLMRegistry, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance.responses = []
             cls._instance.default_response = LLMResponse(content="Mock Default Response")
         return cls._instance

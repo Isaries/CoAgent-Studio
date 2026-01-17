@@ -22,12 +22,14 @@ def setup_logging(json_logs: bool = False, log_level: str = "INFO") -> None:
 
     if json_logs:
         # JSON logs for production (Splunk, ELK, Datadog)
-        processors = shared_processors + [
+        processors = [
+            *shared_processors,
             structlog.processors.JSONRenderer(),
         ]
     else:
         # Pretty console logs for local development
-        processors = shared_processors + [
+        processors = [
+            *shared_processors,
             structlog.dev.ConsoleRenderer(),
         ]
 

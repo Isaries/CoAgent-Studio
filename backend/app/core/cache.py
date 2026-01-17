@@ -40,7 +40,7 @@ class CacheService:
     async def set_json(self, key: str, value: Any, ttl: int = 60):
         await self.set(key, json.dumps(value), ttl)
 
-    def cached(self, ttl: int = 60, key_builder: Callable = None):
+    def cached(self, ttl: int = 60, key_builder: Optional[Callable] = None):
         """
         Decorator for caching async functions.
         """

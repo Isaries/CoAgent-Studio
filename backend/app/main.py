@@ -1,12 +1,17 @@
+import os
+from contextlib import asynccontextmanager
+
 import structlog
 from arq import create_pool
 from arq.connections import RedisSettings
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.api_v1.api import api_router
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.core.room_monitor import room_monitor
 from app.core.socket_manager import manager
 
 # Setup Logging
@@ -14,8 +19,7 @@ setup_logging(json_logs=False)  # Set True in Prod via env var ideally, keeping 
 logger = structlog.get_logger()
 
 # Lifespan Events
-from contextlib import asynccontextmanager
-
+# Lifespan Events
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -74,10 +78,8 @@ if settings.BACKEND_CORS_ORIGINS:
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-import os
 
-from fastapi.staticfiles import StaticFiles  # noqa: E402
-
+# Static Files
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -88,7 +90,8 @@ async def root() -> dict[str, str]:
     return {"message": "Welcome to CoAgent Studio API"}
 
 
-from app.core.room_monitor import room_monitor  # noqa: E402
+# Deprecated: Startup/Shutdown handle by lifespan
+# @app.on_event("startup") ...
 
 
 @app.on_event("startup")

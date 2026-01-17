@@ -39,7 +39,7 @@ class GeminiService(LLMService):
     def __init__(self):
         pass
 
-    async def generate_response(
+    async def generate_response(  # noqa: C901
         self,
         prompt: str,
         system_prompt: Optional[str] = None,

@@ -3,17 +3,19 @@ from typing import Any, Callable, Optional
 import structlog
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.security.utils import get_authorization_scheme_param  # Moved up
 from jose import jwt
 from jose.exceptions import JWTError  # explicit import
 from pydantic import ValidationError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-logger = structlog.get_logger()
+from app.core import security  # Moved up
+from app.core.config import settings  # Moved up
+from app.core.db import get_session  # Moved up
+from app.models.user import User, UserRole  # Moved up
 
-from app.core import security
-from app.core.config import settings
-from app.core.db import get_session
-from app.models.user import User, UserRole
+logger = structlog.get_logger()
+# Imports removed from here
 
 
 def require_role(allowed_roles: list[str]) -> Callable[[User], Any]:
@@ -59,7 +61,6 @@ class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
         return authorization
 
 
-from fastapi.security.utils import get_authorization_scheme_param
 
 reusable_oauth2 = OAuth2PasswordBearerWithCookie(tokenUrl=f"{settings.API_V1_STR}/login/refresh")
 

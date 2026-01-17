@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, ClassVar
 
 import structlog
 from arq.connections import RedisSettings
@@ -25,7 +25,7 @@ async def shutdown(ctx: dict[str, Any]) -> None:
 
 
 class WorkerSettings:
-    functions = [run_agent_cycle_task, run_agent_time_task]
+    functions: ClassVar[list] = [run_agent_cycle_task, run_agent_time_task]
     redis_settings = RedisSettings(host=settings.REDIS_HOST, port=settings.REDIS_PORT)
     on_startup = startup
     on_shutdown = shutdown
