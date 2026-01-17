@@ -28,7 +28,9 @@ class CourseService:
 
         return course
 
-    async def get_courses(self, user: User, skip: int = 0, limit: int = 100) -> List[Tuple[Course, Optional[str]]]:
+    async def get_courses(
+        self, user: User, skip: int = 0, limit: int = 100
+    ) -> List[Tuple[Course, Optional[str]]]:
         if user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             # Admins see all courses with owner name
             query: Any = (

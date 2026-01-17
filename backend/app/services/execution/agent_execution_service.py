@@ -131,7 +131,9 @@ async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:  # 
                             proposal_preview=proposal[:50],
                         )
                         if await t_agent_eval.evaluate_student_proposal(proposal, context_str):
-                            logger.info("agent_decision", role="teacher", action="proposal_approved")
+                            logger.info(
+                                "agent_decision", role="teacher", action="proposal_approved"
+                            )
                             await _save_and_broadcast(
                                 session, redis, proposal, room_id, AgentType.STUDENT, "[Student AI]"
                             )
@@ -139,7 +141,9 @@ async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:  # 
                         logger.info("agent_decision", role="teacher", action="proposal_denied")
 
 
-async def process_agents_logic(room_id: str, session: AsyncSession, redis, last_message: Message) -> None:
+async def process_agents_logic(
+    room_id: str, session: AsyncSession, redis, last_message: Message
+) -> None:
     """
     Trigger Agent logic.
     """

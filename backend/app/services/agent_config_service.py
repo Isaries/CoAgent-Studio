@@ -142,7 +142,9 @@ class AgentConfigService:
         await self.session.refresh(agent_config)
         return agent_config
 
-    async def _check_update_permissions(self, agent_config: AgentConfig, current_user: User) -> None:
+    async def _check_update_permissions(
+        self, agent_config: AgentConfig, current_user: User
+    ) -> None:
         if agent_config.course_id:
             course = await self.session.get(Course, agent_config.course_id)  # type: ignore[func-returns-value]
             if not course:
@@ -157,7 +159,9 @@ class AgentConfigService:
             if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
                 raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    def _apply_config_updates(self, agent_config: AgentConfig, config_in: AgentConfigCreate) -> None:
+    def _apply_config_updates(
+        self, agent_config: AgentConfig, config_in: AgentConfigCreate
+    ) -> None:
         if config_in.system_prompt is not None:
             agent_config.system_prompt = config_in.system_prompt
         if config_in.model_provider is not None:
