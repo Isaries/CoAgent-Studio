@@ -21,6 +21,7 @@ logger = structlog.get_logger()
 # Lifespan Events
 # Lifespan Events
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup

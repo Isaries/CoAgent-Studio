@@ -98,7 +98,6 @@ async def websocket_endpoint(
             # Let's rely on app.state
             # But inside websocket endpoint 'request.app' is available via websocket.app
 
-
             # Enqueue Job
             try:
                 # Assuming api_v1.endpoints.chat has access to global pool

@@ -61,7 +61,6 @@ class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
         return authorization
 
 
-
 reusable_oauth2 = OAuth2PasswordBearerWithCookie(tokenUrl=f"{settings.API_V1_STR}/login/refresh")
 
 
