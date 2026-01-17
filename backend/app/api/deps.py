@@ -110,7 +110,7 @@ async def get_current_user(
         import traceback
 
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Internal Auth Error: {e!s}") from e
+        raise HTTPException(status_code=500, detail=f"Internal Auth Error: {e!r}") from e
 
 
 async def get_current_active_superuser(

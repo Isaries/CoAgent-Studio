@@ -11,7 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api import deps
 from app.core import security
 from app.core.config import settings
-from app.models.user import User, UserRole
+from app.models.user import User, UserRead, UserRole
 
 router = APIRouter()
 
@@ -130,7 +130,7 @@ async def logout() -> Any:
     return {"message": "Logged out successfully"}
 
 
-@router.post("/login/test-token")
+@router.post("/login/test-token", response_model=UserRead)
 async def test_token(current_user: User = Depends(deps.get_current_user)) -> Any:
     """
     Test access token

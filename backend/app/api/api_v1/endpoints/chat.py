@@ -12,7 +12,6 @@ from app.core.db import get_session
 from app.core.socket_manager import manager
 from app.models.user import User
 from app.schemas.socket import SocketMessage
-from app.schemas.socket import SocketMessage
 from app.services.chat_service import ChatService
 from app.services.permission_service import permission_service
 from app.models.room import Room
@@ -26,11 +25,6 @@ async def get_room_messages(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
-    """
-    Get chat history for a room.
-    """
-    """
-    Get chat history for a room.
     """
     Get chat history for a room.
     """
