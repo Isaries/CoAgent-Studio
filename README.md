@@ -10,7 +10,7 @@ CoAgent Studio is a professional-grade **Multi-Agent Orchestration Platform** de
 The platform uses a modern, containerized microservices architecture:
 
 ```mermaid
-graph TD
+flowchart TD
     Client[Client Browser] -->|HTTP/WebSocket| Nginx[Reverse Proxy / LB]
     
     subgraph "Docker Application Network"
