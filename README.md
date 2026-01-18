@@ -1,119 +1,120 @@
 # CoAgent Studio
 
-CoAgent Studio is a comprehensive platform designed for the creation, management, and real-time interaction with specialized AI agents. It features a robust multi-user collaboration environment where users interacts with agents in designated "Rooms".
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Status](https://img.shields.io/badge/status-active-success.svg)
 
-## System Architecture
+CoAgent Studio is a professional-grade **Multi-Agent Orchestration Platform** designed for education and complex system automation. It provides a real-time, collaborative environment where users interact with specialized AI agents (Teachers, Students, Designers, Analysts).
 
-The project follows a modern client-server architecture with real-time capabilities.
+## 🏗️ System Architecture
 
-### Backend (Python/FastAPI)
-The backend is built with FastAPI, prioritizing performance and asynchronous capabilities.
-*   **API Layer**: RESTful endpoints exposed via `app/api/v1` handling authentication, user management, and resource CRUD operations.
-*   **Real-time Layer**: A dedicated WebSocket manager (`ConnectionManager`) handles persistent connections. It maintains a mapping of `room_id` to active socket connections, enabling atomic broadcasting of messages to all participants in a room.
-*   **Data Access**: Uses SQLModel (combining Pydantic and SQLAlchemy) for type-safe database interactions with PostgreSQL.
-*   **Database Migrations**: Alembic is used for version control of the database schema.
+The platform uses a modern, containerized microservices architecture:
 
-### Frontend (Vue 3/TypeScript)
-The frontend is a Single Page Application (SPA) built with Vite and Vue 3.
-*   **State Management**: Pinia is used for centralized store management (Auth, Rooms).
-*   **Networking**: An Axios wrapper manages HTTP requests with automatic token refresh logic (Interceptors). Native WebSocket API is used for real-time features.
-*   **UI Framework**: TailwindCSS allows for utility-first styling.
+```mermaid
+graph TD
+    Client[Client Browser] -->|HTTP/WebSocket| Nginx[Reverse Proxy / LB]
+    
+    subgraph "Docker Application Network"
+        Nginx -->|Static Assets| Frontend[Frontend (Vue 3)]
+        Nginx -->|API Requests| Backend[Backend (FastAPI)]
+        
+        Backend -->|Persistance| DB[(PostgreSQL)]
+        Backend -->|Cache/Queues| Redis[(Redis)]
+        
+        Backend <-->|LLM API| OpenAI[OpenAI / Gemini]
+    end
+```
 
-## Codebase Structure
+## 🛠️ Technology Stack
 
-### Backend (`/backend`)
-*   `app/main.py`: Application entry point and CORS configuration.
-*   `app/api/v1/`: API route definitions grouped by domain (users, login, rooms, etc.).
-*   `app/core/`: Core infrastructure code.
-    *   `config.py`: Environment configuration and validation.
-    *   `security.py`: JWT token generation and password hashing utilities.
-    *   `socket_manager.py`: WebSocket connection handling and broadcasting logic.
-*   `app/models/`: SQLModel classes defining database schema and Pydantic validation.
-*   `app/services/`: Business logic layer separating complex operations from API routes.
-*   `alembic/`: Database migration scripts.
+### **Frontend** (`/frontend`)
+- **Framework**: Vue 3 (Composition API) + TypeScript
+- **Build**: Vite
+- **Styling**: Tailwind CSS + DaisyUI
+- **State**: Pinia + Composables
+- **Real-time**: Native WebSockets
 
-### Frontend (`/frontend`)
-*   `src/api.ts`: Centralized Axios instance with interceptors for auth handling.
-*   `src/stores/`: Pinia stores for global state.
-    *   `auth.ts`: Authentication state (user profile, token logic).
-*   `src/services/`: API service layer mapping backend endpoints to typed functions.
-*   `src/views/`: Main page components (e.g., Login, Dashboard, Room).
-*   `src/components/`: Reusable UI components.
+### **Backend** (`/backend`)
+- **Framework**: FastAPI (Async Python)
+- **Database ORM**: SQLModel (SQLAlchemy + Pydantic)
+- **Migrations**: Alembic
+- **Async Task Queue**: ARQ + Redis
+- **AI Integration**: OpenAI SDK, Google GenAI
+- **Security**: JWT (HttpOnly Cookies), OAuth2 Password Flow
 
+### **Infrastructure**
+- **Containerization**: Docker & Docker Compose
+- **Database**: PostgreSQL 16
+- **Cache**: Redis 7
 
-## Security Overview
+## 🚀 Quick Start (Docker Composition)
 
-The application implements defense-in-depth strategies to secure user data and session integrity.
-
-### Authentication & Session Management
-*   **Token Storage**: JSON Web Tokens (JWT) are strictly stored in HttpOnly, Secure, SameSite=Lax cookies. This effectively mitigates Cross-Site Scripting (XSS) attacks as JavaScript cannot access the tokens.
-*   **Token Lifecycle**: Access tokens are short-lived (default 8 hours). Refresh tokens are long-lived (7 days) and are used to silently acquire new access tokens without user intervention.
-*   **Password Storage**: User passwords are never stored in plain text. They are hashed using `bcrypt` before persistence.
-
-### Infrastructure Security
-*   **Secret Management**: The application enforces the presence of a strong `SECRET_KEY` environment variable. It will refuse to start if this key is missing or is left as a default value.
-*   **CORS Policy**: The backend implements a strict Cross-Origin Resource Sharing policy. It rejects all requests from origins not explicitly allowlisted in the `BACKEND_CORS_ORIGINS` configuration.
-
-## Deployment Guide
+The recommended way to run CoAgent Studio is via Docker Compose, which orchestrates all services (Frontend, Backend, DB, Redis).
 
 ### Prerequisites
-*   Docker Desktop (or Docker Engine + Compose)
-*   Git
+- Docker Desktop (or Engine + Compose)
+- Git
 
-### Local Development (Docker Compose)
-This is the recommended method for running the application locally as it orchestrates the Database, Backend, and Frontend containers.
+### 1. Setup Environment
+Create a `.env` file in the project root:
+```env
+# Security
+SECRET_KEY=change_this_to_a_secure_random_string
+BACKEND_CORS_ORIGINS=["http://localhost:5173","http://localhost:8000"]
 
-1.  **Configuration**:
-    Create a `.env` file in the project root. You must populate `SECRET_KEY` with a strong random string.
-    ```env
-    SECRET_KEY=replace_with_a_secure_random_string
-    BACKEND_CORS_ORIGINS=["http://localhost:5173","http://localhost:8000"]
-    POSTGRES_USER=user
-    POSTGRES_PASSWORD=password
-    POSTGRES_DB=coagent_db
-    ```
+# Database
+POSTGRES_SERVER=db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=password
+POSTGRES_DB=coagent_db
 
-2.  **Execution**:
-    Run the following command to build and start the services:
-    ```bash
-    docker compose up --build
-    ```
+# External AI Providers (Optional)
+OPENAI_API_KEY=sk-...
+GOOGLE_API_KEY=AIza...
+```
 
-3.  **Access**:
-    *   Frontend: `http://localhost:5173`
-    *   API Documentation (Swagger UI): `http://localhost:8000/docs`
+### 2. Launch
+```bash
+docker compose up --build -d
+```
+- **Frontend**: `http://localhost:5173`
+- **Backend API**: `http://localhost:8000/docs`
 
-### Production Server Deployment
+## 💻 Manual Development
 
-1.  **Environment Setup**:
-    On your production server, clone the repository and navigate to the project directory.
+If you wish to run services individually for development:
 
-2.  **Production Configuration**:
-    Create a production-grade `.env` file.
-    *   Set `SECRET_KEY` to a high-entropy string (e.g., generated via `openssl rand -hex 32`).
-    *   Set `BACKEND_CORS_ORIGINS` to your actual domain (e.g., `["https://studio.example.com"]`).
-    *   Ensure database credentials are strong.
+### Backend
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+pip install -r requirements.txt
+docker compose up db redis -d  # Run only backing services
+uvicorn app.main:app --reload
+```
 
-3.  **Run Services**:
-    Start the application in detached mode:
-    ```bash
-    docker compose -f docker-compose.yml up -d --build
-    ```
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-4.  **Reverse Proxy Configuration**:
-    It is standard practice to place a reverse proxy (like Nginx or Traefik) in front of the application.
-    *   Proxy requests to `localhost:5173` for the frontend.
-    *   Proxy requests to `localhost:8000` for the backend.
-    *   **Important**: Ensure WebSocket headers (`Upgrade` and `Connection`) are properly forwarded by the proxy.
+## ✨ Key Features
+- **Real-Time Collaboration**: WebSocket-based chat rooms with atomic broadcasting.
+- **Role-Based Access Control (RBAC)**: Granular permissions for Admins, Teachers, and Students.
+- **Multi-Model Support**: Seamlessly switch between OpenAI and Gemini models.
+- **Agent Sandbox**: "IDE-like" environment for designing and testing system prompts.
+- **Async Processing**: Background jobs for heavy analytics and long-running AI tasks.
 
-## Troubleshooting
+## 🤝 Contributing
+Please see the specific `README.md` in the `frontend` and `backend` directories for detailed contribution guidelines tailored to each stack.
 
-### 403 Forbidden Errors
-If you encounter 403 Forbidden errors immediately after deployment or config changes, it is likely due to Token Invalidation.
-*   **Cause**: Changing the `SECRET_KEY` invalidates all existing JWTs signed with the old key.
-*   **Solution**: Clear your browser cookies for the site or Logout and Login again.
+1. Fork the repo.
+2. Create a feature branch (`git checkout -b feature/amazing-feature`).
+3. Commit your changes (`git commit -m 'feat: Add amazing feature'`).
+4. Push to the branch (`git push origin feature/amazing-feature`).
+5. Open a Pull Request.
 
-### Container Connection Issues
-If the backend cannot connect to the database:
-*   Ensure the `db` service in `docker-compose.yml` is healthy.
-*   Check that the `POSTGRES_SERVER` env var in the backend matches the service name `db`.
+## 📄 License
+Distributed under the MIT License.
