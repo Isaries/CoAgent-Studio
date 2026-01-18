@@ -1,12 +1,13 @@
 import { ref, type Ref } from 'vue'
 import { agentService } from '../services/agentService'
-import type { AgentConfig, DesignDbState } from '../types/agent'
+import type { AgentConfig, DesignDbState, AgentConfigVersion } from '../types/agent'
 import { useToastStore } from '../stores/toast'
 
 export function useDesignAgent(
-  courseId: string,
-  courseTitle: Ref<string | undefined>,
-  activeTab: Ref<string>
+  scope: 'course' | 'system',
+  courseId?: string,
+  courseTitle?: Ref<string | undefined>,
+  activeTab?: Ref<string>
 ) {
   const toast = useToastStore()
 
@@ -19,6 +20,53 @@ export function useDesignAgent(
     loading: false,
     refineCurrent: false
   })
+
+  // Sandbox State
+  const sandbox = ref({
+    enabled: false,
+    customApiKey: '',
+    customProvider: 'gemini',
+    customModel: '', // will default in backend or UI
+    systemPrompt: '' // override for design agent itself
+  })
+
+  // Versioning
+  const versions = ref<AgentConfigVersion[]>([])
+
+  const fetchVersions = async () => {
+    if (!designConfig.value) return
+    try {
+      const res = await agentService.getVersions(designConfig.value.id)
+      versions.value = res.data
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const createVersion = async (label: string) => {
+    if (!designConfig.value) return
+    try {
+      await agentService.createVersion(designConfig.value.id, { version_label: label })
+      toast.success('Version saved')
+      await fetchVersions()
+    } catch (e) {
+      toast.error('Failed to save version')
+    }
+  }
+
+  const restoreVersion = async (version: AgentConfigVersion, callback?: () => void) => {
+    if (!designConfig.value) return
+    if (!confirm(`Restoring version "${version.version_label}". Current unsaved changes will be lost. Continue?`)) return
+
+    try {
+      const res = await agentService.restoreVersion(designConfig.value.id, version.id)
+      designConfig.value = res.data
+      toast.success('Version restored')
+      if (callback) callback()
+    } catch (e) {
+      toast.error('Failed to restore version')
+    }
+  }
 
   // We need access to the current editing prompt to refine it
   const generatePrompt = async (currentPrompt: string, provider: string) => {
@@ -33,11 +81,18 @@ export function useDesignAgent(
     try {
       const res = await agentService.generatePrompt({
         requirement: req,
-        target_agent_type: activeTab.value,
-        course_context: designDb.value.context || courseTitle.value || '',
+        target_agent_type: activeTab?.value || 'teacher', // Default to teacher for system
+        course_context: designDb.value.context || courseTitle?.value || '',
         api_key: designApiKey.value,
-        course_id: courseId,
-        provider: provider
+        course_id: scope === 'course' ? courseId : undefined,
+        provider: provider,
+        // Sandbox params
+        ...(sandbox.value.enabled ? {
+          custom_system_prompt: sandbox.value.systemPrompt || undefined,
+          custom_api_key: sandbox.value.customApiKey || undefined,
+          custom_provider: sandbox.value.customProvider || undefined,
+          custom_model: sandbox.value.customModel || undefined
+        } : {})
       })
       return res.data.generated_prompt
     } catch (e: any) {
@@ -52,29 +107,54 @@ export function useDesignAgent(
     }
   }
 
-  const saveDesignAgentKey = async (fetchConfigsCallback?: () => Promise<void>) => {
-    if (!designApiKey.value && designApiKey.value !== 'CLEAR_KEY') return
+  const saveDesignAgentKey = async (
+    fetchConfigsCallback?: () => Promise<void>,
+    overrides?: Partial<AgentConfig>
+  ) => {
+    // If clearing key, allow. If saving normal key, check presence.
+    if (!overrides && !designApiKey.value && designApiKey.value !== 'CLEAR_KEY') return
 
     const payload: any = {
       name: 'Design Agent Config',
       type: 'design',
+      course_id: scope === 'course' ? courseId : undefined,
+      // Default values if not overridden
       system_prompt: 'System Design Agent',
       model_provider: 'gemini',
-      api_key: designApiKey.value === 'CLEAR_KEY' ? '' : designApiKey.value
+      ...overrides
+    }
+
+    // Handle API Key logic
+    if (designApiKey.value === 'CLEAR_KEY') {
+      payload.api_key = ''
+    } else if (designApiKey.value) {
+      payload.api_key = designApiKey.value
+    } else if (payload.encrypted_api_key === undefined) {
+      // If we are not setting a new key, and not clearing, we might be just updating other fields
+      // But for safety, if this function is primarily for KEY saving, we keep existing logic.
+      // However, with overrides, we might be updating model/prompt without touching key.
+      payload.api_key = null
     }
 
     try {
-      if (designConfig.value) {
-        await agentService.updateAgent(designConfig.value.id, payload)
+      if (scope === 'system') {
+        await agentService.updateSystemAgent(payload)
       } else {
-        await agentService.createAgent(courseId, payload)
+        if (designConfig.value) {
+          await agentService.updateAgent(payload)
+        } else if (courseId) {
+          await agentService.createAgent(courseId, payload)
+        }
       }
-      toast.success('Design Agent Key Saved for this Course')
-      designApiKey.value = ''
+
+      toast.success('Design Agent Config Saved')
+      if (designApiKey.value && designApiKey.value !== 'CLEAR_KEY') {
+        designApiKey.value = '' // clear input after save
+      }
       if (fetchConfigsCallback) await fetchConfigsCallback()
     } catch (e) {
       console.error(e)
-      toast.error('Failed to save Design Agent Key')
+      toast.error('Failed to save Design Agent Config')
     }
   }
 
@@ -87,12 +167,33 @@ export function useDesignAgent(
     await saveDesignAgentKey(fetchConfigsCallback)
   }
 
+  const applySandboxToConfig = async (fetchConfigsCallback?: () => Promise<void>) => {
+    if (!sandbox.value.enabled) return
+
+    // If sandbox has a custom key, set it as the live key for this save
+    if (sandbox.value.customApiKey) {
+      designApiKey.value = sandbox.value.customApiKey
+    }
+
+    await saveDesignAgentKey(fetchConfigsCallback, {
+      system_prompt: sandbox.value.systemPrompt || 'System Design Agent',
+      model_provider: sandbox.value.customProvider || 'gemini',
+      model: sandbox.value.customModel || ''
+    })
+  }
+
   return {
     designConfig,
     designApiKey,
     designDb,
     generatePrompt,
     saveDesignAgentKey,
-    handleClearDesignKey
+    handleClearDesignKey,
+    sandbox,
+    versions,
+    fetchVersions,
+    createVersion,
+    restoreVersion,
+    applySandboxToConfig
   }
 }

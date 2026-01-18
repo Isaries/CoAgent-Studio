@@ -54,6 +54,29 @@ class AgentConfig(AgentConfigBase, table=True):
         back_populates="agent_config", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )  # Auto-delete keys when config is deleted
 
+    versions: List["AgentConfigVersion"] = Relationship(
+        back_populates="agent_config", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+
+class AgentConfigVersion(SQLModel, table=True):
+    id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
+    config_id: UUID = Field(foreign_key="agentconfig.id", index=True)
+    
+    version_label: str = Field(default="v1")
+    system_prompt: str
+    model_provider: str
+    model: Optional[str] = None
+    
+    # Snapshot of settings at that time
+    settings: Optional[Dict[str, Any]] = Field(default={}, sa_column=Column(JSONB))
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
+
+    agent_config: "AgentConfig" = Relationship(back_populates="versions")
+
+
 
 class AgentConfigCreate(AgentConfigBase):
     api_key: Optional[str] = None  # Input only

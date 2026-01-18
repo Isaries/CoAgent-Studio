@@ -59,6 +59,22 @@ export interface AgentConfig {
   keys?: Record<string, string> // Mapped for UI convenience (type -> masked_key)
 }
 
+export interface AgentConfigVersion {
+  id: string
+  config_id: string
+  version_label: string
+  system_prompt: string
+  model_provider: string
+  model: string
+  created_at: string
+  created_by?: string
+  settings?: any
+}
+
+export interface VersionCreate {
+  version_label: string
+}
+
 export interface GeneratePromptRequest {
   requirement: string
   target_agent_type: string
@@ -66,6 +82,12 @@ export interface GeneratePromptRequest {
   api_key?: string
   course_id?: string
   provider: string
+
+  // Sandbox extensions
+  custom_system_prompt?: string
+  custom_api_key?: string
+  custom_provider?: string
+  custom_model?: string
 }
 
 export interface GeneratePromptResponse {

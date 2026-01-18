@@ -39,7 +39,11 @@ def require_role(allowed_roles: list[str]) -> Callable[[User], Any]:
 
 class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
     async def __call__(self, request: Request) -> Optional[str]:
-        print("DEBUG: OAuth2PasswordBearerWithCookie called", flush=True)
+        # try:
+        #     with open("deps_trace.log", "a") as f:
+        #         f.write("OAuth2PasswordBearerWithCookie called\n")
+        # except:
+        #      pass
         # Priority: Cookie > Header
         authorization: Optional[str] = request.cookies.get("access_token")
         if not authorization:
@@ -68,6 +72,11 @@ async def get_current_user(
     session: AsyncSession = Depends(get_session),
     token: str = Depends(reusable_oauth2),
 ) -> User:
+    # try:
+    #     with open("deps_trace.log", "a") as f:
+    #         f.write("get_current_user called\n")
+    # except:
+    #     pass
     try:
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[security.ALGORITHM])
@@ -107,9 +116,7 @@ async def get_current_user(
     except HTTPException:
         raise
     except Exception as e:
-        import traceback
-
-        traceback.print_exc()
+        logger.exception("Internal Auth Error", error=str(e))
         raise HTTPException(status_code=500, detail=f"Internal Auth Error: {e!r}") from e
 
 

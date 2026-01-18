@@ -74,8 +74,15 @@ const {
   designDb,
   generatePrompt: execGeneratePrompt,
   saveDesignAgentKey,
-  handleClearDesignKey: execClearDesignKey
-} = useDesignAgent(courseId, courseTitle, activeTab as any)
+  handleClearDesignKey: execClearDesignKey,
+  // New
+  sandbox,
+  versions,
+  fetchVersions,
+  createVersion,
+  restoreVersion,
+  applySandboxToConfig
+} = useDesignAgent('course', courseId, courseTitle, activeTab as any)
 
 // Logic
 const availableModels = computed(() => {
@@ -102,6 +109,11 @@ const handleClearDesignKey = async () => {
 
 const handleSaveDesignKey = async () => {
   await saveDesignAgentKey(fetchConfigs)
+}
+
+const handleApplySandbox = async () => {
+  if (!(await confirm('Apply Sandbox', 'This will overwrite your current live settings with sandbox values. Continue?'))) return
+  await applySandboxToConfig(fetchConfigs)
 }
 
 // Permissions
@@ -238,6 +250,7 @@ const saveConfig = async () => {
   }
 
   const payload: any = {
+    course_id: courseId,
     name: editName.value,
     system_prompt: editPrompt.value,
     model_provider: editProvider.value,
@@ -262,7 +275,7 @@ const saveConfig = async () => {
 
   try {
     if (selectedConfigId.value) {
-      await agentService.updateAgent(selectedConfigId.value, payload)
+      await agentService.updateAgent(payload)
     } else {
       const res = await agentService.createAgent(courseId, payload)
       selectedConfigId.value = res.data.id
@@ -499,6 +512,13 @@ onMounted(async () => {
             @save-key="handleSaveDesignKey"
             @clear-key="handleClearDesignKey"
             @generate="handleGeneratePrompt"
+            
+            :sandbox="sandbox"
+            :versions="versions"
+            @fetchVersions="fetchVersions"
+            @createVersion="createVersion"
+            @restoreVersion="restoreVersion"
+            @applySandbox="handleApplySandbox"
           />
 
           <!-- Advanced Settings & Schedule -->

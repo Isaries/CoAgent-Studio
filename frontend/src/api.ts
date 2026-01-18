@@ -30,7 +30,9 @@ api.interceptors.response.use(
 
     // Handle 500 Server Errors
     if (error.response?.status >= 500) {
-      toast.error(`Server Error: ${error.response.statusText || 'Internal Server Error'}`)
+      const detail = error.response.data?.detail
+      const message = detail ? `Server Error: ${detail}` : `Server Error: ${error.response.statusText || 'Internal Server Error'}`
+      toast.error(message)
     }
 
     // Handle 403 Forbidden (Permission)
