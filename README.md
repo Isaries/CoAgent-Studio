@@ -14,13 +14,13 @@ graph TD
     Client[Client Browser] -->|HTTP/WebSocket| Nginx[Reverse Proxy / LB]
     
     subgraph "Docker Application Network"
-        Nginx -->|Static Assets| Frontend[Frontend (Vue 3)]
-        Nginx -->|API Requests| Backend[Backend (FastAPI)]
+        Nginx -->|Static Assets| Frontend["Frontend (Vue 3)"]
+        Nginx -->|API Requests| Backend["Backend (FastAPI)"]
         
         Backend -->|Persistance| DB[(PostgreSQL)]
         Backend -->|Cache/Queues| Redis[(Redis)]
         
-        Backend <-->|LLM API| OpenAI[OpenAI / Gemini]
+        Backend <-->|LLM API| OpenAI["OpenAI / Gemini"]
     end
 ```
 
