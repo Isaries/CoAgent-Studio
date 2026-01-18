@@ -7,9 +7,12 @@ interface Props {
   refineCurrent: boolean
   canEdit: boolean
   loading: boolean
+  compactMode?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  compactMode: false
+})
 const emit = defineEmits(['update:requirement', 'update:context', 'update:refineCurrent', 'generate'])
 
 const requirementModel = computed({
@@ -29,7 +32,7 @@ const refineCurrentModel = computed({
 </script>
 
 <template>
-  <div class="flex flex-col h-full gap-6 p-1">
+  <div v-if="!compactMode" class="flex flex-col h-full gap-6 p-1">
       
       <!-- Header / Instruction -->
       <div>
@@ -82,5 +85,42 @@ const refineCurrentModel = computed({
         </span>
       </button>
 
+  </div>
+  
+  <!-- COMPACT MODE (Chat Bar Style) -->
+  <div v-else class="flex flex-col gap-2">
+      <!-- Top Row: Context & Settings pill -->
+      <div class="flex items-center gap-2">
+          <input 
+             v-model="contextModel" 
+             type="text" 
+             placeholder="Optional Context..." 
+             class="input input-xs bg-base-200 border-white/10 text-gray-400 placeholder-gray-600 focus:text-white rounded-full flex-1"
+          />
+          <label class="cursor-pointer flex items-center gap-1.5 px-2 py-0.5 rounded-full hover:bg-white/5 transition-colors">
+              <input type="checkbox" v-model="refineCurrentModel" class="checkbox checkbox-xs checkbox-primary border-white/20" :disabled="!canEdit" />
+              <span class="text-[10px] text-gray-500 font-medium">Refine</span>
+          </label>
+      </div>
+
+      <!-- Input Row -->
+      <div class="relative flex items-end gap-2 bg-[#252526] p-2 rounded-xl border border-white/10 focus-within:border-primary/50 transition-colors shadow-lg">
+          <textarea
+            v-model="requirementModel"
+            class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-gray-200 placeholder-gray-600 resize-none h-auto max-h-[120px] py-2 px-1 focus:outline-none"
+            placeholder="Describe what you want to simulate..."
+            rows="1"
+            @keydown.enter.prevent="$emit('generate')"
+          ></textarea>
+          
+          <button 
+           @click="$emit('generate')" 
+           class="btn btn-sm btn-circle btn-primary shadow-lg shadow-primary/20"
+           :disabled="loading || !requirementModel.trim()"
+          >
+             <span v-if="loading" class="loading loading-spinner loading-xs"></span>
+             <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
+      </div>
   </div>
 </template>

@@ -14,6 +14,124 @@ from app.services.agent_config_service import AgentConfigService
 router = APIRouter()
 
 
+class DesignRequest(BaseModel):
+    requirement: str
+    target_agent_type: str  # teacher or student
+    course_context: str  # Title or description
+    api_key: Optional[str] = None  # User provided temporarily
+    course_id: Optional[UUID] = None  # Context to look up stored key
+    provider: str = "gemini"
+    
+    # Sandbox / Custom Settings
+    custom_system_prompt: Optional[str] = None
+    custom_api_key: Optional[str] = None
+    custom_provider: Optional[str] = None
+    custom_model: Optional[str] = None
+
+
+class DesignResponse(BaseModel):
+    generated_prompt: str
+
+
+@router.post("/generate", response_model=DesignResponse)
+async def generate_agent_prompt(
+    *,
+    request: DesignRequest,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Design Agent endpoint.
+    Takes user requirements and outputs a system prompt.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    service = AgentConfigService(session)
+
+    # 1. Get System Prompt for Design Agent (Instruction)
+    
+    # SANDBOX LOGIC: If custom prompt is provided, use it.
+    if request.custom_system_prompt:
+        sys_prompt = request.custom_system_prompt
+    else:
+        # Standard Logic
+        configs = await service.get_system_agent_configs(current_user)
+        sys_config = next((c for c in configs if c.type == AgentType.DESIGN), None)
+        sys_prompt = sys_config.system_prompt if sys_config else None
+
+    # 2. Determine API Key & Model Provider
+    # SANDBOX LOGIC: If custom key is provided, use it.
+    
+    if request.custom_api_key:
+        api_key = request.custom_api_key
+        # Use custom provider/model if provided, otherwise default to request values or defaults
+        provider = request.custom_provider or request.provider
+        model = request.custom_model
+    else:
+        # Standard Logic
+        # Priority: Request -> Course Config -> Error
+        api_key = request.api_key
+        provider = request.provider
+        model = None # Default
+    
+        if not api_key:
+            if request.course_id:
+                # Look up course config
+                course_configs = await service.get_course_agent_configs(request.course_id, current_user)
+                design_config = next((c for c in course_configs if c.type == AgentType.DESIGN), None)
+                if design_config: 
+                    if design_config.encrypted_api_key:
+                        api_key = design_config.encrypted_api_key
+                    # Also use the stored provider/model if not overridden
+                    if not provider and design_config.model_provider:
+                        provider = design_config.model_provider
+                    if not model and design_config.model:
+                        model = design_config.model
+            else:
+                # SYSTEM SCOPE: Look up System Design Agent Config
+                # (We might have fetched it above for prompt, but let's be safe)
+                if 'configs' not in locals():
+                    configs = await service.get_system_agent_configs(current_user)
+                sys_config_for_key = next((c for c in configs if c.type == AgentType.DESIGN), None)
+                if sys_config_for_key:
+                    if sys_config_for_key.encrypted_api_key:
+                        api_key = sys_config_for_key.encrypted_api_key
+                    if not provider and sys_config_for_key.model_provider:
+                        provider = sys_config_for_key.model_provider
+                    if not model and sys_config_for_key.model:
+                        model = sys_config_for_key.model
+
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="API Key is required. Please set it in the Design Agent settings for this course.",
+        )
+
+    from app.core.specialized_agents import DesignAgent
+
+    agent = DesignAgent(
+        provider=provider, 
+        api_key=api_key, 
+        system_prompt=sys_prompt,
+        model=model
+    )
+
+    try:
+        result = await agent.generate_system_prompt(
+            target_agent_type=request.target_agent_type,
+            context=request.course_context,
+            requirement=request.requirement,
+        )
+    except Exception as e:
+        # Map common auth errors
+        if "401" in str(e) or "invalid api key" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Invalid API Key provided.") from e
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+    return {"generated_prompt": result}
+
+
 @router.get("/system")
 async def read_system_agent_configs(
     session: AsyncSession = Depends(deps.get_session),
@@ -203,119 +321,4 @@ async def update_agent_keys(
     return c_read
 
 
-class DesignRequest(BaseModel):
-    requirement: str
-    target_agent_type: str  # teacher or student
-    course_context: str  # Title or description
-    api_key: Optional[str] = None  # User provided temporarily
-    course_id: Optional[UUID] = None  # Context to look up stored key
-    provider: str = "gemini"
-    
-    # Sandbox / Custom Settings
-    custom_system_prompt: Optional[str] = None
-    custom_api_key: Optional[str] = None
-    custom_provider: Optional[str] = None
-    custom_model: Optional[str] = None
 
-
-class DesignResponse(BaseModel):
-    generated_prompt: str
-
-
-@router.post("/generate", response_model=DesignResponse)
-async def generate_agent_prompt(
-    *,
-    request: DesignRequest,
-    session: AsyncSession = Depends(deps.get_session),
-    current_user: User = Depends(deps.get_current_user),
-) -> Any:
-    """
-    Design Agent endpoint.
-    Takes user requirements and outputs a system prompt.
-    """
-    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
-    service = AgentConfigService(session)
-
-    # 1. Get System Prompt for Design Agent (Instruction)
-    
-    # SANDBOX LOGIC: If custom prompt is provided, use it.
-    if request.custom_system_prompt:
-        sys_prompt = request.custom_system_prompt
-    else:
-        # Standard Logic
-        configs = await service.get_system_agent_configs(current_user)
-        sys_config = next((c for c in configs if c.type == AgentType.DESIGN), None)
-        sys_prompt = sys_config.system_prompt if sys_config else None
-
-    # 2. Determine API Key & Model Provider
-    # SANDBOX LOGIC: If custom key is provided, use it.
-    
-    if request.custom_api_key:
-        api_key = request.custom_api_key
-        # Use custom provider/model if provided, otherwise default to request values or defaults
-        provider = request.custom_provider or request.provider
-        model = request.custom_model
-    else:
-        # Standard Logic
-        # Priority: Request -> Course Config -> Error
-        api_key = request.api_key
-        provider = request.provider
-        model = None # Default
-    
-        if not api_key:
-            if request.course_id:
-                # Look up course config
-                course_configs = await service.get_course_agent_configs(request.course_id, current_user)
-                design_config = next((c for c in course_configs if c.type == AgentType.DESIGN), None)
-                if design_config: 
-                    if design_config.encrypted_api_key:
-                        api_key = design_config.encrypted_api_key
-                    # Also use the stored provider/model if not overridden
-                    if not provider and design_config.model_provider:
-                        provider = design_config.model_provider
-                    if not model and design_config.model:
-                        model = design_config.model
-            else:
-                # SYSTEM SCOPE: Look up System Design Agent Config
-                # (We might have fetched it above for prompt, but let's be safe)
-                if 'configs' not in locals():
-                    configs = await service.get_system_agent_configs(current_user)
-                sys_config_for_key = next((c for c in configs if c.type == AgentType.DESIGN), None)
-                if sys_config_for_key:
-                    if sys_config_for_key.encrypted_api_key:
-                        api_key = sys_config_for_key.encrypted_api_key
-                    if not provider and sys_config_for_key.model_provider:
-                        provider = sys_config_for_key.model_provider
-                    if not model and sys_config_for_key.model:
-                        model = sys_config_for_key.model
-
-    if not api_key:
-        raise HTTPException(
-            status_code=400,
-            detail="API Key is required. Please set it in the Design Agent settings for this course.",
-        )
-
-    from app.core.specialized_agents import DesignAgent
-
-    agent = DesignAgent(
-        provider=provider, 
-        api_key=api_key, 
-        system_prompt=sys_prompt,
-        model=model
-    )
-
-    try:
-        result = await agent.generate_system_prompt(
-            target_agent_type=request.target_agent_type,
-            context=request.course_context,
-            requirement=request.requirement,
-        )
-    except Exception as e:
-        # Map common auth errors
-        if "401" in str(e) or "invalid api key" in str(e).lower():
-            raise HTTPException(status_code=400, detail="Invalid API Key provided.") from e
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-    return {"generated_prompt": result}

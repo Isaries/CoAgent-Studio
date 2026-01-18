@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useAuthStore } from '../stores/auth'
+import { useAuth } from '../composables/useAuth'
 import CyberDroid from '../components/CyberDroid.vue'
 
 // State for Login
@@ -11,7 +11,7 @@ const credentials = ref({
 
 const errorMessage = ref('')
 const isLoading = ref(false)
-const authStore = useAuthStore()
+const { login } = useAuth() // Use Composable
 
 // Admin Secret Trigger Logic
 const secretCount = ref(0)
@@ -64,7 +64,11 @@ const handleLogin = async () => {
   isLoading.value = true
   await new Promise((r) => setTimeout(r, 600))
 
-  const success = await authStore.login(credentials.value.username, credentials.value.password)
+  const formData = new FormData()
+  formData.append('username', credentials.value.username)
+  formData.append('password', credentials.value.password)
+
+  const success = await login(formData) // useAuth handles routing
   if (!success) {
     errorMessage.value = 'Invalid credentials'
     isLoading.value = false

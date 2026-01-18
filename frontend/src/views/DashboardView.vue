@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { useAuthStore } from '../stores/auth'
+import { useAuth } from '../composables/useAuth'
 import iconUser from '../assets/iconUser.png'
 
-const authStore = useAuthStore()
+const { user, logout } = useAuth()
 </script>
 
 <template>
@@ -13,17 +13,17 @@ const authStore = useAuthStore()
         <div class="stat-figure text-secondary">
           <div class="avatar online">
             <div class="w-16 rounded-full">
-              <img :src="authStore.user?.avatar_url || iconUser" />
+              <img :src="user?.avatar_url || iconUser" />
             </div>
           </div>
         </div>
         <div class="stat-value">Hello</div>
-        <div class="stat-title">{{ authStore.user?.email }}</div>
-        <div class="stat-desc text-secondary">{{ authStore.user?.role }}</div>
+        <div class="stat-title">{{ user?.email }}</div>
+        <div class="stat-desc text-secondary">{{ user?.role }}</div>
       </div>
     </div>
     <div class="mt-4">
-      <button @click="authStore.logout()" class="btn btn-error">Logout</button>
+      <button @click="logout()" class="btn btn-error">Logout</button>
     </div>
   </div>
 </template>

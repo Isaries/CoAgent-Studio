@@ -1,18 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { AgentConfig, AgentConfigVersion } from '../../types/agent'
-import ModernSandboxHeader from '../../components/PromptDesigner/ModernSandboxHeader.vue'
-import ModernRequirementInput from '../../components/PromptDesigner/ModernRequirementInput.vue'
-import PromptEditor from '../../components/PromptDesigner/PromptEditor.vue'
 import VersionSidebar from '../../components/PromptDesigner/VersionSidebar.vue'
-
-interface SandboxState {
-  enabled: boolean
-  customApiKey: string
-  customProvider: string
-  customModel: string
-  systemPrompt: string
-}
+import SystemAgentHeader from './components/SystemAgentHeader.vue'
+import SystemAgentWorkspace from './components/SystemAgentWorkspace.vue'
+import { agentService } from '../../services/agentService'
+import { useToastStore } from '../../stores/toast'
+import { useAgentSandbox } from '../../composables/useAgentSandbox'
 
 interface Props {
   designConfig: AgentConfig | null
@@ -22,7 +16,6 @@ interface Props {
   context: string
   refineCurrent: boolean
   
-  sandbox: SandboxState
   versions: AgentConfigVersion[]
 }
 
@@ -34,15 +27,31 @@ const emit = defineEmits([
   'update:refineCurrent',
   'saveKey',
   'clearKey',
-  'generate',
   'createVersion',
   'restoreVersion', 
   'fetchVersions',
-  'applySandbox'
+  'update:systemPrompt'
 ])
 
-// Local State
+const toast = useToastStore()
+const { sandbox, getSimulationConfig } = useAgentSandbox()
+
+// Local State (Simulation)
+const simulationOutput = ref('')
+const isSimulating = ref(false)
+
+// We reuse the parent's version props/events for now to avoid breaking the parent-child contract 
+// completely in one go, but ideally we should move version fetching inside here if it was self-contained.
+// However, SystemSettingsView controls the state. 
+// We will use the toggleVersions event to trigger parent fetch or local toggle.
+// Wait, the new header emits 'toggleVersions'. 
 const showVersions = ref(false)
+const toggleVersions = () => {
+  showVersions.value = !showVersions.value
+  if (showVersions.value) {
+    emit('fetchVersions')
+  }
+}
 
 // Proxies
 const designApiKeyModel = computed({
@@ -65,129 +74,85 @@ const refineCurrentModel = computed({
   set: (val) => emit('update:refineCurrent', val)
 })
 
-// Toggle Versions
-const toggleVersions = () => {
-  showVersions.value = !showVersions.value
-  if (showVersions.value) {
-    emit('fetchVersions')
+// Meta-Prompt Simulation Logic
+const handleSimulation = async () => {
+  if (!requirementModel.value) return toast.warning('Please enter a test requirement')
+  
+  isSimulating.value = true
+  try {
+     const metaPrompt = props.designConfig?.system_prompt || 'System Design Agent'
+     const simConfig = getSimulationConfig(designApiKeyModel.value)
+     
+     const res = await agentService.generatePrompt({
+        requirement: requirementModel.value,
+        target_agent_type: 'teacher', // Simulation target
+        course_context: contextModel.value,
+        
+        // REVERTED: Use base key for 'api_key' to match original behavior
+        api_key: designApiKeyModel.value,
+        
+        // Use simulation config for provider/model
+        provider: simConfig.provider,
+        custom_model: simConfig.model,
+        custom_api_key: sandbox.enabled ? sandbox.customApiKey : undefined, // Explicit overrides
+
+        // CRITICAL: We override the system prompt with what's in the editor
+        custom_system_prompt: metaPrompt,
+     })
+     
+     simulationOutput.value = res.data.generated_prompt
+
+  } catch (e: any) {
+    console.error(e)
+    toast.error('Simulation Failed: ' + (e.response?.data?.detail || e.message))
+  } finally {
+    isSimulating.value = false
   }
 }
+
 </script>
 
 <template>
-  <div class="flex flex-col h-[calc(100vh-140px)] min-h-[600px] border border-white/5 rounded-2xl overflow-hidden relative shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] bg-[#121212] backdrop-blur-3xl ring-1 ring-white/10">
+  <div class="flex flex-col h-[calc(100vh-140px)] min-h-[600px] min-w-[900px] border border-white/5 rounded-2xl overflow-hidden relative shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] bg-[#121212] backdrop-blur-3xl ring-1 ring-white/10">
     
-    <!-- Top Bar: Header & Actions -->
-    <div class="h-14 bg-[#121212]/90 border-b border-white/5 flex items-center justify-between px-6 z-20">
-      
-      <!-- Left: Identity -->
-      <div class="flex items-center gap-4">
-        <div class="flex items-center gap-2">
-           <div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--p),0.8)]"></div>
-           <span class="font-bold text-gray-200 tracking-wide text-sm">DESIGN STUDIO</span>
-        </div>
+    <SystemAgentHeader
+      v-model:sandbox="sandbox"
+      v-model:designApiKey="designApiKeyModel"
+      :masked-api-key="!!designConfig?.masked_api_key"
+      :show-versions="showVersions"
+      @saveKey="$emit('saveKey')"
+      @clearKey="$emit('clearKey')"
+      @toggleVersions="toggleVersions"
+    />
 
-        <div class="h-4 w-px bg-white/10 mx-2"></div>
+    <SystemAgentWorkspace
+      :sandbox="sandbox"
+      :design-config="designConfig"
+      :loading="loading"
+      :is-simulating="isSimulating"
+      :simulation-output="simulationOutput"
+      v-model:requirement="requirementModel"
+      v-model:context="contextModel"
+      v-model:refine-current="refineCurrentModel"
+      @generate="handleSimulation"
+      @clearOutput="simulationOutput = ''"
+      @update:systemPrompt="$emit('update:systemPrompt', $event)"
+    />
 
-        <!-- Sandbox Toggle -->
-        <label class="label cursor-pointer gap-3 group">
-          <span class="label-text text-[10px] font-bold uppercase tracking-widest transition-colors duration-300 group-hover:text-primary" 
-                :class="sandbox.enabled ? 'text-primary drop-shadow-[0_0_8px_rgba(var(--p),0.6)]' : 'text-gray-500'">Sandbox</span> 
-          <input type="checkbox" class="toggle toggle-primary toggle-sm border-white/10 bg-base-300" v-model="sandbox.enabled" />
-        </label>
-      </div>
-
-      <!-- Right: Actions -->
-      <div class="flex items-center gap-3">
-         <!-- Standard Key Manager (If sandbox disabled) -->
-         <div v-if="!sandbox.enabled" class="flex items-center gap-2 animate-fade-in transition-all">
-             <div class="flex items-center bg-white/5 rounded-full px-3 py-1 border border-white/5 focus-within:border-primary/50 transition-colors">
-               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-gray-500"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-               <input
-                 type="password"
-                 v-model="designApiKeyModel"
-                 :placeholder="designConfig?.masked_api_key ? `•••••••••••••` : 'System API Key'"
-                 class="bg-transparent border-none focus:outline-none w-24 text-xs text-center text-gray-300 placeholder-gray-600"
-               />
-               <button @click="$emit('saveKey')" class="ml-2 text-primary hover:text-primary-focus transition-colors" :disabled="!designApiKey" title="Save Key">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-               </button>
-             </div>
-             <button v-if="designConfig?.masked_api_key" @click="$emit('clearKey')" class="btn btn-circle btn-xs btn-ghost text-error opacity-50 hover:opacity-100">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-             </button>
-         </div>
-
-         <div class="h-4 w-px bg-white/10 mx-2"></div>
-
-         <button 
-          @click="toggleVersions" 
-          class="btn btn-sm btn-ghost gap-2 hover:bg-white/10 text-gray-400 hover:text-white transition-all"
-          :class="{ 'text-primary bg-primary/10 border-primary/20': showVersions }"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          <span class="hidden sm:inline text-xs">History</span>
-        </button>
-      </div>
+    <!-- Version Sidebar Overlay -->
+    <div 
+      class="absolute top-0 right-0 h-full bg-[#181818] z-30 transition-transform duration-300 border-l border-white/5 shadow-2xl"
+      :class="showVersions ? 'translate-x-0' : 'translate-x-full'"
+    >
+       <VersionSidebar
+         :versions="versions"
+         :loading="loading"
+         @close="showVersions = false"
+         @create="$emit('createVersion', $event)"
+         @restore="$emit('restoreVersion', $event)"
+       />
     </div>
 
-    <!-- Main Workspace -->
-    <div class="flex-1 flex overflow-hidden relative">
-      
-      <!-- Left Pane: Controls (Sidebar) -->
-      <div class="w-[360px] border-r border-white/5 bg-[#141414] flex flex-col z-10 shadow-2xl relative">
-         
-         <!-- Background Gradient Mesh -->
-         <div class="absolute top-0 left-0 w-full h-[200px] bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
-
-         <div class="p-5 flex-1 flex flex-col overflow-y-auto gap-4 relative z-10">
-            
-            <!-- Sandbox Header Card (Conditional) -->
-            <div v-if="sandbox.enabled" class="animate-scale-in origin-top">
-                <ModernSandboxHeader 
-                  :model-value="sandbox" 
-                  @apply="$emit('applySandbox')"
-                  @update:modelValue="e => Object.assign(sandbox, e)"
-                />
-            </div>
-
-            <!-- Requirement Input -->
-            <ModernRequirementInput
-              v-model:requirement="requirementModel"
-              v-model:context="contextModel"
-              v-model:refine-current="refineCurrentModel"
-              :can-edit="!!designConfig?.system_prompt"
-              :loading="loading"
-              @generate="$emit('generate')"
-            />
-         </div>
-      </div>
-
-      <!-- Right Pane: Code Editor -->
-      <div class="flex-1 bg-[#1e1e1e] relative flex flex-col">
-         <!-- Editor Component -->
-         <PromptEditor 
-           :model-value="designConfig?.system_prompt || ''" 
-           @update:modelValue="val => { if(designConfig) designConfig.system_prompt = val }"
-           class="flex-1 border-none rounded-none w-full h-full text-sm font-mono"
-         />
-      </div>
-
-      <!-- Version Sidebar Overlay -->
-      <div 
-        class="absolute top-0 right-0 h-full bg-[#181818] z-30 transition-transform duration-300 border-l border-white/5 shadow-2xl"
-        :class="showVersions ? 'translate-x-0' : 'translate-x-full'"
-      >
-         <VersionSidebar
-           :versions="versions"
-           :loading="loading"
-           @close="showVersions = false"
-           @create="$emit('createVersion', $event)"
-           @restore="$emit('restoreVersion', $event)"
-         />
-      </div>
-
-    </div>
   </div>
 </template>
 

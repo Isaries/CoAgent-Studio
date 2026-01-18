@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useAuthStore } from '../stores/auth'
+import { useAuth } from '../composables/useAuth'
 import { useUsers } from '../composables/useUsers'
 import { usePermissions } from '../composables/usePermissions'
 
@@ -11,24 +11,27 @@ import UserEditModal from '../components/user/UserEditModal.vue'
 // Types
 import type { User } from '../types/user'
 
-const authStore = useAuthStore()
+const { impersonate } = useAuth()
 const { users, loading, fetchUsers, deleteUser } = useUsers()
 const { canEditUser, canDeleteUser, isSuperAdmin, currentUser } = usePermissions()
+
 
 // Modal Refs
 const createModal = ref<InstanceType<typeof UserCreateModal> | null>(null)
 const editModal = ref<InstanceType<typeof UserEditModal> | null>(null)
 
-// Handlers
+// Actions
 const openCreateModal = () => createModal.value?.open()
-const openEditModal = (user: User) => {
-  if (!canEditUser(user)) {
-    alert('You do not have permission to edit this user.')
-    return
-  }
+
+const handleEditUser = (user: User) => {
   editModal.value?.open(user)
 }
 
+const handleImpersonateKey = async (user: User) => {
+  if (confirm(`Impersonate ${user.username}?`)) {
+    await impersonate(user.id)
+  }
+}
 const handleDelete = async (user: User) => {
   if (!canDeleteUser(user)) {
     alert('You do not have permission to delete this user.')
@@ -93,7 +96,7 @@ onMounted(() => {
             </td>
             <td>
               <button
-                @click="openEditModal(user)"
+                @click="handleEditUser(user)"
                 class="btn btn-xs mr-2"
                 :disabled="!canEditUser(user)"
               >
@@ -102,7 +105,7 @@ onMounted(() => {
 
               <button
                 v-if="isSuperAdmin() && user.id !== currentUser?.id"
-                @click="authStore.impersonateUser(user.id)"
+                @click="handleImpersonateKey(user)"
                 class="btn btn-xs btn-warning btn-outline mr-2"
               >
                 Impersonate

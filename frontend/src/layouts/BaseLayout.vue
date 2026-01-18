@@ -1,17 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { useAuth } from '../composables/useAuth'
 import iconUser from '../assets/iconUser.png'
 import api from '../api'
 
-const authStore = useAuthStore()
+const { user, logout, isImpersonating, stopImpersonating, isAdmin, isStudent } = useAuth()
 const route = useRoute()
 // const router = useRouter()
-
-const logout = () => {
-  authStore.logout()
-}
 
 // Profile Edit State
 const showProfileModal = ref(false)
@@ -22,8 +18,8 @@ const editForm = ref({
 const editLoading = ref(false)
 
 const openProfileModal = () => {
-  editForm.value.full_name = authStore.user?.full_name || ''
-  editForm.value.avatar_url = authStore.user?.avatar_url || ''
+  editForm.value.full_name = user.value?.full_name || ''
+  editForm.value.avatar_url = user.value?.avatar_url || ''
   showProfileModal.value = true
 }
 
@@ -55,8 +51,8 @@ const handleAvatarUpload = async (event: Event) => {
       })
       editForm.value.avatar_url = res.data.avatar_url // Update preview
       // Also update store immediately?
-      if (authStore.user) {
-        authStore.user.avatar_url = res.data.avatar_url
+      if (user.value) {
+        user.value.avatar_url = res.data.avatar_url
       }
     } catch (e) {
       console.error(e)
@@ -75,9 +71,9 @@ const updateProfile = async () => {
       avatar_url: editForm.value.avatar_url
     })
     // Update local store
-    if (authStore.user) {
-      authStore.user.full_name = res.data.full_name
-      authStore.user.avatar_url = res.data.avatar_url
+    if (user.value) {
+      user.value.full_name = res.data.full_name
+      user.value.avatar_url = res.data.avatar_url
     }
     showProfileModal.value = false
   } catch (e) {
@@ -99,13 +95,13 @@ export default {
   <ToastContainer />
   <div
     class="drawer lg:drawer-open"
-    :class="{ 'border-4 border-error': authStore.isImpersonating }"
+    :class="{ 'border-4 border-error': isImpersonating }"
   >
     <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
 
     <!-- Impersonation Banner -->
-    <div v-if="authStore.isImpersonating" class="fixed bottom-6 right-6 z-50 animate-bounce">
-      <button @click="authStore.stopImpersonating()" class="btn btn-error shadow-lg gap-2">
+    <div v-if="isImpersonating" class="fixed bottom-6 right-6 z-50 animate-bounce">
+      <button @click="stopImpersonating()" class="btn btn-error shadow-lg gap-2">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="20"
@@ -149,7 +145,7 @@ export default {
           <!-- Mobile Avatar -->
           <div @click="openProfileModal" class="avatar cursor-pointer mr-2">
             <div class="w-8 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-              <img :src="authStore.user?.avatar_url || iconUser" />
+              <img :src="user?.avatar_url || iconUser" />
             </div>
           </div>
           CoAgent Studio
@@ -251,30 +247,30 @@ export default {
             >
               <div class="avatar">
                 <div class="w-12 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-                  <img :src="authStore.user?.avatar_url || iconUser" />
+                  <img :src="user?.avatar_url || iconUser" />
                 </div>
               </div>
               <div>
                 <div class="font-bold text-lg text-primary">
-                  {{ authStore.user?.full_name || 'User' }}
+                  {{ user?.full_name || 'User' }}
                 </div>
                 <div class="text-xs opacity-50">CoAgent Studio</div>
               </div>
             </div>
           </li>
 
-          <li v-if="authStore.isAdmin">
+          <li v-if="isAdmin">
             <router-link to="/dashboard" active-class="active">Dashboard</router-link>
           </li>
-          <li v-if="authStore.isAdmin">
+          <li v-if="isAdmin">
             <router-link to="/admin/users" active-class="active">User Management</router-link>
           </li>
           <li><router-link to="/courses" active-class="active">My Courses</router-link></li>
-          <li v-if="!authStore.isStudent">
+          <li v-if="!isStudent">
             <router-link to="/analytics" active-class="active">Analytics</router-link>
           </li>
 
-          <template v-if="authStore.isAdmin">
+          <template v-if="isAdmin">
             <div class="divider text-xs opacity-50 uppercase tracking-widest">Admin Tools</div>
             <li>
               <router-link to="/admin/system-agents" active-class="active"
@@ -283,6 +279,7 @@ export default {
             </li>
             <li><router-link to="/admin/database" active-class="active">Database</router-link></li>
           </template>
+
 
           <div class="divider"></div>
 

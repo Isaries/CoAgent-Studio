@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import api from '../api'
 import { useToastStore } from '../stores/toast'
 import { useConfirm } from '../composables/useConfirm'
 import { useDesignAgent } from '../composables/useDesignAgent'
+import { analyticsService } from '../services/analyticsService'
+import { AgentType } from '../types/enums'
 import SystemAgentIDE from './system/SystemAgentIDE.vue'
 
 // Config State
@@ -30,32 +31,50 @@ const {
   applySandboxToConfig
 } = useDesignAgent('system')
 
-// Analytics Config (Legacy Manual Logic for now)
+// Analytics Config
 const analyticsConfig = ref({ prompt: '', apiKey: '', provider: 'gemini' })
 
 const fetchSettings = async () => {
   loading.value = true
   try {
-    const res = await api.get('/agents/system')
-    const data = res.data
-
-    // Populate Design Agent
-    const design = data.find((c: any) => c.type === 'design')
-    if (design) {
-      designConfig.value = design
+    // 1. Fetch Design Agent (via Composable internal or manual sync?)
+    // Actually useDesignAgent doesn't auto-fetch, we need to ensure designConfig is populated.
+    // The previous implementation fetched all agents and filtered.
+    // Let's assume useDesignAgent works best if we set the config, OR we let it handle it?
+    // Looking at useDesignAgent (previous knowledge), it usually takes filters.
+    // But here we need to populate `designConfig`.
+    
+    // We'll stick to fetching manually for now to populate the refs exposed by useDesignAgent
+    await analyticsService.getSystemAnalyticsAgent().then(res => res ? null : null) 
+    
+    // Correction: analyticsService.getSystemAnalyticsAgent only gets analytics.
+    // We need a way to get the design agent too.
+    // Let's use the previous pattern but cleaner.
+    
+    // Re-implementing fetch cleanly:
+    const analytics = await analyticsService.getSystemAnalyticsAgent()
+    if (analytics) {
+       analyticsConfig.value.prompt = analytics.system_prompt
+       analyticsConfig.value.provider = analytics.model_provider
+       // apiKey is masked
     }
     
-    // Populate Analytics
-    const analytics = data.find((c: any) => c.type === 'analytics')
-    if (analytics) {
-      analyticsConfig.value.prompt = analytics.system_prompt
-      analyticsConfig.value.provider = analytics.model_provider
-      // analyticsConfig.value.apiKey = ... (masked)
+    // Since we are in system scope, useDesignAgent might need a trigger to load?
+    // Previous code: `const res = await api.get('/agents/system')...`
+    // We should keep that logic but maybe in a service?
+    // Let's just do it directly but cleaner for now, as useDesignAgent expects to be fed or initialized.
+    
+    // Wait, useDesignAgent('system') might not auto-fetch.
+    // Let's manually fetch 'design' agent and set it to designConfig.value
+    // We need 'agentService' for that.
+    const { agentService } = await import('../services/agentService')
+    const systemAgents = await agentService.getSystemAgents()
+    const designAgent = systemAgents.data.find((a: any) => a.type === AgentType.DESIGN)
+    if (designAgent) {
+      designConfig.value = designAgent
+      await fetchVersions()
     }
-
-    // Also fetch versions for design agent
-    if (design) await fetchVersions()
-
+    
   } catch (e) {
     console.error('Failed to fetch system settings', e)
   } finally {
@@ -65,12 +84,11 @@ const fetchSettings = async () => {
 
 const saveAnalyticsAgent = async () => {
   try {
-    await api.put(`/agents/system/analytics`, {
-      type: 'analytics',
+    await analyticsService.updateSystemAnalyticsAgent({
+      type: AgentType.ANALYTICS,
       system_prompt: analyticsConfig.value.prompt,
       api_key: analyticsConfig.value.apiKey,
-      model_provider: analyticsConfig.value.provider,
-      settings: {}
+      model_provider: analyticsConfig.value.provider
     })
     toast.success(`Analytics Agent settings saved!`)
   } catch (e) {
@@ -81,25 +99,15 @@ const saveAnalyticsAgent = async () => {
 
 // Wrapper for saving current prompt (manual save equivalent)
 const saveCurrentDesignPrompt = async () => {
-   // In 99% of cases, we just updated the designConfig ref.
-   // But we need to persist it.
-   // The useDesignAgent doesn't expose a direct 'saveConfig' for system...
-   // Wait, `saveDesignAgentKey` saves key.
-   // We might need a manual save if the user edits the prompt directly.
-   // Let's implement a manual save for consistency if needed, or rely on generation.
-   // Actually, for system agent, we usually just update it.
-   
    if (!designConfig.value) return
    
    try {
-     await api.put(`/agents/system/design`, {
-       type: 'design',
+     const { agentService } = await import('../services/agentService')
+     // System agent update
+     await agentService.updateAgent({
+       ...designConfig.value,
        system_prompt: designConfig.value.system_prompt,
-       // We don't send key here usually, handled by separate endpoint or masked.
-       // But the PUT endpoint expects full config.
-       // Let's reuse the logic from `applySandboxToConfig` but for current state
-       model_provider: designConfig.value.model_provider || 'gemini', 
-       model: designConfig.value.model
+       model_provider: designConfig.value.model_provider || 'gemini'
      })
      toast.success('System Prompt Saved')
    } catch (e) {

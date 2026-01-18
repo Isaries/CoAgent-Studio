@@ -2,10 +2,15 @@ import api from '../api'
 import type { User } from '../types/user'
 
 export const authService = {
-  async login(formData: FormData) {
-    return api.post('/login/access-token', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+  async login(formData: FormData): Promise<boolean> {
+    try {
+      await api.post('/login/access-token', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      return true
+    } catch {
+      return false
+    }
   },
 
   async fetchUser() {

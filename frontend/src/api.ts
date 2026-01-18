@@ -1,9 +1,9 @@
 import axios from 'axios'
-
-const REFRESH_URL = '/login/refresh'
+import { API_ENDPOINTS, HTTP_STATUS } from './constants/api'
+import { useToastStore } from './stores/toast'
 
 const api = axios.create({
-  baseURL: '/api/v1', // Proxy will handle this in dev, or env var
+  baseURL: '/api/v1',
   headers: {
     'Content-Type': 'application/json'
   },
@@ -14,42 +14,47 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // Dynamic import to avoid circular dependency if store imports api
-    // But usually store uses API. To be safe, we can import store here if pinia is active.
-    // However, pinia instance must be active. This api.ts is imported by components.
-    // Better: use direct store import but inside the interceptor or ensure app setup
-    const { useToastStore } = await import('./stores/toast')
+    // Access store inside interceptor to avoid circular dependency during init
     const toast = useToastStore()
-
     const originalRequest = error.config
 
+    if (!originalRequest) {
+      return Promise.reject(error)
+    }
+
     // Prevent infinite loop: if the failed request was the refresh attempt, don't retry
-    if (originalRequest.url.includes(REFRESH_URL)) {
+    if (originalRequest.url?.includes(API_ENDPOINTS.REFRESH)) {
       return Promise.reject(error)
     }
 
     // Handle 500 Server Errors
-    if (error.response?.status >= 500) {
+    if (error.response?.status && error.response.status >= HTTP_STATUS.SERVER_ERROR) {
       const detail = error.response.data?.detail
-      const message = detail ? `Server Error: ${detail}` : `Server Error: ${error.response.statusText || 'Internal Server Error'}`
+      const message = detail
+        ? `Server Error: ${detail}`
+        : `Server Error: ${error.response.statusText || 'Internal Server Error'}`
       toast.error(message)
     }
 
     // Handle 403 Forbidden (Permission)
-    if (error.response?.status === 403) {
+    if (error.response?.status === HTTP_STATUS.FORBIDDEN) {
       toast.warning('Access Denied: You do not have permission.')
     }
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Handle 401 Unauthorized (Token Expiry)
+    if (error.response?.status === HTTP_STATUS.UNAUTHORIZED && !originalRequest._retry) {
       originalRequest._retry = true
       try {
-        await api.post(REFRESH_URL)
+        await api.post(API_ENDPOINTS.REFRESH)
         return api(originalRequest)
       } catch (refreshError) {
-        // Refresh failed - force logout
-        if (window.location.pathname !== '/login') {
+        // Refresh failed - force logout via Router
+        const { default: router } = await import('./router')
+        const currentPath = router.currentRoute.value.path
+
+        if (currentPath !== API_ENDPOINTS.LOGIN) {
           toast.info('Session expired, please login again.')
-          window.location.href = '/login'
+          await router.push(API_ENDPOINTS.LOGIN)
         }
         return Promise.reject(refreshError)
       }
