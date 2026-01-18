@@ -1,104 +1,115 @@
 # CoAgent Studio Frontend
 
 ## Project Overview
-CoAgent Studio is a modern web application built with **Vue 3**, **TypeScript**, and **Vite**. It provides an intelligent agent workspace where users can configure, test, and manage AI agents for educational and system automation scenarios. The frontend implements a clean component architecture, strict type safety, and a professional UI design.
+CoAgent Studio is a professional-grade intelligent agent workspace built with **Vue 3**, **TypeScript**, and **Vite**. It is designed to provide a robust "IDE-like" environment for configuring, testing, and managing AI agents (Teacher, Student, Design, Analytics).
+
+The codebase follows a **"Perfect State"** philosophy: strict type safety, zero lint warnings, and a decoupled architecture to ensure maintainability and scalability.
 
 ## Tech Stack
-- **Framework**: Vue 3 (Composition API, `<script setup>`)
-- **Language**: TypeScript
+- **Framework**: Vue 3 (Composition API, separate `<script setup>`)
+- **Language**: TypeScript (Strict Mode)
 - **Build Tool**: Vite
-- **Styling**: Tailwind CSS (utility‑first) with custom design tokens
-- **State Management**: Pinia stores (`auth`, `agent`, etc.)
-- **Routing**: Vue Router 4
-- **Linting & Formatting**: ESLint, Prettier, `vue-tsc`
-- **Testing**: Vitest (unit) and Playwright (e2e) – not included in this repo but recommended.
+- **Styling**: Tailwind CSS + DaisyUI (with custom design tokens)
+- **State Management**: Pinia (Stores) + Composables (Logic)
+- **Routing**: Vue Router 4 (with Navigation Guards)
+- **Quality Assurance**: ESLint, Prettier, `vue-tsc` (Type Check)
 
-## Prerequisites
-- Node.js (>= 18)
-- npm (>= 9) or Yarn
-- Git
+## Architecture & Design Patterns
+
+### 1. Orchestrator Pattern
+Complex views like `CourseSettingsView` act as **Orchestrators**. They manage high-level state (loading, error handling, saving) and delegate rendering to specialized "dumb" components:
+- **`CourseBrainHeader`**: Manages navigation tabs and primary actions.
+- **`CourseBrainEditor`**: Handles specific form inputs for prompts, models, and triggers.
+- **`VersionSidebar`**: Manages history and restoration independently.
+
+### 2. Composition over Inheritance
+Logic is extracted into reusable **Composables** (`src/composables/`) rather than mixing it into components or large stores:
+- **`useAuth`**: Centralizes login, logout, user roles, and impersonation logic.
+- **`useAgentSandbox`**: Manages the chat simulation state and history.
+- **`useVersionControl`**: Abstracts the complexity of fetching and restoring agent configuration versions.
+
+### 3. Strict Type Safety
+We avoid `any`. All data structures are strictly typed in `src/types/`:
+- **`enums.ts`**: Centralized enums for `UserRole`, `AgentType`, `TriggerType`, `ModelProvider`.
+- **`agent.ts`**: Comprehensive interfaces for Agent configurations.
+
+## Key Features
+
+### 🤖 System Agent IDE
+A dedicated "Meta-Prompt Engineering Workbench" (`SystemAgentIDE.vue`) that allows admins to:
+- Design the "Brain" of the system agents.
+- **Simulate** conversations in real-time with a built-in sandbox.
+- **Version Control**: Rollback to previous system prompts instantly.
+
+### 👥 Role-Based Access Control (RBAC)
+Deeply integrated permission system:
+- **Super Admin**: Full system access (Database, System Agents).
+- **Teacher**: Course creation and management.
+- **Student**: Access to assigned courses and chat interface.
+- **Impersonation**: Admins can "view as" other users for debugging.
+
+### 🔄 Multi-Agent Orchestration
+Support for diverse agent types with specific configurations:
+- **Teacher/Student Agents**: Standard conversational agents.
+- **Design Agents**: Specialized in creating content.
+- **Analytics Agents**: Background processors for data insight.
 
 ## Getting Started
+
+### Prerequisites
+- Node.js (>= 18)
+- npm (>= 9)
+
+### Installation
 ```bash
-# Clone the repository
 git clone https://github.com/Isaries/CoAgent-Studio.git
 cd CoAgent-Studio/frontend
-
-# Install dependencies
 npm install
+```
 
-# Run the development server
+### Development
+```bash
 npm run dev
 ```
-The application will be available at `http://localhost:5173`.
+Access the app at `http://localhost:5173`.
 
-## Development Workflow
-1. **Create a feature branch**
-   ```bash
-   git checkout -b feature/your-feature
-   ```
-2. **Make changes** – all Vue components use `<script setup lang="ts">` and follow the strict type contracts defined in `src/types`.
-3. **Run lint and type checks**
-   ```bash
-   npm run lint:check   # ESLint with zero warnings
-   npx vue-tsc --noEmit # TypeScript compilation check
-   ```
-4. **Commit and push**
-   ```bash
-   git add .
-   git commit -m "feat: description"
-   git push origin feature/your-feature
-   ```
-5. **Open a Pull Request** – CI will run the lint and type checks automatically.
-
-## Build for Production
+### Quality Checks
+Before committing, ensure your code meets the quality standards:
 ```bash
-npm run build
-# The production bundle is generated in the `dist/` directory.
+# 1. Linting (Auto-fix)
+npm run lint
+
+# 2. Type Checking (Strict)
+npx vue-tsc --noEmit
 ```
-Deploy the contents of `dist/` to any static web host (e.g., Vercel, Netlify, GitHub Pages).
 
-## Testing
-- **Unit Tests**: `npm run test:unit`
-- **End‑to‑End Tests**: `npm run test:e2e`
-(These scripts are placeholders; configure Vitest or Playwright as needed.)
-
-## Linting & Formatting
-- **ESLint**: `npm run lint` – fixes automatically where possible.
-- **Prettier**: Integrated via ESLint; run `npm run format` to format the whole codebase.
-- **Type Checking**: `npx vue-tsc --noEmit` – ensures strict type safety across all Vue components.
-
-## Code Structure Overview
+## Code Structure
 ```
 src/
-├─ api.ts                     # Centralized API client with interceptors
-├─ assets/                    # Static assets (images, icons)
-├─ components/                # Reusable UI components (icons, common widgets)
-│   └─ common/                # Shared components like ResizableSplitPane
-├─ composables/               # Vue composables (useAuth, useAgentSandbox, etc.)
-├─ constants/                 # API endpoint and provider constants
-├─ layouts/                   # Layout components (BaseLayout.vue)
-├─ services/                  # Service layer for API calls (agentService, authService)
-├─ stores/                    # Pinia stores (auth, agent)
-├─ types/                     # TypeScript interfaces and enums
-├─ utils/                     # Utility functions (cookies, etc.)
-├─ views/                     # Page‑level components (DashboardView, CourseSettingsView, SystemAgentIDE, UserListView)
-│   └─ course-settings/       # Sub‑views and components for course settings
-│   └─ system/                # System agent IDE and related components
-└─ main.ts                    # Application entry point
+├─ api/                       # API definitions
+├─ components/
+│   ├─ common/                # Shared widgets (ResizableSplitPane, Toast)
+│   └─ icons/                 # Atomic SVG components
+├─ composables/               # Shared logic (useAuth, useVersionControl)
+├─ constants/                 # App-wide constants
+├─ layouts/                   # Layout wrappers (BaseLayout)
+├─ stores/                    # Pinia State (Global user state)
+├─ types/                     # TypeScript definitions (The Source of Truth)
+├─ views/                     # Route Views
+│   ├─ course-settings/       # Course Agent Logic
+│   └─ system/                # System Agent IDE
+└─ utils/                     # Pure utility functions
 ```
-Key components:
-- **CourseBrainEditor.vue** – Core editor for configuring an agent’s system prompt, model, triggers, and schedule.
-- **DesignAgentConfig.vue** – UI for sandbox configuration and custom API keys.
-- **SystemAgentIDE.vue** – Full‑screen IDE‑like environment for prompt engineering.
-- **ResizableSplitPane.vue** – Flexible split‑pane component used throughout the UI.
 
 ## Contributing
-1. Fork the repository.
-2. Create a feature branch.
-3. Follow the development workflow above.
-4. Ensure all lint and type checks pass before submitting a PR.
-5. Write clear commit messages and update documentation when adding new features.
+1. **Consistency**: Use the `useComposable` pattern for new logic.
+2. **Types**: Add new types to `src/types/` before writing components.
+3. **Icons**: Use `src/components/icons/` for SVGs.
+4. **Commits**: Follow conventional commits (e.g., `feat:`, `fix:`, `refactor:`).
+
+## Troubleshooting
+- **`vue-tsc` errors?**: Check `src/types/enums.ts`. We do not allow implicit `any`.
+- **401 Loop?**: The `api.ts` interceptor handles token expiration. Ensure backend cookies are set correctly.
 
 ## License
-This project is licensed under the MIT License.
+MIT
