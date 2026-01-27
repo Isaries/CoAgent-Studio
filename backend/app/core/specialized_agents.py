@@ -83,6 +83,25 @@ class TeacherAgent(AgentCore, A2AAgentMixin):
             )
         
         return None
+    
+    async def handle_workflow_step(self, context: "WorkflowContext") -> Optional[A2AMessage]:
+        """
+        Adapter method for GraphExecutor.
+        Takes full WorkflowContext, returns A2AMessage.
+        """
+        from app.core.a2a.workflow import WorkflowContext
+        
+        # Check previous message in context history effectively?
+        # GraphExecutor passes context.last_result usually.
+        # But for Teacher, we expect an EVALUATION_REQUEST.
+        
+        last_msg = context.last_result
+        if not last_msg or last_msg.type != MessageType.EVALUATION_REQUEST:
+            # Teacher might be the start? No, usually after Student.
+            # If start, last_msg is None.
+            return None
+            
+        return await self.receive_message(last_msg)
 
 
 class StudentAgent(AgentCore, A2AAgentMixin):
@@ -132,6 +151,44 @@ class StudentAgent(AgentCore, A2AAgentMixin):
                 )
             # Rejected: return None (no broadcast)
         
+        return None
+
+    async def handle_workflow_step(self, context: "WorkflowContext") -> Optional[A2AMessage]:
+        """
+        Adapter method for GraphExecutor.
+        """
+        from app.core.a2a.workflow import WorkflowContext
+        from app.core.a2a.payloads import ProposalPayload
+        
+        last_msg = context.last_result
+        
+        # CASE 1: Student is generating proposal (Start of flow)
+        if not last_msg:
+            # We need to construct a message
+            # Context data might have 'proposal_prompt' or similar
+            # Or we look at chat history if passed in context.data
+            
+            # Use 'message_history' from context.data if available, else empty
+            history = context.data.get("message_history", [])
+            
+            # Check for override (e.g. from user retry or direct input)
+            if context.data.get("proposal_override"):
+                proposal_text = context.data.get("proposal_override")
+            else:
+                proposal_text = await self.generate_proposal(history)
+            
+            return A2AMessage(
+                type=MessageType.EVALUATION_REQUEST,
+                sender_id=AgentId.STUDENT,
+                recipient_id=AgentId.TEACHER,
+                content=proposal_text, # Will be auto-wrapped in EvaluationRequestPayload if we used payloads logic construction
+                metadata=context.data
+            )
+            
+        # CASE 2: Student receiving evaluation result
+        if last_msg.type == MessageType.EVALUATION_RESULT:
+            return await self.receive_message(last_msg)
+            
         return None
 
 class DesignAgent(AgentCore):

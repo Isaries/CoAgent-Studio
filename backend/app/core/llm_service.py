@@ -8,6 +8,8 @@ from google.genai import types
 from openai import NOT_GIVEN, AsyncOpenAI
 from openai.types.chat import ChatCompletionToolParam
 
+from app.core.a2a.resilience import with_resilience
+
 
 @dataclass
 class ToolCall:
@@ -39,6 +41,7 @@ class GeminiService(LLMService):
     def __init__(self):
         pass
 
+    @with_resilience(breaker_name="gemini_api")
     async def generate_response(  # noqa: C901
         self,
         prompt: str,
@@ -126,6 +129,7 @@ class GeminiService(LLMService):
 
 
 class OpenAIService(LLMService):
+    @with_resilience(breaker_name="openai_api")
     async def generate_response(
         self,
         prompt: str,
