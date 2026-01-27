@@ -177,6 +177,7 @@ onMounted(() => {
             :context="designDb.context"
             :refine-current="designDb.refineCurrent"
             :sandbox="sandbox"
+            @update:sandbox="sandbox = $event"
             :versions="versions"
             
             @update:design-api-key="designApiKey = $event"

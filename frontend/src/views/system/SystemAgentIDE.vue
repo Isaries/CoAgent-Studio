@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { AgentConfig, AgentConfigVersion } from '../../types/agent'
+import type { SandboxState } from '../../composables/useAgentSandbox'
 import VersionSidebar from '../../components/PromptDesigner/VersionSidebar.vue'
 import SystemAgentHeader from './components/SystemAgentHeader.vue'
 import SystemAgentWorkspace from './components/SystemAgentWorkspace.vue'
 import { agentService } from '../../services/agentService'
 import { useToastStore } from '../../stores/toast'
-import { useAgentSandbox } from '../../composables/useAgentSandbox'
+
 
 interface Props {
   designConfig: AgentConfig | null
@@ -16,6 +17,7 @@ interface Props {
   context: string
   refineCurrent: boolean
   
+  sandbox: SandboxState
   versions: AgentConfigVersion[]
 }
 
@@ -30,11 +32,31 @@ const emit = defineEmits([
   'createVersion',
   'restoreVersion', 
   'fetchVersions',
-  'update:systemPrompt'
+  'update:systemPrompt',
+  'applySandbox',
+  'update:sandbox'
 ])
 
 const toast = useToastStore()
-const { sandbox, getSimulationConfig } = useAgentSandbox()
+// REMOVED: useAgentSandbox local state. We use props.sandbox now.
+// const { sandbox, getSimulationConfig } = useAgentSandbox()
+import { DEFAULT_PROVIDER } from '../../constants/providers'
+
+const getSimulationConfig = (baseApiKey: string) => {
+    if (!props.sandbox.enabled) {
+        return {
+            apiKey: baseApiKey,
+            provider: DEFAULT_PROVIDER,
+            model: undefined
+        }
+    }
+
+    return {
+        apiKey: props.sandbox.customApiKey || baseApiKey,
+        provider: props.sandbox.customProvider || DEFAULT_PROVIDER,
+        model: props.sandbox.customModel || undefined
+    }
+}
 
 // Local State (Simulation)
 const simulationOutput = ref('')
@@ -94,7 +116,7 @@ const handleSimulation = async () => {
         // Use simulation config for provider/model
         provider: simConfig.provider,
         custom_model: simConfig.model,
-        custom_api_key: sandbox.enabled ? sandbox.customApiKey : undefined, // Explicit overrides
+        custom_api_key: props.sandbox.enabled ? props.sandbox.customApiKey : undefined, // Explicit overrides
 
         // CRITICAL: We override the system prompt with what's in the editor
         custom_system_prompt: metaPrompt,
@@ -116,7 +138,8 @@ const handleSimulation = async () => {
   <div class="flex flex-col h-[calc(100vh-140px)] min-h-[600px] min-w-[900px] border border-white/5 rounded-2xl overflow-hidden relative shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] bg-[#121212] backdrop-blur-3xl ring-1 ring-white/10">
     
     <SystemAgentHeader
-      v-model:sandbox="sandbox"
+      :sandbox="props.sandbox"
+      @update:sandbox="$emit('update:sandbox', $event)"
       v-model:designApiKey="designApiKeyModel"
       :masked-api-key="!!designConfig?.masked_api_key"
       :show-versions="showVersions"
@@ -126,7 +149,7 @@ const handleSimulation = async () => {
     />
 
     <SystemAgentWorkspace
-      :sandbox="sandbox"
+      :sandbox="props.sandbox"
       :design-config="designConfig"
       :loading="loading"
       :is-simulating="isSimulating"
@@ -137,6 +160,8 @@ const handleSimulation = async () => {
       @generate="handleSimulation"
       @clearOutput="simulationOutput = ''"
       @update:systemPrompt="$emit('update:systemPrompt', $event)"
+      @update:sandbox="$emit('update:sandbox', $event)"
+      @applySandbox="$emit('applySandbox')"
     />
 
     <!-- Version Sidebar Overlay -->

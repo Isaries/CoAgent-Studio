@@ -4,6 +4,7 @@ export interface Message {
   isSelf: boolean
   isSystem?: boolean
   isAi?: boolean
+  isA2ATrace?: boolean
   timestamp?: string
 }
 

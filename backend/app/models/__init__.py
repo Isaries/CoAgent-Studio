@@ -7,6 +7,9 @@ from .message import Message, MessageCreate, MessageRead
 from .room import Room, RoomCreate, RoomRead, RoomUpdate
 from .user import User, UserCreate, UserRead, UserRole, UserUpdate
 
+# Import A2A models to ensure table creation
+from app.core.a2a.store import A2AMessageRecord
+
 __all__ = [
     "AgentConfig",
     "AgentConfigCreate",
@@ -34,4 +37,5 @@ __all__ = [
     "UserRead",
     "UserRole",
     "UserUpdate",
+    "A2AMessageRecord",  # Ensure A2A table is created
 ]

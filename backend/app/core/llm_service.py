@@ -50,7 +50,6 @@ class GeminiService(LLMService):
         if not api_key:
             return LLMResponse(content="Error: API Key missing for Gemini")
 
-        client = genai.Client(api_key=api_key)
         model_name = model or "gemini-1.5-pro"
 
         gemini_tools = None
@@ -74,9 +73,10 @@ class GeminiService(LLMService):
             # Code search said "supports asynchronous operations".
             # I'll try `await client.aio.models.generate_content(...)`.
 
-            response = await client.aio.models.generate_content(
-                model=model_name, contents=prompt, config=config
-            )
+            async with genai.Client(api_key=api_key) as client:
+                response = await client.aio.models.generate_content(
+                    model=model_name, contents=prompt, config=config
+                )
 
             tool_calls = []
             content = ""
@@ -137,8 +137,6 @@ class OpenAIService(LLMService):
         if not api_key:
             return LLMResponse(content="Error: API Key missing for OpenAI")
 
-        client = AsyncOpenAI(api_key=api_key)
-
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -153,11 +151,12 @@ class OpenAIService(LLMService):
             openai_tools = [cast(ChatCompletionToolParam, t) for t in tools]
 
         try:
-            response = await client.chat.completions.create(
-                model=model_name,
-                messages=cast(Any, messages),  # Simplify message typing
-                tools=openai_tools or NOT_GIVEN,
-            )
+            async with AsyncOpenAI(api_key=api_key) as client:
+                response = await client.chat.completions.create(
+                    model=model_name,
+                    messages=cast(Any, messages),  # Simplify message typing
+                    tools=openai_tools or NOT_GIVEN,
+                )
 
             message = response.choices[0].message
             content = message.content

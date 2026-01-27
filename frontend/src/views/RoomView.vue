@@ -14,6 +14,8 @@ const roomId = route.params.id as string
 const messages = ref<Message[]>([])
 const ws = ref<WebSocket | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
+const showA2ATrace = ref(false) // Toggle for A2A debug trace
+
 
 const fetchMessages = async () => {
   try {
@@ -53,6 +55,26 @@ const { status, send, connect } = useWebSocket('', {
     })
   },
   onMessage: (msg) => {
+    // Check for A2A trace messages
+    if (msg.content?.startsWith('[A2A]')) {
+      if (showA2ATrace.value) {
+        const parts = msg.content.split('|')
+        const eventType = parts[1] || 'TRACE'
+        const details = parts[2] || ''
+        messages.value.push({
+          sender: `[A2A ${eventType}]`,
+          content: details,
+          isSelf: false,
+          isAi: false,
+          isSystem: true,
+          isA2ATrace: true,
+          timestamp: new Date().toISOString()
+        })
+        scrollToBottom()
+      }
+      return // Don't process further
+    }
+
     // msg is already typed as SocketMessage from composable
     let isAi = !!msg.metadata?.is_ai || msg.sender.includes('AI')
     if (msg.sender.includes('Teacher AI') || msg.sender.includes('Student AI')) {
@@ -133,7 +155,13 @@ onUnmounted(() => {
       <div class="flex-1">
         <h1 class="font-bold text-lg truncate">Room: {{ roomId }}</h1>
       </div>
-      <div class="flex-none gap-2">
+      <div class="flex-none gap-2 flex items-center">
+        <!-- A2A Trace Toggle -->
+        <label class="swap swap-rotate btn btn-sm btn-ghost" title="Toggle A2A Debug Trace">
+          <input type="checkbox" v-model="showA2ATrace" />
+          <span class="swap-off text-xs opacity-50">A2A</span>
+          <span class="swap-on text-xs text-primary font-bold">A2A</span>
+        </label>
         <router-link v-if="!authStore.isStudent" :to="`/rooms/${roomId}/settings`" class="btn btn-sm btn-ghost btn-circle">
           <svg
             xmlns="http://www.w3.org/2000/svg"

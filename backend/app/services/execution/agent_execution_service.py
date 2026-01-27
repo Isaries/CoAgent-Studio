@@ -6,6 +6,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.specialized_agents import StudentAgent, TeacherAgent
+from app.core.a2a import A2ADispatcher, A2AMessage, MessageType, AgentId
 from app.factories.agent_factory import AgentFactory
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.message import Message
@@ -48,6 +49,25 @@ async def _get_history(
 # Helper to publish to Redis instead of direct socket manager
 async def publish_message(redis, room_id: str, message: str):
     await redis.publish(f"room_{room_id}", message)
+
+
+async def publish_a2a_trace(redis, room_id: str, event_type: str, details: str):
+    """
+    Publish A2A trace event to WebSocket for frontend debugging/visualization.
+    
+    Sends JSON matching SocketMessage format so frontend can parse it.
+    Frontend detects A2A traces by checking if content starts with "[A2A]".
+    """
+    import json
+    payload = json.dumps({
+        "type": "a2a_trace",
+        "sender": f"[A2A {event_type}]",
+        "content": f"[A2A]|{event_type}|{details}",  # Frontend parses this
+        "timestamp": "",
+        "room_id": room_id,
+        "metadata": {"is_a2a": True, "event_type": event_type}
+    })
+    await redis.publish(f"room_{room_id}", payload)
 
 
 async def run_agent_cycle_task(ctx, room_id: str, user_msg_id: str) -> None:
@@ -297,6 +317,18 @@ async def _execute_student_turn(
     history,
     room_id,
 ):
+    """
+    Execute student turn using A2A Protocol via A2AOrchestrator.
+    
+    Flow:
+    1. Student generates proposal
+    2. Orchestrator handles Student -> Teacher evaluation
+    3. If approved, save and broadcast the message
+    """
+    # Import here to avoid circular imports
+    from app.services.a2a_orchestrator import A2AOrchestrator
+    from app.core.a2a import A2AMessageStore
+    
     can_student = room.ai_mode == "both"
     if can_student and student_agent and teacher_agent and should_run:
         force_reply = student_config.trigger_config is not None
@@ -305,25 +337,52 @@ async def _execute_student_turn(
                 "agent_decision", role="student", action="propose_start", room_id=str(room.id)
             )
             s_agent = cast(StudentAgent, student_agent)
+            t_agent = cast(TeacherAgent, teacher_agent)
+            
+            # Generate proposal
             proposal = await s_agent.generate_proposal(history)
-
-            # Ask Teacher Evaluation
             context_str = "\n".join([f"{m.sender_id}: {m.content}" for m in history])
-            logger.info(
-                "agent_decision",
-                role="teacher",
-                action="evaluate_proposal",
-                proposal_preview=proposal[:50],
+
+            # === A2A Protocol Flow via Orchestrator ===
+            orchestrator = A2AOrchestrator()
+            store = A2AMessageStore(session)
+            orchestrator.register_agents(t_agent, s_agent, store)
+
+            # A2A Trace: Student proposing
+            await publish_a2a_trace(
+                redis, room_id, "PROPOSAL", f"Student drafted: {(proposal or '')[:80]}..."
             )
 
-            t_agent = cast(TeacherAgent, teacher_agent)
-            if await t_agent.evaluate_student_proposal(proposal, context_str):
+            # A2A Trace: Sending to teacher
+            await publish_a2a_trace(
+                redis, room_id, "EVAL_REQUEST", "Student → Teacher: Requesting evaluation"
+            )
+
+            # Request evaluation from Teacher
+            eval_result = await orchestrator.request_evaluation(proposal, context_str, room_id)
+
+            if orchestrator.is_approved(eval_result):
                 logger.info("agent_decision", role="teacher", action="proposal_approved")
+                
+                # A2A Trace: Approved
+                await publish_a2a_trace(
+                    redis, room_id, "APPROVED", "Teacher approved student's proposal ✓"
+                )
+                
+                # Complete protocol flow
+                await orchestrator.process_approval(eval_result)
+                
+                # Save and broadcast the approved message
                 await _save_and_broadcast(
                     session, redis, proposal, room_id, AgentType.STUDENT, "[Student AI]"
                 )
             else:
                 logger.info("agent_decision", role="teacher", action="proposal_denied")
+                
+                # A2A Trace: Denied
+                await publish_a2a_trace(
+                    redis, room_id, "DENIED", "Teacher rejected student's proposal ✗"
+                )
 
 
 async def _save_and_broadcast(session, redis, content, room_id, agent_type, prefix) -> None:
@@ -333,8 +392,19 @@ async def _save_and_broadcast(session, redis, content, room_id, agent_type, pref
     await session.refresh(msg)
     timestamp = msg.created_at.isoformat() + "Z"
 
-    # Broadcast via Redis Pub/Sub
-    payload = f"{prefix}|{timestamp}|{content}"
+    # Broadcast via Redis Pub/Sub as JSON matching SocketMessage
+    import json
+    payload = json.dumps({
+        "type": "message",
+        "sender": prefix,  # e.g. "[Student AI]"
+        "content": content,
+        "timestamp": timestamp,
+        "room_id": str(room_id),
+        "metadata": {
+            "is_ai": True, 
+            "agent_type": agent_type.value if hasattr(agent_type, "value") else str(agent_type)
+        }
+    })
     await publish_message(redis, room_id, payload)
 
 

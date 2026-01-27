@@ -2,9 +2,19 @@ import random
 from typing import Optional, Union
 
 from app.core.agent_core import AgentCore
+from app.core.a2a.models import A2AMessage, MessageType
+from app.core.a2a.base import A2AAgentMixin, AgentId
 
 
-class TeacherAgent(AgentCore):
+class TeacherAgent(AgentCore, A2AAgentMixin):
+    """
+    Teacher Agent with A2A protocol support.
+    
+    Handles:
+    - Direct replies to chat
+    - Evaluation of student proposals via A2A messages
+    """
+
     def should_reply(self, message_history: list, ai_frequency: float) -> bool:
         """
         Refined logic to decide if Teacher should reply.
@@ -54,8 +64,36 @@ class TeacherAgent(AgentCore):
         response = await self.run(prompt)
         return "YES" in str(response).upper()
 
+    async def receive_message(self, msg: A2AMessage) -> Optional[A2AMessage]:
+        """
+        A2A Protocol: Handle incoming messages from other agents.
+        
+        Supported message types:
+        - EVALUATION_REQUEST: Evaluate a student's proposal
+        """
+        if msg.type == MessageType.EVALUATION_REQUEST:
+            proposal = msg.content
+            context = msg.metadata.get("context", "")
+            approved = await self.evaluate_student_proposal(proposal, context)
+            
+            return msg.reply(
+                type=MessageType.EVALUATION_RESULT,
+                content={"approved": approved, "proposal": proposal},
+                sender_id=AgentId.TEACHER,
+            )
+        
+        return None
 
-class StudentAgent(AgentCore):
+
+class StudentAgent(AgentCore, A2AAgentMixin):
+    """
+    Student Agent with A2A protocol support.
+    
+    Handles:
+    - Generating proposals for the chat
+    - Processing evaluation results via A2A messages
+    """
+
     def should_reply(self, message_history: list, ai_frequency: float) -> bool:
         # Student speaks less frequently than teacher generally, or same config
         # Logic: If last message was from Teacher, Student might answer
@@ -75,6 +113,26 @@ class StudentAgent(AgentCore):
         """
         return str(await self.run(prompt))
 
+    async def receive_message(self, msg: A2AMessage) -> Optional[A2AMessage]:
+        """
+        A2A Protocol: Handle incoming messages from other agents.
+        
+        Supported message types:
+        - EVALUATION_RESULT: Process teacher's approval/rejection
+        """
+        if msg.type == MessageType.EVALUATION_RESULT:
+            content = msg.content
+            if isinstance(content, dict) and content.get("approved"):
+                # Approved: broadcast the proposal
+                return msg.reply(
+                    type=MessageType.BROADCAST,
+                    content=content.get("proposal", ""),
+                    sender_id=AgentId.STUDENT,
+                    recipient_id=AgentId.BROADCAST,
+                )
+            # Rejected: return None (no broadcast)
+        
+        return None
 
 class DesignAgent(AgentCore):
     DEFAULT_SYSTEM_PROMPT = """You are an expert Prompt Engineer for an educational multi-agent system.
