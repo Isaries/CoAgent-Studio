@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 
-from app.core.specialized_agents import (
-    AgentCore,
+from app.core.agent_core import AgentCore
+from app.services.agents.std_agents import (
     StudentAgent,
     TeacherAgent,
 )

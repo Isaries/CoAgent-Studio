@@ -1,28 +1,23 @@
 from typing import Any, List
 from uuid import UUID
 
-from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.message import Message
 from app.models.user import User
+from app.repositories.message_repo import MessageRepository
 
 
 class ChatService:
     def __init__(self, session: AsyncSession):
         self.session = session
+        self.message_repo = MessageRepository(session)
 
     async def get_room_messages(self, room_id: UUID) -> List[Any]:
         """
         Get chat history for a room, handling formatting.
         """
-        query = (  # type: ignore
-            select(Message, User)
-            .outerjoin(User, col(Message.sender_id) == col(User.id))
-            .where(Message.room_id == room_id)  # type: ignore
-            .order_by(col(Message.created_at).asc())
-        )
-        result = await self.session.exec(query)
+        result = await self.message_repo.get_room_history_with_users(room_id)
 
         messages_out = []
         for msg, user in result:
@@ -30,6 +25,7 @@ class ChatService:
             if user:
                 sender = user.full_name or user.username or user.email or "Unknown"
             elif msg.agent_type:
+                # Fallback if no user linked (AI)
                 sender = f"{msg.agent_type.capitalize()} AI"
 
             messages_out.append(
@@ -48,8 +44,4 @@ class ChatService:
         Save a user message to the database.
         """
         # room_id is passed as str from websocket, convert to UUID
-        user_msg = Message(content=content, room_id=UUID(room_id), sender_id=user.id)
-        self.session.add(user_msg)
-        await self.session.commit()
-        await self.session.refresh(user_msg)
-        return user_msg
+        return await self.message_repo.create(content, UUID(room_id), user.id)

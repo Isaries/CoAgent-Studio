@@ -14,6 +14,7 @@ from app.models.user import User
 from app.schemas.socket import SocketMessage
 from app.services.chat_service import ChatService
 from app.services.permission_service import permission_service
+from app.services.task_service import TaskService
 from app.models.room import Room
 
 router = APIRouter()
@@ -115,28 +116,13 @@ async def websocket_endpoint(
             await manager.broadcast(socket_msg.model_dump(), room_id)
 
             # Trigger Agents
-            # Trigger Agents (Via Task Queue)
-            # Create ARQ pool on fly or usage global?
-            # Ideally usage global from app.state.arq_pool, but for simplicity/safety let's create local for now or use global helper
-            # Better: context manager pool or global.
-
-            # Let's rely on app.state
-            # But inside websocket endpoint 'request.app' is available via websocket.app
-
-            # Enqueue Job
-            try:
-                # Assuming api_v1.endpoints.chat has access to global pool
-                # Or we can create one quickly (overhead?)
-                # Best practice: use app.state.arq_pool
-                if hasattr(websocket.app.state, "arq_pool"):
-                    await websocket.app.state.arq_pool.enqueue_job(
-                        "run_agent_cycle_task", room_id, str(user_msg.id)
-                    )
-                else:
-                    # Fallback or Log Error
-                    print("ARQ Pool not initialized")
-            except Exception as e:
-                print(f"Failed to enqueue agent task: {e}")
+            
+            # Assuming app.state.arq_pool exists
+            if hasattr(websocket.app.state, "arq_pool"):
+                 task_service = TaskService(websocket.app.state.arq_pool)
+                 await task_service.enqueue_agent_cycle(room_id, str(user_msg.id))
+            else:
+                 print("ARQ Pool not initialized")
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id)

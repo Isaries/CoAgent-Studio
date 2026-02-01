@@ -22,7 +22,7 @@ from app.core.a2a import (
 
 if False:  # TYPE_CHECKING
     from app.core.a2a.store import A2AMessageStore
-from app.core.specialized_agents import StudentAgent, TeacherAgent
+from app.services.agents.std_agents import StudentAgent, TeacherAgent
 
 logger = structlog.get_logger()
 

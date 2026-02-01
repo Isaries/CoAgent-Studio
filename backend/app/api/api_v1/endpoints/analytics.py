@@ -6,7 +6,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
-from app.core.specialized_agents import AnalyticsAgent
+from app.services.agents.system_agents import AnalyticsAgent
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.analytics import AnalyticsReport
 from app.models.course import Course

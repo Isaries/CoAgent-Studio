@@ -5,7 +5,7 @@ import structlog
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.specialized_agents import StudentAgent, TeacherAgent
+from app.services.agents.std_agents import StudentAgent, TeacherAgent
 from app.core.a2a import A2ADispatcher, A2AMessage, MessageType, AgentId
 from app.factories.agent_factory import AgentFactory
 from app.models.agent_config import AgentConfig, AgentType
