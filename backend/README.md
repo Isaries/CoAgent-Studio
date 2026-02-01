@@ -11,7 +11,22 @@ This directory contains the server-side application for CoAgent Studio, built wi
 - **Real-time**: Native WebSockets with Atomic Broadcasting
 - **Async Tasks**: [ARQ](https://arq-docs.helpmanual.io/) + Redis
 - **Security**: OAuth2 with Password Flow (JWT HttpOnly Cookies)
-- **AI Integration**: OpenAI SDK, Google GenAI
+- **AI Integration**: OpenAI SDK, Google GenAI (with Resilience Patterns)
+
+## 📡 Agent-to-Agent (A2A) Protocol
+
+The core of CoAgent Studio is the **A2A Protocol**, a strictly typed communication standard that allows agents to collaborate autonomously.
+
+- **Agent Identity**: Agents are strongly typed (`AgentId.TEACHER`, `AgentId.STUDENT`) to prevent addressing errors.
+- **Message Types**: Standardized interactions including `PROPOSAL`, `EVALUATION_REQUEST`, and `BROADCAST`.
+- **Mixin Pattern**: The `A2AAgentMixin` provides a drop-in interface for any service to become an A2A participant.
+
+## 🛡️ Resilient LLM Service
+
+The `LLMService` (`app/core/llm_service.py`) implements a robust Factory pattern with built-in **Circuit Breakers**:
+- **Fault Tolerance**: Automatically detects API failures (OpenAI/Gemini) and prevents cascading errors.
+- **Async Clients**: Fully asynchronous implementations for high-concurrency performance.
+- **Unified Interface**: `LLMFactory` abstracts the provider, allowing seamless switching between models.
 
 ## Project Structure
 

@@ -5,6 +5,14 @@ CoAgent Studio is a professional-grade intelligent agent workspace built with **
 
 The codebase follows a **"Perfect State"** philosophy: strict type safety, zero lint warnings, and a decoupled architecture to ensure maintainability and scalability.
 
+## 🚀 Experience Highlights
+
+### 🎭 Collaborative Room Interface (`RoomView.vue`)
+The heart of the experience is the real-time chat room, featuring:
+- **A2A Trace Visualization**: A toggleable debug mode to peek into the internal "thought process" and protocol messages between agents.
+- **Self-Healing WebSockets**: The `useWebSocket` composable automatically handles reconnections and message queueing during network blips.
+- **Optimistic UI**: Immediate feedback for user actions while synchronizing with the backend.
+
 ## Tech Stack
 - **Framework**: Vue 3 (Composition API, separate `<script setup>`)
 - **Language**: TypeScript (Strict Mode)

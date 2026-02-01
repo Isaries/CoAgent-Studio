@@ -9,6 +9,9 @@ CoAgent Studio is a professional-grade **Multi-Agent Orchestration Platform** de
 
 The platform uses a modern, containerized microservices architecture:
 
+- **Agent-to-Agent (A2A) Protocol**: A strictly typed communication layer enabling autonomous coordination between agents (Teacher, Student, System).
+- **Resilient AI Service**: Built-in circuit breakers and fallback mechanisms for robust LLM interactions.
+
 ```mermaid
 flowchart TD
     Client[Client Browser] -->|HTTP/WebSocket| Nginx[Reverse Proxy / LB]
