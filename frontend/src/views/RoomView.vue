@@ -1,150 +1,55 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import MessageBubble from '../components/chat/MessageBubble.vue'
 import ChatInput from '../components/chat/ChatInput.vue'
-import api from '../api'
-
-import type { Message } from '../types/chat'
+import { useRoomChat } from '../composables/useRoomChat'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const roomId = route.params.id as string
-const messages = ref<Message[]>([])
-const ws = ref<WebSocket | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
-const showA2ATrace = ref(false) // Toggle for A2A debug trace
 
+// Use the new Composable
+const {
+  messages,
+  showA2ATrace,
+  connect,
+  disconnect,
+  fetchHistory,
+  sendMessage,
+} = useRoomChat(roomId)
 
-const fetchMessages = async () => {
-  try {
-    const response = await api.get(`/chat/messages/${roomId}`)
-    const history = response.data.map((msg: any) => ({
-      sender: msg.sender,
-      content: msg.content,
-      isSelf: msg.sender_id === authStore.user?.id || msg.sender === authStore.user?.email, // Improved check
-      isAi: !!msg.agent_type,
-      isSystem: false,
-      timestamp: msg.created_at
-    }))
-    messages.value = history
-    scrollToBottom()
-  } catch (error) {
-    console.error('Failed to fetch messages:', error)
+const scrollToBottom = async () => {
+  await nextTick()
+  if (chatContainer.value) {
+    chatContainer.value.scrollTop = chatContainer.value.scrollHeight
   }
 }
 
-import { useWebSocket } from '../composables/useWebSocket'
-
-// ... existing imports ...
-
-// ... inside setup ...
-// import { useWebSocket } from '../composables/useWebSocket' // REMOVED duplicate
-
-const { status, send, connect } = useWebSocket('', {
-  reconnectInterval: 3000,
-  maxReconnectAttempts: 10,
-  onOpen: () => {
-    messages.value.push({
-      sender: 'System',
-      content: 'Connected to chat...',
-      isSelf: false,
-      isSystem: true,
-      timestamp: new Date().toISOString()
-    })
-  },
-  onMessage: (msg) => {
-    // Check for A2A trace messages
-    if (msg.content?.startsWith('[A2A]')) {
-      if (showA2ATrace.value) {
-        const parts = msg.content.split('|')
-        const eventType = parts[1] || 'TRACE'
-        const details = parts[2] || ''
-        messages.value.push({
-          sender: `[A2A ${eventType}]`,
-          content: details,
-          isSelf: false,
-          isAi: false,
-          isSystem: true,
-          isA2ATrace: true,
-          timestamp: new Date().toISOString()
-        })
-        scrollToBottom()
-      }
-      return // Don't process further
-    }
-
-    // msg is already typed as SocketMessage from composable
-    let isAi = !!msg.metadata?.is_ai || msg.sender.includes('AI')
-    if (msg.sender.includes('Teacher AI') || msg.sender.includes('Student AI')) {
-      isAi = true
-    }
-
-    const safeEmail = authStore.user?.email ?? ''
-    const safeName = authStore.user?.full_name ?? ''
-    const safeUsername = (authStore.user as any)?.username ?? ''
-
-    const isSelf =
-      msg.sender === safeName ||
-      msg.sender === safeEmail ||
-      (safeUsername && msg.sender === safeUsername) ||
-      msg.metadata?.sender_id === authStore.user?.id
-
-    messages.value.push({
-      sender: msg.sender,
-      content: msg.content,
-      isSelf,
-      isAi,
-      isSystem: msg.type === 'system',
-      timestamp: msg.timestamp
-    })
+// Watch messages to auto-scroll
+watch(
+  () => messages.value.length,
+  () => {
     scrollToBottom()
   }
-})
-
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (chatContainer.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-    }
-  })
-}
+)
 
 const handleSend = (text: string) => {
-  if (status.value !== 'OPEN') {
-    console.warn('Chat not connected')
-    return
-  }
-  // Backend expects plain text? Or JSON?
-  // Old implementation sent raw text 'data'.
-  // Backend: data = await websocket.receive_text() -> Message(content=data)
-  // So plain text is fine for now.
-  send(text)
+  sendMessage(text)
+  // Optional: Scroll to bottom immediately on send? 
+  // The watch will handle it when message is echoed back or optimistically added (if we did that)
 }
 
 onMounted(async () => {
-  await fetchMessages()
-
-  if (authStore.user) {
-    // user implies logged in (cookie present)
-    // Use current host (via Proxy if dev, or same origin if prod)
-    // This ensures Cookies are sent.
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host // e.g. localhost:5173 or production.com
-    // We assume Vite proxy forwards /api/v1/chat/ws/... to backend
-    // If proxy handles WS, this works.
-    // If proxy does NOT handle WS (common vite config issue), we might need direct.
-    // But `api.ts` works, so Proxy likely exists.
-    // Let's try Proxy path first.
-    const url = `${protocol}//${host}/api/v1/chat/ws/${roomId}`
-
-    connect(url)
-  }
+  await fetchHistory()
+  connect()
+  scrollToBottom()
 })
 
 onUnmounted(() => {
-  if (ws.value) ws.value.close()
+  disconnect()
 })
 </script>
 
