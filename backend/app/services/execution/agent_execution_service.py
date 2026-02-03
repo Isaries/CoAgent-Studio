@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, cast
+from typing import Dict, List, Optional, Tuple, cast
 from uuid import UUID
 
 import structlog
@@ -19,6 +19,42 @@ from app.services.orchestration.agent_orchestrator import AgentOrchestrator
 
 logger = structlog.get_logger()
 
+
+
+# Helper to resolve keys
+async def _resolve_agent_keys(
+    session: AsyncSession, configs: List[AgentConfig]
+) -> Dict[UUID, List[str]]:
+    """
+    Resolve decrypted API keys for a list of configs.
+    Returns Map: ConfigID -> List[DecryptedKey]
+    """
+    from app.services.user_key_service import UserKeyService
+    service = UserKeyService(session)
+    keys_map = {}
+    
+    for config in configs:
+        if not config:
+            continue
+        
+        # If user_key_ids present, fetch them
+        if config.user_key_ids:
+            if not config.created_by:
+                continue
+
+            decrypted_keys = []
+            for key_id in config.user_key_ids:
+                try:
+                    k = await service.get_decrypted_key(key_id, config.created_by)
+                    if k:
+                        decrypted_keys.append(k)
+                except Exception as e:
+                    logger.warning(f"Failed to resolve key {key_id}: {e}")
+            
+            if decrypted_keys:
+                keys_map[config.id] = decrypted_keys
+                
+    return keys_map
 
 async def get_message_count_gap(room_id: UUID, session: AsyncSession) -> int:
     repo = AgentConfigRepository(session)
@@ -114,8 +150,15 @@ async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:  # 
         teacher_config, student_config = await _get_active_configs(session, room.course_id)
         history = await _get_history(session, UUID(room_id), teacher_config, student_config)
 
+        # Resolve keys
+        configs_to_resolve = []
+        if teacher_config: configs_to_resolve.append(teacher_config)
+        if student_config: configs_to_resolve.append(student_config)
+        keys_map = await _resolve_agent_keys(session, configs_to_resolve)
+
         if trigger_role == "teacher" and teacher_config:
-            agent = AgentFactory.create_agent(teacher_config)
+            t_keys = keys_map.get(teacher_config.id)
+            agent = AgentFactory.create_agent(teacher_config, api_keys=t_keys)
             if not agent:
                 return
             t_agent = cast(TeacherAgent, agent)
@@ -133,14 +176,19 @@ async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:  # 
 
         elif trigger_role == "student" and student_config:
             # Student Logic
-            s_agent_core = AgentFactory.create_agent(student_config)
+            s_keys = keys_map.get(student_config.id)
+            s_agent_core = AgentFactory.create_agent(student_config, api_keys=s_keys)
             if s_agent_core:
                 s_agent = cast(StudentAgent, s_agent_core)
                 proposal = await s_agent.generate_proposal(history)
 
                 # Teacher Eval (if teacher exists)
-                if teacher_config and teacher_config.has_api_key:
-                    t_agent_core = AgentFactory.create_agent(teacher_config)
+                if teacher_config:
+                    # Resolve teacher keys again (already in map)
+                    t_keys = keys_map.get(teacher_config.id)
+                    t_agent_core = AgentFactory.create_agent(teacher_config, api_keys=t_keys)
+                    
+                    # Ensure teacher has SOME key (legacy or new)
                     if t_agent_core:
                         t_agent_eval = cast(TeacherAgent, t_agent_core)
                         context_str = "\n".join([f"{m.sender_id}: {m.content}" for m in history])
@@ -173,45 +221,17 @@ async def process_agents_logic(
 
     teacher_config, student_config = await _get_active_configs(session, room.course_id)
 
-    # Refactor: Support generic list of configs
-    # We still need to distinguish roles for some specific "Interaction" logic (like student proposing to teacher).
-    # But for "Triggering" and "Replying", we can be more generic.
-
-    # Let's keep the _get_active_configs structure for now but iterate over them?
-    # Actually, let's fetch ALL active configs.
-
-    # We use repo at line 242 to get configs.
-    # Logic below (querying all configs again) is redundant.
-    # Removing redundant query logic.
-    # query = (
-    #     select(AgentConfig)
-    #     .where(AgentConfig.course_id == room.course_id)
-    #     .where(AgentConfig.is_active == True)
-    # )
-    # result = await session.exec(query)
-    # all_configs = result.all()
-
-    # Filter by schedule
-    # Repo check already filters active, but we double check schedule here?
-    # Actually Repo.get_active_configs returns specific teacher/student configs.
-    # The logic below was previously querying ALL configs then filtering.
-    # Now we have t_conf, s_conf from logic at line 242.
-    # We can simplify active_configs construction:
+    # Resolve Keys
     active_configs = []
-    if teacher_config:
-        active_configs.append(teacher_config)
-    if student_config:
-        active_configs.append(student_config)
-
+    if teacher_config: active_configs.append(teacher_config)
+    if student_config: active_configs.append(student_config)
+    
     if not active_configs:
         return
+        
+    keys_map = await _resolve_agent_keys(session, active_configs)
 
     msg_gap = await get_message_count_gap(UUID(room_id), session)
-
-    # We need to reconstruct the "teacher" and "student" for specific orchestration logic
-    # (Student proposes -> Teacher evaluates).
-    # This specific orchestration is "Role Based" interaction.
-    # Future agents might just be "Independent Responders".
 
     # Identify Roles
     teacher_config = next((c for c in active_configs if c.type == AgentType.TEACHER), None)
@@ -231,7 +251,7 @@ async def process_agents_logic(
     history = list(reversed(hist_result.all()))
 
     # Initialize Agents Map
-    agents = AgentFactory.create_agents_map(teacher_config, student_config)
+    agents = AgentFactory.create_agents_map(teacher_config, student_config, keys_map=keys_map)
 
     # Orchestration Logic
     # -------------------

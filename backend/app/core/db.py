@@ -6,7 +6,15 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 
-engine = create_async_engine(settings.async_database_url, echo=True, future=True)
+engine = create_async_engine(
+    settings.async_database_url,
+    echo=True,
+    future=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+)
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
