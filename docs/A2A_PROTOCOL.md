@@ -40,51 +40,57 @@ CoAgent-Studio implements a comprehensive **Agent-to-Agent (A2A) Protocol** for 
 
 ### Layered Architecture
 
-The A2A protocol implementation follows a five-layer architecture:
+The A2A protocol implementation follows a five-layer architecture with clear dependency relationships:
 
 ```
 ┌─────────────────────────────────────────┐
-│  Application Layer                      │
-│  - agent_execution_service.py           │
+│  Application Layer                      │  ← Highest abstraction
+│  - agent_execution_service.py           │    (Business logic)
 │  - A2AOrchestrator                      │
 └─────────────────────────────────────────┘
-              ↓
+              ↓ depends on
 ┌─────────────────────────────────────────┐
-│  Workflow Layer                         │
+│  Workflow Layer                         │  ← Process orchestration
 │  - WorkflowGraph                        │
 │  - GraphExecutor                        │
 └─────────────────────────────────────────┘
-              ↓
+              ↓ depends on
 ┌─────────────────────────────────────────┐
-│  Routing Layer                          │
+│  Routing Layer                          │  ← Message dispatch
 │  - A2ADispatcher                        │
 │  - HybridDispatcher                     │
 │  - DistributedDispatcher                │
 └─────────────────────────────────────────┘
-              ↓
+              ↓ depends on
 ┌─────────────────────────────────────────┐
-│  Protocol Layer                         │
+│  Protocol Layer                         │  ← Message format
 │  - A2AMessage                           │
 │  - MessageType                          │
 │  - Structured Payloads                  │
 └─────────────────────────────────────────┘
-              ↓
+              ↓ depends on
 ┌─────────────────────────────────────────┐
-│  Persistence Layer                      │
-│  - A2AMessageStore                      │
+│  Persistence Layer                      │  ← Data storage
+│  - A2AMessageStore                      │    (Lowest level)
 │  - A2AMessageRecord                     │
 └─────────────────────────────────────────┘
 ```
 
+**Key Principles**:
+- **Dependency Direction**: Each layer depends on the layers below it (top-down dependency)
+- **Call Flow**: Execution flows from top to bottom (Application calls Workflow calls Routing etc)
+- **Service Provision**: Each layer provides services to the layers above it (bottom-up service)
+- **Unidirectional**: Lower layers never depend on upper layers (enables independent testing and replacement)
+
 ### Component Overview
 
-| Layer | Components | Responsibilities |
-|-------|-----------|------------------|
-| **Protocol** | A2AMessage MessageType Payloads | Define message format and types |
-| **Routing** | Dispatcher HybridDispatcher | Route messages between agents |
-| **Workflow** | WorkflowGraph GraphExecutor | Define and execute business logic |
-| **Application** | A2AOrchestrator Services | High-level orchestration |
-| **Persistence** | A2AMessageStore Database | Store and query messages |
+| Layer | Components | Responsibilities | Abstraction Level |
+|-------|-----------|------------------|-------------------|
+| **Application** | A2AOrchestrator Services | High-level orchestration and business logic | Highest (Business) |
+| **Workflow** | WorkflowGraph GraphExecutor | Define and execute agent interaction flows | High (Process) |
+| **Routing** | Dispatcher HybridDispatcher | Route messages between agents | Medium (Communication) |
+| **Protocol** | A2AMessage MessageType Payloads | Define standardized message format | Low (Data) |
+| **Persistence** | A2AMessageStore Database | Store and query messages | Lowest (Storage) |
 
 ---
 
@@ -643,7 +649,59 @@ class A2AMessageStore:
 
 ## Message Flow
 
+### Layer Interaction During Execution
+
+Understanding how layers interact is crucial to grasping the A2A protocol. Here is how a typical request flows through all five layers:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ APPLICATION LAYER                                               │
+│ agent_execution_service calls:                                 │
+│   orchestrator.request_evaluation(proposal, context, room_id)  │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ calls
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ WORKFLOW LAYER                                                  │
+│ GraphExecutor executes workflow graph:                         │
+│   - Traverses nodes (START → Student → Teacher → Condition)   │
+│   - Calls agent handlers for each AGENT node                   │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ uses
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ ROUTING LAYER                                                   │
+│ Dispatcher routes messages:                                    │
+│   - dispatcher.dispatch(message)                               │
+│   - Executes middleware (including persistence)                │
+│   - Routes to target agent handler                             │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ creates
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ PROTOCOL LAYER                                                  │
+│ Standardized message objects:                                  │
+│   - A2AMessage(type, sender, recipient, content)               │
+│   - Structured payloads (EvaluationRequestPayload etc)         │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ saved by
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ PERSISTENCE LAYER                                               │
+│ Database operations:                                            │
+│   - store.save(message) → INSERT INTO a2a_messages             │
+│   - Audit trail and message history                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Points**:
+- Each layer only knows about the layer directly below it
+- Application Layer does not directly interact with Routing or Protocol layers
+- Persistence happens via middleware in the Routing Layer
+- Messages flow down through layers and responses flow back up
+
 ### Complete Student-Teacher Interaction Flow
+
 
 ```
 1. User sends message
@@ -1429,6 +1487,65 @@ This A2A Protocol implementation is part of CoAgent-Studio and follows the same 
 
 ---
 
+## Quick Reference Summary
+
+### Architecture at a Glance
+
+The A2A protocol uses a **five-layer architecture** where each layer depends on the one below it:
+
+1. **Application Layer** (Highest) - Business logic and orchestration
+2. **Workflow Layer** - Process definition and execution
+3. **Routing Layer** - Message dispatch and delivery
+4. **Protocol Layer** - Standardized message format
+5. **Persistence Layer** (Lowest) - Data storage and retrieval
+
+### Key Components
+
+| Component | Purpose | Location |
+|-----------|---------|----------|
+| `A2AMessage` | Standardized message envelope | `core/a2a/models.py` |
+| `A2ADispatcher` | Routes messages between agents | `core/a2a/dispatcher.py` |
+| `WorkflowGraph` | Defines agent interaction flows | `core/a2a/workflow.py` |
+| `GraphExecutor` | Executes workflow graphs | `core/a2a/graph_executor.py` |
+| `A2AOrchestrator` | High-level API for workflows | `services/a2a_orchestrator.py` |
+| `A2AMessageStore` | Persists messages to database | `core/a2a/store.py` |
+
+### Message Types
+
+- `USER_MESSAGE` - From human users
+- `PROPOSAL` - Agent draft content
+- `EVALUATION_REQUEST` - Request for review
+- `EVALUATION_RESULT` - Review outcome
+- `BROADCAST` - Final message to room
+- `SYSTEM` - System events
+
+### Dispatch Modes
+
+- `LOCAL` - In-memory (development)
+- `DISTRIBUTED` - Redis Streams (production)
+- `AUTO` - Automatically selects best mode
+
+### Typical Usage Pattern
+
+```python
+# 1. Create orchestrator
+orchestrator = A2AOrchestrator()
+
+# 2. Register agents
+await orchestrator.register_agents(teacher, student, store)
+
+# 3. Execute workflow
+result = await orchestrator.request_evaluation(proposal, context, room_id)
+
+# 4. Check result
+if orchestrator.is_approved(result):
+    # Handle approved case
+    pass
+```
+
+---
+
 ## Support
 
 For questions issues or contributions please refer to the main CoAgent-Studio repository.
+
