@@ -432,3 +432,90 @@ class TestWebhookEndpoint:
         data = response.json()
         assert data["success"] is True
         assert data["message_id"] is not None
+
+    async def test_webhook_p2p_dispatch(
+        self, client: AsyncClient, db_session, mock_teacher
+    ):
+        """Webhook should dispatch point-to-point messages to target agent."""
+        # 1. Create Sender Agent
+        sender_id = uuid4()
+        sender_config = AgentConfig(
+            id=sender_id,
+            type="external_sender",
+            name="Sender Agent",
+            system_prompt="Sender",
+            model_provider="external",
+            model="sender",
+            course_id=None,
+            is_external=True,
+            external_config={"webhook_url": "http://sender.com", "auth_type": "none"},
+            created_by=mock_teacher.id,
+        )
+        db_session.add(sender_config)
+        
+        # 2. Create Recipient Agent
+        recipient_id = uuid4()
+        recipient_config = AgentConfig(
+            id=recipient_id,
+            type="external_recipient",
+            name="Recipient Agent",
+            system_prompt="Recipient",
+            model_provider="external",
+            model="recipient",
+            course_id=None,
+            is_external=True,
+            external_config={"webhook_url": "http://recipient.com", "auth_type": "none"},
+            created_by=mock_teacher.id,
+        )
+        db_session.add(recipient_config)
+        await db_session.flush()
+        
+        # 3. Mock dependencies
+        with patch("app.api.api_v1.endpoints.a2a_webhook.manager") as mock_manager, \
+             patch("app.api.api_v1.endpoints.a2a_webhook.A2AMessageStore") as mock_store, \
+             patch("app.core.a2a.external_adapter.ExternalAgentAdapter.receive_message", new_callable=AsyncMock) as mock_receive:
+            
+            mock_manager.broadcast = AsyncMock()
+            mock_store_instance = MagicMock()
+            mock_store_instance.save = AsyncMock()
+            mock_store.return_value = mock_store_instance
+            
+            # Setup mock response from recipient
+            mock_response = A2AMessage(
+                content="Ack P2P",
+                sender_id=str(recipient_id),
+                recipient_id=str(sender_id),
+                type=MessageType.EVALUATION_RESULT
+            )
+            mock_receive.return_value = mock_response
+            
+            # 4. Send P2P Message
+            response = await client.post(
+                "/api/v1/a2a/webhook",
+                headers={"X-Agent-ID": str(sender_id)},
+                json={
+                    "sender_id": "sender_agent",
+                    "recipient_id": str(recipient_id),  # Target UUID
+                    "content": "Secret message",
+                    "metadata": {"room_id": "test_room"},
+                },
+            )
+            
+            # 5. Verify Dispatch
+            assert response.status_code == 200
+            assert response.json()["dispatched"] is True
+            
+            # Verify receive_message called with correct arg
+            assert mock_receive.called
+            call_args = mock_receive.call_args[0][0]
+            assert isinstance(call_args, A2AMessage)
+            assert call_args.recipient_id == str(recipient_id)
+            assert call_args.content == "Secret message"
+            
+            # Verify response broadcast to room
+            assert mock_manager.broadcast.called
+            broadcast_args = mock_manager.broadcast.call_args[0]
+            payload = broadcast_args[0]
+            assert payload["type"] == "a2a_external_message"
+            assert payload["content"] == "Ack P2P"
+            assert payload["agent_id"] == str(recipient_id)
