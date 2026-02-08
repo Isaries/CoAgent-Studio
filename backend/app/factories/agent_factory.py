@@ -94,3 +94,44 @@ class AgentFactory:
                 agents[AgentType.STUDENT] = agent
 
         return agents
+
+    @staticmethod
+    def create_all_agents_map(
+        configs: List[AgentConfig],
+        keys_map: Optional[Dict[UUID, List[str]]] = None,
+    ) -> Dict[Union[AgentType, str], Any]:
+        """
+        Create a map of all agents from a list of configs.
+        
+        Returns a dict keyed by AgentType for standard agents,
+        or by config.id (as string) for external/custom agents.
+        
+        Args:
+            configs: List of all agent configs to instantiate
+            keys_map: Mapping from AgentConfig.id to list of decrypted keys
+            
+        Returns:
+            Dict mapping agent identifier to agent instance
+        """
+        agents: Dict[Union[AgentType, str], Any] = {}
+        keys_map = keys_map or {}
+        
+        for config in configs:
+            if not config:
+                continue
+                
+            agent_keys = keys_map.get(config.id)
+            agent = AgentFactory.create_agent(config, api_keys=agent_keys)
+            
+            if agent:
+                # Use AgentType enum for standard types, string ID for others
+                if config.type in [AgentType.TEACHER.value, AgentType.TEACHER]:
+                    agents[AgentType.TEACHER] = agent
+                elif config.type in [AgentType.STUDENT.value, AgentType.STUDENT]:
+                    agents[AgentType.STUDENT] = agent
+                else:
+                    # External or custom agents keyed by ID
+                    agents[str(config.id)] = agent
+        
+        return agents
+
