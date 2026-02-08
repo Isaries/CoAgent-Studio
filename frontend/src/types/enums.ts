@@ -14,6 +14,14 @@ export enum AgentType {
     ANALYTICS = 'analytics'
 }
 
+// Dynamic agent classification
+export enum AgentCategory {
+    INSTRUCTOR = 'instructor',
+    PARTICIPANT = 'participant',
+    UTILITY = 'utility',
+    EXTERNAL = 'external'
+}
+
 export enum ModelProvider {
     GEMINI = 'gemini',
     OPENAI = 'openai'
@@ -31,3 +39,4 @@ export enum TriggerType {
     SILENCE = 'silence',
     MANUAL = 'manual'
 }
+

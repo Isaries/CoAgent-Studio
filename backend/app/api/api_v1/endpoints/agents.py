@@ -245,4 +245,232 @@ async def update_agent_keys(
     return c_read
 
 
+# =====================================================
+# My Agent (Global Agent) Endpoints
+# =====================================================
+
+
+@router.get("/global/list")
+async def list_global_agents(
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Get all global agent templates (My Agents) owned by the current user.
+    """
+    service = AgentConfigService(session)
+    configs = await service.get_global_agents(current_user)
+
+    response_data = []
+    for config in configs:
+        c_read = AgentConfigRead.model_validate(config)
+        if config.encrypted_api_key:
+            c_read.masked_api_key = mask_api_key(config.encrypted_api_key)
+        response_data.append(c_read)
+
+    return response_data
+
+
+@router.post("/global")
+async def create_global_agent(
+    *,
+    session: AsyncSession = Depends(deps.get_session),
+    config_in: AgentConfigCreate,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Create a new global agent template (My Agent).
+    """
+    service = AgentConfigService(session)
+    new_config = await service.create_global_agent(config_in, current_user)
+
+    c_read = AgentConfigRead.model_validate(new_config)
+    if new_config.encrypted_api_key:
+        c_read.masked_api_key = mask_api_key(new_config.encrypted_api_key)
+
+    return c_read
+
+
+@router.post("/global/{agent_id}/clone-to-course/{course_id}")
+async def clone_global_agent_to_course(
+    *,
+    agent_id: UUID,
+    course_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Clone a global agent template to a specific course.
+    Creates an instance linked to the parent template.
+    """
+    service = AgentConfigService(session)
+    cloned_config = await service.clone_global_agent_to_course(agent_id, course_id, current_user)
+
+    c_read = AgentConfigRead.model_validate(cloned_config)
+    if cloned_config.encrypted_api_key:
+        c_read.masked_api_key = mask_api_key(cloned_config.encrypted_api_key)
+
+    return c_read
+
+
+@router.post("/{config_id}/sync-from-parent")
+async def sync_from_parent(
+    *,
+    config_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Sync an agent instance with its parent template (My Agent).
+    Overwrites system_prompt, model_provider, model, and settings.
+    """
+    service = AgentConfigService(session)
+    synced_config = await service.sync_from_parent(config_id, current_user)
+
+    c_read = AgentConfigRead.model_validate(synced_config)
+    if synced_config.encrypted_api_key:
+        c_read.masked_api_key = mask_api_key(synced_config.encrypted_api_key)
+
+    return c_read
+
+
+# ============================================================
+# External Agent Management Endpoints
+# ============================================================
+
+# ============================================================
+# External Agent Management Endpoints
+# ============================================================
+
+class ExternalAgentCreate(BaseModel):
+    """Request schema for creating an external agent."""
+    name: str
+    type: str = "external"
+    webhook_url: str
+    auth_type: str = "bearer"  # none, bearer, oauth2
+    auth_token: Optional[str] = None
+    oauth_config: Optional[Dict[str, Any]] = None
+    timeout_ms: int = 30000
+    fallback_message: str = "⚠️ External agent is temporarily unavailable."
+    system_prompt: str = "External agent integration."
+
+
+class ExternalAgentTestResult(BaseModel):
+    """Response for connection test."""
+    success: bool
+    status_code: Optional[int] = None
+    latency_ms: Optional[float] = None
+    error: Optional[str] = None
+
+
+@router.get("/external/list")
+async def list_external_agents(
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    List all external agents visible to the current user.
+    """
+    service = AgentConfigService(session)
+    configs = await service.list_external_agents(current_user)
+    
+    response_data = []
+    for config in configs:
+        c_read = AgentConfigRead.model_validate(config)
+        if config.encrypted_api_key:
+            c_read.masked_api_key = mask_api_key(config.encrypted_api_key)
+        response_data.append(c_read)
+    
+    return response_data
+
+
+@router.post("/external/create", response_model=AgentConfigRead)
+async def create_external_agent(
+    *,
+    data: ExternalAgentCreate,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
+) -> Any:
+    """
+    Create a new external agent configuration.
+    Only admins can create external agents.
+    """
+    service = AgentConfigService(session)
+    
+    # Build external_config dict
+    import secrets
+    external_config = {
+        "webhook_url": data.webhook_url,
+        "auth_type": data.auth_type,
+        "timeout_ms": data.timeout_ms,
+        "fallback_message": data.fallback_message,
+        "callback_token": secrets.token_urlsafe(32),
+    }
+    
+    if data.auth_type == "bearer" and data.auth_token:
+        external_config["auth_token"] = data.auth_token
+    
+    if data.auth_type == "oauth2" and data.oauth_config:
+        external_config["oauth_config"] = data.oauth_config
+
+    new_config = await service.create_external_agent(
+        name=data.name,
+        type_name=data.type,
+        external_config=external_config,
+        system_prompt=data.system_prompt,
+        current_user=current_user
+    )
+    
+    c_read = AgentConfigRead.model_validate(new_config)
+    return c_read
+
+
+@router.post("/external/test-connection", response_model=ExternalAgentTestResult)
+async def test_external_connection_params(
+    *,
+    data: ExternalAgentCreate, # Reuse create schema for params
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Test connection params before creating the agent.
+    """
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    service = AgentConfigService(session)
+    
+    # Construct config dict from request
+    external_config = {
+        "webhook_url": data.webhook_url,
+        "auth_type": data.auth_type,
+        "timeout_ms": data.timeout_ms,
+    }
+    if data.auth_token:
+        external_config["auth_token"] = data.auth_token
+    if data.oauth_config:
+        external_config["oauth_config"] = data.oauth_config
+
+    return await service.test_external_connection_params(external_config)
+
+
+@router.get("/{config_id}/test-connection", response_model=ExternalAgentTestResult)
+async def test_external_agent_connection(
+    *,
+    config_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Test connection to an existing external agent.
+    Sends a health check request to the webhook URL.
+    """
+    service = AgentConfigService(session)
+    config = await service.get_course_agent_config(config_id, current_user) # Permission check included
+    
+    if not config.is_external:
+        raise HTTPException(status_code=400, detail="Not an external agent")
+        
+    return await service.test_external_connection(config)
+
 

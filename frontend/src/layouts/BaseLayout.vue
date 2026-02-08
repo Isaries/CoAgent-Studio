@@ -267,7 +267,13 @@ export default {
           </li>
           <li><router-link to="/courses" active-class="active">My Courses</router-link></li>
           <li v-if="!isStudent">
+            <router-link to="/my-agents" active-class="active">My Agents</router-link>
+          </li>
+          <li v-if="!isStudent">
             <router-link to="/analytics" active-class="active">Analytics</router-link>
+          </li>
+          <li v-if="!isStudent">
+            <router-link to="/my-keys" active-class="active">My API Keys</router-link>
           </li>
 
           <template v-if="isAdmin">

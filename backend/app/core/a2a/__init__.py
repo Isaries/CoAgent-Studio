@@ -56,6 +56,12 @@ from .hybrid import (
     create_hybrid_dispatcher,
 )
 
+# P4: External Agent Integration
+from .external_adapter import (
+    ExternalAgentAdapter,
+    AuthType,
+)
+
 __all__ = [
     # Core
     "A2AMessage", "MessageType", "A2ADispatcher", 
@@ -76,6 +82,9 @@ __all__ = [
     # Distributed
     "DistributedDispatcher", "DistributedDispatcherConfig", "create_distributed_dispatcher",
     "HybridDispatcher", "DispatchMode", "create_hybrid_dispatcher",
+    # External
+    "ExternalAgentAdapter", "AuthType",
 ]
+
 
 

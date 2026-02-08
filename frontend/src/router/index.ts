@@ -28,6 +28,17 @@ const router = createRouter({
           component: () => import('../views/CourseListView.vue')
         },
         {
+          path: 'my-agents',
+          name: 'my-agents',
+          component: () => import('../views/MyAgentsView.vue'),
+          meta: { requiresNonStudent: true }
+        },
+        {
+          path: 'my-keys',
+          name: 'my-keys',
+          component: () => import('../views/UserKeysView.vue')
+        },
+        {
           path: 'courses/:id/settings',
           name: 'course-settings',
           component: () => import('../views/CourseSettingsView.vue')

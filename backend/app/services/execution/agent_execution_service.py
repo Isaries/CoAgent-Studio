@@ -14,7 +14,7 @@ from app.models.room import Room
 from app.repositories.agent_repo import AgentConfigRepository
 
 # AgentToolService requires session, ensure imports are clean
-from app.services.agent_tool_service import UPDATE_TRIGGER_TOOL_DEF, handle_tool_calls
+from app.services.agent_tool_service import UPDATE_TRIGGER_TOOL_DEF, MANAGE_ARTIFACT_TOOL_DEF, handle_tool_calls
 from app.services.orchestration.agent_orchestrator import AgentOrchestrator
 
 logger = structlog.get_logger()
@@ -312,13 +312,21 @@ async def _execute_teacher_turn(
             # Pass tools to teacher agent
             # TeacherAgent.generate_reply now accepts tools
             t_agent = cast(TeacherAgent, teacher_agent)
-            response = await t_agent.generate_reply(history, tools=[UPDATE_TRIGGER_TOOL_DEF])
+            response = await t_agent.generate_reply(history, tools=[UPDATE_TRIGGER_TOOL_DEF, MANAGE_ARTIFACT_TOOL_DEF])
 
             if isinstance(response, list):  # List[ToolCall]
                 logger.info(
                     "agent_tool_use", role="teacher", tool_count=len(response), room_id=str(room.id)
                 )
-                await handle_tool_calls(session, room.course_id, response)
+                tool_results = await handle_tool_calls(session, room.course_id, response)
+                
+                if tool_results:
+                    results_str = "\n".join(tool_results)
+                    # Broadcast tool results so the user/agent knows what happened
+                    await _save_and_broadcast(
+                        session, redis, f"Tool Output:\n{results_str}", room_id, AgentType.TEACHER, "[System]"
+                    )
+                
                 return True  # Teacher used a tool, treat as a turn taken
 
             elif isinstance(response, str):

@@ -131,7 +131,7 @@ async def logout() -> Any:
 
 
 @router.post("/login/test-token")
-async def test_token(current_user: User = Depends(deps.get_current_user)) -> Any:
+async def test_token(current_user: Any = Depends(deps.get_current_user_optional)) -> Any:
     """
     Test access token
     """

@@ -1,9 +1,12 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, TYPE_CHECKING, List
 from uuid import UUID, uuid4
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .user_api_key import UserAPIKey
 
 
 class UserRole(str, Enum):
@@ -32,6 +35,11 @@ class User(UserBase, table=True):
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Relationships
+    api_keys: List["UserAPIKey"] = Relationship(
+        back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    
     # Relationships will be added later (enrollments, messages, etc.)
 
 

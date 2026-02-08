@@ -12,10 +12,22 @@ if TYPE_CHECKING:
 
 
 class AgentType(str, Enum):
+    """Legacy enum for backward compatibility. Use type string directly for new agents."""
     TEACHER = "teacher"
     STUDENT = "student"
     DESIGN = "design"
     ANALYTICS = "analytics"
+
+
+class AgentCategory(str, Enum):
+    """
+    Agent category determines base behavior and UI treatment.
+    Extensible via database metadata for future categories.
+    """
+    INSTRUCTOR = "instructor"     # Guides/supervises (e.g., Teacher)
+    PARTICIPANT = "participant"   # Contributes to discussion (e.g., Student)
+    UTILITY = "utility"           # Background tasks (e.g., Analytics, Design)
+    EXTERNAL = "external"         # External A2A agents via webhook
 
 
 class AgentConfigBase(SQLModel):
@@ -24,6 +36,20 @@ class AgentConfigBase(SQLModel):
     name: str = Field(default="Default Profile")
     model_provider: str = Field(default="gemini")  # gemini, openai
     system_prompt: str
+
+    # My Agent (Master-Instance) fields
+    parent_config_id: Optional[UUID] = Field(default=None, foreign_key="agentconfig.id", index=True)
+    is_template: bool = Field(default=False)  # True = Global/My Agent template
+
+    # Multi-Agent & External Integration fields
+    category: str = Field(default="instructor")  # instructor, participant, utility, external
+    is_external: bool = Field(default=False)  # True = External A2A agent
+    external_config: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
+    capabilities: Optional[List[str]] = Field(default=[], sa_column=Column(JSONB))
+
+    # User API Key Chain (Multi-Key Support)
+    # List of UserAPIKey.id references
+    user_key_ids: Optional[List[UUID]] = Field(default=[], sa_column=Column(JSONB))
 
     # We don't store raw api key in base.
     # API Key will be stored in a separate encrypted field or column in table.
@@ -77,13 +103,13 @@ class AgentConfigVersion(SQLModel, table=True):
     agent_config: "AgentConfig" = Relationship(back_populates="versions")
 
 
-
 class AgentConfigCreate(AgentConfigBase):
     api_key: Optional[str] = None  # Input only
     settings: Optional[Dict[str, Any]] = Field(default_factory=dict)
     trigger_config: Optional[Dict[str, Any]] = None
     schedule_config: Optional[Dict[str, Any]] = None
     context_window: int = 10
+    user_key_ids: Optional[List[UUID]] = [] # Explicitly add to create schema
 
 
 class AgentConfigRead(SQLModel):
@@ -102,8 +128,19 @@ class AgentConfigRead(SQLModel):
 
     is_active: Optional[bool] = False
 
+    # My Agent fields
+    parent_config_id: Optional[UUID] = None
+    is_template: bool = False
+
+    # Multi-Agent & External fields
+    category: str = "instructor"
+    is_external: bool = False
+    external_config: Optional[Dict[str, Any]] = None
+    capabilities: Optional[List[str]] = []
+
     created_by: Optional[UUID] = None
     updated_at: Optional[datetime] = None
 
     masked_api_key: Optional[str] = None  # Calculated field for UI
+    user_key_ids: Optional[List[UUID]] = []
     # encrypted_api_key is explicitly excluded from this model to prevent leak

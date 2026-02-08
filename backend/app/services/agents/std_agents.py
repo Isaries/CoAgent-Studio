@@ -45,6 +45,20 @@ class TeacherAgent(AgentCore, A2AAgentMixin):
         System Instruction: {self.system_prompt}
 
         Task: You are the teacher. Provide guidance, answer questions, or facilitate discussion.
+        
+        [Data Formats for manage_artifact]
+        If you need to create a document or process, use the following JSON structures:
+        
+        1. Docs (Rich Text):
+           Use a simplified Tiptap JSON structure.
+           Example: {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Your text here"}]}]}
+           Headings: {"type": "heading", "attrs": {"level": 1}, "content": [{"type": "text", "text": "Title"}]}
+        
+        2. Processes (Workflows):
+           Use Vue Flow node/edge structure.
+           Nodes: {"id": "1", "type": "default", "data": {"label": "Step Name"}, "position": {"x": 0, "y": 0}}
+           Edges: {"id": "e1-2", "source": "1", "target": "2"}
+           
         Response:
         """
         return await self.run(prompt, tools=tools)

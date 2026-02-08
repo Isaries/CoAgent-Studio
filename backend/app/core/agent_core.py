@@ -5,10 +5,16 @@ from app.core.llm_service import LLMFactory, ToolCall
 
 class AgentCore:
     def __init__(
-        self, provider: str, api_key: str, system_prompt: str, model: Optional[str] = None
+        self, 
+        provider: str, 
+        api_key: Optional[str] = None, 
+        api_keys: Optional[List[str]] = None,
+        system_prompt: str = "", 
+        model: Optional[str] = None
     ):
         self.provider = provider
         self.api_key = api_key
+        self.api_keys = api_keys
         self.system_prompt = system_prompt
         self.model = model
         self.llm_service = LLMFactory.get_service(provider)
@@ -20,6 +26,7 @@ class AgentCore:
             prompt=input_text,
             system_prompt=self.system_prompt,
             api_key=self.api_key,
+            api_keys=self.api_keys,
             model=self.model,
             tools=tools,
         )

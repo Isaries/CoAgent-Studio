@@ -8,6 +8,14 @@ export const API_ENDPOINTS = {
     },
     AGENT_CONFIG: {
         BASE: '/agent-config'
+    },
+    AGENT_TYPES: {
+        BASE: '/agent-types',
+        SCHEMA: (typeName: string) => `/agent-types/${typeName}/schema`
+    },
+    A2A: {
+        WEBHOOK: '/a2a/webhook',
+        HEALTH: '/a2a/health'
     }
 } as const
 
@@ -16,3 +24,4 @@ export const HTTP_STATUS = {
     FORBIDDEN: 403,
     SERVER_ERROR: 500
 } as const
+

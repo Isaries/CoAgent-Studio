@@ -3,6 +3,7 @@ from .agent_key import AgentKey
 from .agent_type_metadata import AgentTypeMetadata, AgentTypeMetadataRead, AgentTypeMetadataCreate
 from .analytics import AnalyticsReport
 from .announcement import Announcement, AnnouncementCreate, AnnouncementRead
+from .artifact import Artifact, ArtifactCreate, ArtifactRead, ArtifactUpdate, ArtifactType, AgentCapability
 from .course import Course, CourseCreate, CourseRead, CourseUpdate, UserCourseLink
 from .message import Message, MessageCreate, MessageRead
 from .room import Room, RoomCreate, RoomRead, RoomUpdate
@@ -26,6 +27,12 @@ __all__ = [
     "Announcement",
     "AnnouncementCreate",
     "AnnouncementRead",
+    "Artifact",
+    "ArtifactCreate",
+    "ArtifactRead",
+    "ArtifactUpdate",
+    "ArtifactType",
+    "AgentCapability",
     "Course",
     "CourseCreate",
     "CourseRead",
@@ -48,4 +55,5 @@ __all__ = [
     "UserAPIKeyRead",
     "A2AMessageRecord",  # Ensure A2A table is created
 ]
+
 

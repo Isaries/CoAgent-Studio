@@ -66,6 +66,9 @@ class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
 
 
 reusable_oauth2 = OAuth2PasswordBearerWithCookie(tokenUrl=f"{settings.API_V1_STR}/login/refresh")
+reusable_oauth2_optional = OAuth2PasswordBearerWithCookie(
+    tokenUrl=f"{settings.API_V1_STR}/login/refresh", auto_error=False
+)
 
 
 async def get_current_user(
@@ -118,6 +121,20 @@ async def get_current_user(
     except Exception as e:
         logger.exception("Internal Auth Error", error=str(e))
         raise HTTPException(status_code=500, detail=f"Internal Auth Error: {e!r}") from e
+
+
+async def get_current_user_optional(
+    session: AsyncSession = Depends(get_session),
+    token: Optional[str] = Depends(reusable_oauth2_optional),
+) -> Optional[User]:
+    """
+    Return the current user if token is valid.
+    Return None if no token is present.
+    Raise HTTPException if token is present but invalid (to trigger refresh logic if needed).
+    """
+    if not token:
+        return None
+    return await get_current_user(session=session, token=token)
 
 
 async def get_current_active_superuser(

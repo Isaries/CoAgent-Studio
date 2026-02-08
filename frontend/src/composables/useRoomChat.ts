@@ -1,11 +1,13 @@
 import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { useWorkspaceStore } from '../stores/workspace'
 import { useWebSocket } from './useWebSocket'
 import api from '../api'
 import type { Message, SocketMessage } from '../types/chat'
 
 export function useRoomChat(roomId: string) {
     const authStore = useAuthStore()
+    const workspaceStore = useWorkspaceStore()
     const messages = ref<Message[]>([])
     const showA2ATrace = ref(false)
     const isConnected = ref(false)
@@ -131,7 +133,24 @@ export function useRoomChat(roomId: string) {
             return
         }
 
-        // 3. Normal Message Handling
+        // 3. Artifact Updates
+        if (msg.type === 'artifact_update') {
+            const payload = msg as any
+            if (payload.artifact) {
+                workspaceStore.handleArtifactUpdate(payload.artifact)
+            }
+            return
+        }
+
+        if (msg.type === 'artifact_delete') {
+            const payload = msg as any
+            if (payload.artifact_id) {
+                workspaceStore.handleArtifactDelete(payload.artifact_id)
+            }
+            return
+        }
+
+        // 4. Normal Message Handling
         let isAi = !!msg.metadata?.is_ai || msg.sender.includes('AI')
         if (msg.sender.includes('Teacher AI') || msg.sender.includes('Student AI')) {
             isAi = true

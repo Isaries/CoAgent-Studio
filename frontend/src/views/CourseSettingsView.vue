@@ -88,6 +88,39 @@ const saveAgent = async () => {
   }
 }
 
+// Import From My Agent
+const showImportModal = ref(false)
+const globalAgents = ref<any[]>([])
+const isLoadingGlobal = ref(false)
+
+const openImportModal = async () => {
+  showImportModal.value = true
+  isLoadingGlobal.value = true
+  try {
+    const res = await api.get('/agents/global/list')
+    globalAgents.value = res.data.filter((a: any) => a.type === activeTab.value)
+  } catch (e) {
+    console.error(e)
+    toast.error('Failed to load global agents')
+  } finally {
+    isLoadingGlobal.value = false
+  }
+}
+
+const importAgent = async (agentId: string) => {
+  try {
+    await api.post(`/agents/global/${agentId}/clone-to-course/${courseId}`)
+    toast.success('Agent imported successfully')
+    showImportModal.value = false
+    await loadAgent(activeTab.value)
+  } catch (e) {
+    console.error(e)
+    toast.error('Failed to import agent')
+  }
+}
+
+import api from '../api'
+
 // Watchers
 watch(activeTab, (newTab) => {
   loadAgent(newTab)
@@ -113,6 +146,7 @@ onMounted(() => {
       :showHistory="showHistory"
       @save="saveAgent"
       @toggleHistory="showHistory = !showHistory"
+      @importFromMyAgent="openImportModal"
     />
 
     <div class="flex-1 min-h-0 relative">
@@ -147,5 +181,42 @@ onMounted(() => {
          </template>
        </ResizableSplitPane>
     </div>
+
+    <!-- Import From My Agent Modal -->
+    <dialog :class="{ 'modal-open': showImportModal }" class="modal">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Import From My Agents</h3>
+        
+        <div v-if="isLoadingGlobal" class="flex justify-center py-8">
+          <span class="loading loading-spinner loading-md"></span>
+        </div>
+        
+        <div v-else-if="globalAgents.length === 0" class="text-center py-8 text-base-content/60">
+          No global agents found for this type.
+        </div>
+        
+        <div v-else class="space-y-2">
+          <div 
+            v-for="agent in globalAgents" 
+            :key="agent.id"
+            class="flex justify-between items-center p-3 bg-base-200 rounded-lg hover:bg-base-300 cursor-pointer"
+            @click="importAgent(agent.id)"
+          >
+            <div>
+              <div class="font-semibold">{{ agent.name }}</div>
+              <div class="text-xs text-base-content/60">{{ agent.model_provider }} / {{ agent.model }}</div>
+            </div>
+            <button class="btn btn-primary btn-sm">Import</button>
+          </div>
+        </div>
+
+        <div class="modal-action">
+          <button class="btn btn-ghost" @click="showImportModal = false">Cancel</button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="showImportModal = false">close</button>
+      </form>
+    </dialog>
   </div>
 </template>
