@@ -45,16 +45,27 @@ export interface AgentKeys {
 export interface AgentConfig {
   id: string
   name: string
-  course_id: string
+  course_id: string | null
   type: AgentType
   system_prompt: string
   model_provider: string
   model: string
   is_active: boolean
   context_window: number
-  trigger_config: TriggerConfig
-  schedule_config: ScheduleConfig
+  trigger_config: TriggerConfig | null
+  schedule_config: ScheduleConfig | null
   settings?: AgentSettings
+
+  // My Agent (Master-Instance) fields
+  parent_config_id?: string | null
+  is_template?: boolean
+
+  // Multi-Agent & External Integration fields
+  category?: string
+  is_external?: boolean
+  external_config?: ExternalAgentConfig | null
+  capabilities?: string[]
+
   created_by: string
   updated_at: string
 
@@ -62,6 +73,36 @@ export interface AgentConfig {
   api_key?: string | null
   masked_api_key?: string
   keys?: Record<string, string>
+  user_key_ids?: string[]
+}
+
+// External agent configuration
+export interface ExternalAgentConfig {
+  webhook_url: string
+  auth_type: 'none' | 'bearer' | 'oauth2'
+  auth_token?: string
+  oauth_config?: {
+    token_url: string
+    client_id: string
+    client_secret: string
+    scope?: string
+  }
+  timeout_ms?: number
+  fallback_message?: string
+  callback_token?: string
+}
+
+export interface AgentConfigCreate {
+  type: AgentType
+  name?: string
+  system_prompt: string
+  model_provider?: string
+  model?: string
+  api_key?: string
+  settings?: AgentSettings
+  trigger_config?: TriggerConfig | null
+  schedule_config?: ScheduleConfig | null
+  context_window?: number
 }
 
 export interface AgentConfigVersion {
