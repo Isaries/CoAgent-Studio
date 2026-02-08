@@ -293,6 +293,10 @@ async def process_agents_logic(
             room_id,
         )
 
+    # 3. Notify External Agents (if any)
+    # External agents receive messages via webhook and can respond
+    await _notify_external_agents(session, redis, room, history, room_id)
+
 
 async def _execute_teacher_turn(
     session, redis, room, teacher_agent, teacher_config, should_run, history, room_id
@@ -403,6 +407,84 @@ async def _execute_student_turn(
                 await publish_a2a_trace(
                     redis, room_id, "DENIED", "Teacher rejected student's proposal ✗"
                 )
+
+
+async def _notify_external_agents(
+    session: AsyncSession,
+    redis,
+    room: Room,
+    history: List[Message],
+    room_id: str,
+) -> None:
+    """
+    Notify external agents of new messages and process their responses.
+    
+    External agents receive the latest message via their webhook URL
+    and can respond with their own messages to be broadcast.
+    """
+    repo = AgentConfigRepository(session)
+    external_configs = await repo.get_external_configs(room.course_id)
+    
+    if not external_configs:
+        return
+    
+    # Import adapter
+    from app.core.a2a.external_adapter import ExternalAgentAdapter
+    from app.core.a2a.models import A2AMessage, MessageType
+    
+    # Get the latest message to send to external agents
+    if not history:
+        return
+    
+    last_msg = history[-1]
+    
+    for ext_config in external_configs:
+        try:
+            adapter = ExternalAgentAdapter(ext_config)
+            
+            # Create A2A message from the latest chat message
+            a2a_msg = A2AMessage(
+                type=MessageType.USER_MESSAGE,
+                sender_id=last_msg.sender_id or "user",
+                recipient_id=str(ext_config.id),
+                content=last_msg.content,
+                metadata={
+                    "room_id": room_id,
+                    "agent_name": last_msg.sender if hasattr(last_msg, 'sender') else None,
+                    "history_length": len(history),
+                },
+            )
+            
+            # Send to external agent and get response
+            response = await adapter.receive_message(a2a_msg)
+            
+            if response and response.content:
+                # Broadcast response to room
+                import json
+                payload = json.dumps({
+                    "type": "a2a_external_message",
+                    "agent_id": str(ext_config.id),
+                    "agent_name": ext_config.name,
+                    "agent_type": ext_config.type,
+                    "content": response.content,
+                    "message_id": str(response.id),
+                    "timestamp": response.created_at.isoformat(),
+                })
+                await publish_message(redis, room_id, payload)
+                
+                logger.info(
+                    "external_agent_responded",
+                    agent_id=str(ext_config.id),
+                    agent_name=ext_config.name,
+                    room_id=room_id,
+                )
+                
+        except Exception as e:
+            logger.warning(
+                "external_agent_notify_failed",
+                agent_id=str(ext_config.id),
+                error=str(e),
+            )
 
 
 async def _save_and_broadcast(session, redis, content, room_id, agent_type, prefix) -> None:

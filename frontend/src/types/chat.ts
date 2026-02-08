@@ -5,6 +5,7 @@ export interface Message {
   isSystem?: boolean
   isAi?: boolean
   isA2ATrace?: boolean
+  isExternal?: boolean
   timestamp?: string
 }
 

@@ -116,7 +116,22 @@ export function useRoomChat(roomId: string) {
             return
         }
 
-        // 2. Normal Message Handling
+        // 2. External Agent Message Handling (from webhook broadcast)
+        if (msg.type === 'a2a_external_message') {
+            const externalMsg = msg as any
+            messages.value.push({
+                sender: externalMsg.agent_name || `External Agent`,
+                content: externalMsg.content,
+                isSelf: false,
+                isAi: true,
+                isExternal: true,
+                isSystem: false,
+                timestamp: externalMsg.timestamp || new Date().toISOString()
+            })
+            return
+        }
+
+        // 3. Normal Message Handling
         let isAi = !!msg.metadata?.is_ai || msg.sender.includes('AI')
         if (msg.sender.includes('Teacher AI') || msg.sender.includes('Student AI')) {
             isAi = true
