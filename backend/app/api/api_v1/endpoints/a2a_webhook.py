@@ -144,17 +144,72 @@ async def receive_external_agent_message(
         except Exception as e:
             dispatch_error = str(e)
             logger.error("external_message_dispatch_failed", error=str(e), message_id=str(a2a_message.id))
+    
+    elif payload.recipient_id != "broadcast":
+        # Point-to-point dispatch to specific agent
+        try:
+            target_agent_id = UUID(payload.recipient_id)
+            
+            # Look up target agent config
+            target_query = select(AgentConfig).where(AgentConfig.id == target_agent_id)
+            target_result = await session.exec(target_query)
+            target_config = target_result.first()
+            
+            if not target_config:
+                dispatch_error = f"Target agent {payload.recipient_id} not found"
+            elif target_config.is_external:
+                # Forward to external agent via HTTP
+                from app.core.a2a.external_adapter import ExternalAgentAdapter
+                
+                adapter = ExternalAgentAdapter(target_config)
+                response = await adapter.receive_message(a2a_message)
+                dispatched = True
+                
+                logger.info(
+                    "external_message_p2p_dispatched",
+                    source_agent=str(agent_uuid),
+                    target_agent=str(target_agent_id),
+                    message_id=str(a2a_message.id),
+                )
+                
+                # If target responded, broadcast response to room
+                if response and response.content and room_id:
+                    response_payload = {
+                        "type": "a2a_external_message",
+                        "agent_id": str(target_config.id),
+                        "agent_name": target_config.name,
+                        "agent_type": target_config.type,
+                        "message_type": "response",
+                        "content": response.content,
+                        "message_id": str(response.id),
+                        "correlation_id": str(a2a_message.id),
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                    await manager.broadcast(response_payload, room_id)
+            else:
+                # Internal agent - store message for pickup
+                # Internal agents will receive via normal execution flow
+                dispatched = True
+                logger.info(
+                    "external_message_p2p_internal",
+                    source_agent=str(agent_uuid),
+                    target_agent=str(target_agent_id),
+                    message_id=str(a2a_message.id),
+                    note="Message stored for internal agent pickup",
+                )
+                
+        except ValueError:
+            dispatch_error = f"Invalid recipient_id format: {payload.recipient_id}"
+        except Exception as e:
+            dispatch_error = str(e)
+            logger.error("external_message_p2p_failed", error=str(e), message_id=str(a2a_message.id))
     else:
-        # Log for non-broadcast messages or missing room_id
-        logger.info(
-            "external_message_received",
+        # Missing room_id for broadcast
+        logger.warning(
+            "external_message_no_room",
             agent_id=str(agent_uuid),
-            agent_type=agent_config.type,
-            message_type=payload.type,
             message_id=str(a2a_message.id),
-            recipient=payload.recipient_id,
-            room_id=room_id,
-            note="Point-to-point dispatch not yet implemented" if payload.recipient_id != "broadcast" else "Missing room_id",
+            note="Broadcast requires room_id in metadata",
         )
     
     return A2AWebhookResponse(

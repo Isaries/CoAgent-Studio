@@ -90,6 +90,7 @@ export interface ExternalAgentConfig {
   timeout_ms?: number
   fallback_message?: string
   callback_token?: string
+  default_room_id?: string  // Auto-bind agent to this room for broadcast
 }
 
 export interface AgentConfigCreate {
