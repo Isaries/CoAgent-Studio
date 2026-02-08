@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
 from app.core.agent_core import AgentCore
@@ -13,23 +13,33 @@ class AgentFactory:
     """
     Factory to create Agent instances based on AgentConfig.
     Enables Polymorphism and easy extension.
+    Supports internal agents (Teacher, Student) and external agents via HTTP webhook.
     """
 
     @staticmethod
-    def create_agent(config: AgentConfig, api_keys: Optional[List[str]] = None) -> Optional[AgentCore]:
-        # Fallback to legacy single key if no list provided
-        # But if list provided, it takes precedence or complements?
-        # Logic: If api_keys provided, pass it. If config.encrypted_api_key exists, pass it too.
-        # AgentCore handles merging.
+    def create_agent(config: AgentConfig, api_keys: Optional[List[str]] = None) -> Optional[Union[AgentCore, Any]]:
+        """
+        Create an agent based on the config.
         
+        For external agents (is_external=True), returns an ExternalAgentAdapter.
+        For internal agents, returns the appropriate AgentCore subclass.
+        
+        Returns None if agent cannot be created (missing keys for internal agents).
+        """
+        # Handle external agents first - they don't need API keys
+        if config.is_external and config.external_config:
+            from app.core.a2a.external_adapter import ExternalAgentAdapter
+            return ExternalAgentAdapter(config)
+        
+        # For internal agents, check for API keys
         legacy_key = config.encrypted_api_key
         
         # If neither exist, return None
         if not legacy_key and not api_keys:
              return None
         
-        # Determine provider parameters
-        if config.type == AgentType.TEACHER:
+        # Determine provider parameters based on agent type
+        if config.type == AgentType.TEACHER or config.type == "teacher":
             return TeacherAgent(
                 provider=config.model_provider,
                 api_key=legacy_key,
@@ -37,7 +47,7 @@ class AgentFactory:
                 system_prompt=config.system_prompt,
                 model=config.model,
             )
-        elif config.type == AgentType.STUDENT:
+        elif config.type == AgentType.STUDENT or config.type == "student":
             return StudentAgent(
                 provider=config.model_provider,
                 api_key=legacy_key,
@@ -46,7 +56,7 @@ class AgentFactory:
                 model=config.model,
             )
 
-        # DesignAgent / AnalyticsAgent could be added here
+        # DesignAgent / AnalyticsAgent / Custom agents could be added here
 
         return None
 
