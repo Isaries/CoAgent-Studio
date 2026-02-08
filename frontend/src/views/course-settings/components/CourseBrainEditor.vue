@@ -98,7 +98,7 @@ const handleTestConnection = () => {
     </div>
 
     <!-- Internal Agent Configuration -->
-    <template v-else>
+    <template v-if="!isExternalAgent">
       <!-- Main Prompts -->
       <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body">
@@ -117,10 +117,7 @@ const handleTestConnection = () => {
           </div>
         </div>
       </div>
-    </template>
 
-    <!-- Internal Agent Only: Triggers & Model Config -->
-    <template v-if="!isExternalAgent">
     <!-- Triggers & Behavior -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
       <div class="card-body">

@@ -38,8 +38,16 @@ class AgentFactory:
         if not legacy_key and not api_keys:
              return None
         
-        # Determine provider parameters based on agent type
-        if config.type == AgentType.TEACHER or config.type == "teacher":
+        # Normalize type to enum for consistent comparison
+        agent_type = config.type
+        if isinstance(agent_type, str):
+            try:
+                agent_type = AgentType(agent_type.lower())
+            except ValueError:
+                return None  # Unknown agent type
+        
+        # Create agent based on type
+        if agent_type == AgentType.TEACHER:
             return TeacherAgent(
                 provider=config.model_provider,
                 api_key=legacy_key,
@@ -47,7 +55,7 @@ class AgentFactory:
                 system_prompt=config.system_prompt,
                 model=config.model,
             )
-        elif config.type == AgentType.STUDENT or config.type == "student":
+        elif agent_type == AgentType.STUDENT:
             return StudentAgent(
                 provider=config.model_provider,
                 api_key=legacy_key,

@@ -114,6 +114,7 @@ async def receive_external_agent_message(
     
     # Dispatch message
     dispatched = False
+    dispatch_error = None
     
     if payload.recipient_id == "broadcast" and room_id:
         # Broadcast to room via WebSocket
@@ -141,6 +142,7 @@ async def receive_external_agent_message(
                 room_id=room_id,
             )
         except Exception as e:
+            dispatch_error = str(e)
             logger.error("external_message_dispatch_failed", error=str(e), message_id=str(a2a_message.id))
     else:
         # Log for non-broadcast messages or missing room_id
@@ -159,6 +161,7 @@ async def receive_external_agent_message(
         success=True,
         message_id=str(a2a_message.id),
         dispatched=dispatched,
+        error=dispatch_error,
     )
 
 
