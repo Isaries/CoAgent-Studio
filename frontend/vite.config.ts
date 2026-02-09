@@ -8,6 +8,7 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
+        // @ts-expect-error: api option is available in Vite 5.4+ but types might be missing
         api: 'modern',
       }
     }
