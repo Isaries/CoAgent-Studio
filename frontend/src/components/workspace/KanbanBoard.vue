@@ -23,13 +23,15 @@ const showEditModal = ref(false)
 const editingTaskId = ref<string | null>(null)
 const editingTitle = ref('')
 
-onMounted(() => {
-  store.loadArtifacts(props.roomId)
+watch(() => props.roomId, (newId) => {
+  if (newId && store.currentRoomId !== newId) {
+    store.loadArtifacts(newId)
+  }
 })
 
-watch(() => props.roomId, (newId) => {
-  if (newId) {
-    store.loadArtifacts(newId)
+onMounted(() => {
+  if (!store.currentRoomId || store.currentRoomId !== props.roomId) {
+    store.loadArtifacts(props.roomId)
   }
 })
 

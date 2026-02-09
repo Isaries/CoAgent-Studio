@@ -13,7 +13,7 @@ This directory contains the server-side application for CoAgent Studio, built wi
 - **Security**: OAuth2 with Password Flow (JWT HttpOnly Cookies)
 - **AI Integration**: OpenAI SDK, Google GenAI (with Resilience Patterns)
 
-## 📡 Agent-to-Agent (A2A) Protocol
+## Agent-to-Agent (A2A) Protocol
 
 The core of CoAgent Studio is the **A2A Protocol**, a strictly typed communication standard that allows agents to collaborate autonomously.
 
@@ -21,12 +21,20 @@ The core of CoAgent Studio is the **A2A Protocol**, a strictly typed communicati
 - **Message Types**: Standardized interactions including `PROPOSAL`, `EVALUATION_REQUEST`, and `BROADCAST`.
 - **Mixin Pattern**: The `A2AAgentMixin` provides a drop-in interface for any service to become an A2A participant.
 
-## 🛡️ Resilient LLM Service
+## Resilient LLM Service
 
 The `LLMService` (`app/core/llm_service.py`) implements a robust Factory pattern with built-in **Circuit Breakers**:
 - **Fault Tolerance**: Automatically detects API failures (OpenAI/Gemini) and prevents cascading errors.
 - **Async Clients**: Fully asynchronous implementations for high-concurrency performance.
 - **Unified Interface**: `LLMFactory` abstracts the provider, allowing seamless switching between models.
+
+## Security
+
+A comprehensive security audit has been performed on the backend.
+
+- **Authentication**: Usage of `HTTPOnly` and `SameSite` cookies to prevent XSS-based token theft.
+- **Input Sanitization**: Use of `SQLModel` prevents common SQL injection vectors.
+- **Audit Reports**: Detailed security findings are available in `docs/security_audit_report.md`.
 
 ## Project Structure
 
@@ -98,19 +106,19 @@ docker compose up --build
 
 ## Key Components
 
-### 🔄 Real-Time WebSocket Manager
+### Real-Time WebSocket Manager
 Located in `app/core/socket_manager.py`. It handles:
 - Connection lifecycle (Connect/Disconnect).
 - Room-based broadcasting.
 - Atomic message delivery to ensuring strict ordering.
 
-### 🧠 Agent Runner Service
+### Agent Runner Service
 Located in `app/services/agent_service.py`. It handles:
 - **Prompt Construction**: Merging system prompts with conversation history.
 - **Model Invocation**: Calling OpenAI/Gemini APIs.
 - **Tool Execution**: Parsing model output to execute defined tools (if any).
 
-### 🔒 Security
+### Security Components
 - **Authentication**: `app/api/v1/endpoints/login.py` issues HttpOnly JWTs.
 - **Dependency Injection**: `app/api/deps.py` provides `get_current_user` dependencies for route protection.
 

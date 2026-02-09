@@ -3,14 +3,16 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Status](https://img.shields.io/badge/status-active-success.svg)
 
-CoAgent Studio is a professional-grade **Multi-Agent Orchestration Platform** designed for education and complex system automation. It provides a real-time, collaborative environment where users interact with specialized AI agents (Teachers, Students, Designers, Analysts).
+CoAgent Studio is a professional-grade Multi-Agent Orchestration Platform designed for education and complex system automation. It provides a real-time, collaborative environment where users interact with specialized AI agents (Teachers, Students, Designers, Analysts).
 
-## 🏗️ System Architecture
+## System Architecture
 
 The platform uses a modern, containerized microservices architecture:
 
 - **Agent-to-Agent (A2A) Protocol**: A strictly typed communication layer enabling autonomous coordination between agents (Teacher, Student, System).
 - **Resilient AI Service**: Built-in circuit breakers and fallback mechanisms for robust LLM interactions.
+
+### Component Diagram
 
 ```mermaid
 flowchart TD
@@ -27,16 +29,16 @@ flowchart TD
     end
 ```
 
-## 🛠️ Technology Stack
+## Technology Stack
 
-### **Frontend** (`/frontend`)
+### Frontend (/frontend)
 - **Framework**: Vue 3 (Composition API) + TypeScript
 - **Build**: Vite
 - **Styling**: Tailwind CSS + DaisyUI
 - **State**: Pinia + Composables
 - **Real-time**: Native WebSockets
 
-### **Backend** (`/backend`)
+### Backend (/backend)
 - **Framework**: FastAPI (Async Python)
 - **Database ORM**: SQLModel (SQLAlchemy + Pydantic)
 - **Migrations**: Alembic
@@ -44,12 +46,18 @@ flowchart TD
 - **AI Integration**: OpenAI SDK, Google GenAI
 - **Security**: JWT (HttpOnly Cookies), OAuth2 Password Flow
 
-### **Infrastructure**
+### Infrastructure
 - **Containerization**: Docker & Docker Compose
 - **Database**: PostgreSQL 16
 - **Cache**: Redis 7
 
-## 🚀 Quick Start (Docker Composition)
+## Documentation
+
+Detailed documentation and reports can be found in the `docs/` directory:
+- **Security Audit Report**: `docs/security_audit_report.md`
+- **Bug Fix Reports**: `docs/bug_fix_report.md`
+
+## Quick Start (Docker Composition)
 
 The recommended way to run CoAgent Studio is via Docker Compose, which orchestrates all services (Frontend, Backend, DB, Redis).
 
@@ -59,6 +67,7 @@ The recommended way to run CoAgent Studio is via Docker Compose, which orchestra
 
 ### 1. Setup Environment
 Create a `.env` file in the project root:
+
 ```env
 # Security
 SECRET_KEY=change_this_to_a_secure_random_string
@@ -79,10 +88,16 @@ GOOGLE_API_KEY=AIza...
 ```bash
 docker compose up --build -d
 ```
-- **Frontend**: `http://localhost:5173`
-- **Backend API**: `http://localhost:8000/docs`
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000/docs
 
-## 💻 Manual Development
+### Troubleshooting
+If you encounter issues with frontend dependencies or stale volumes, run:
+```bash
+docker compose up --build --force-recreate
+```
+
+## Manual Development
 
 If you wish to run services individually for development:
 
@@ -103,14 +118,14 @@ npm install
 npm run dev
 ```
 
-## ✨ Key Features
+## Key Features
 - **Real-Time Collaboration**: WebSocket-based chat rooms with atomic broadcasting.
 - **Role-Based Access Control (RBAC)**: Granular permissions for Admins, Teachers, and Students.
 - **Multi-Model Support**: Seamlessly switch between OpenAI and Gemini models.
 - **Agent Sandbox**: "IDE-like" environment for designing and testing system prompts.
 - **Async Processing**: Background jobs for heavy analytics and long-running AI tasks.
 
-## 🤝 Contributing
+## Contributing
 Please see the specific `README.md` in the `frontend` and `backend` directories for detailed contribution guidelines tailored to each stack.
 
 1. Fork the repo.
@@ -119,5 +134,5 @@ Please see the specific `README.md` in the `frontend` and `backend` directories 
 4. Push to the branch (`git push origin feature/amazing-feature`).
 5. Open a Pull Request.
 
-## 📄 License
+## License
 Distributed under the MIT License.

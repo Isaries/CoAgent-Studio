@@ -5,9 +5,9 @@ CoAgent Studio is a professional-grade intelligent agent workspace built with **
 
 The codebase follows a **"Perfect State"** philosophy: strict type safety, zero lint warnings, and a decoupled architecture to ensure maintainability and scalability.
 
-## 🚀 Experience Highlights
+## Experience Highlights
 
-### 🎭 Collaborative Room Interface (`RoomView.vue`)
+### Collaborative Room Interface (RoomView.vue)
 The heart of the experience is the real-time chat room, featuring:
 - **A2A Trace Visualization**: A toggleable debug mode to peek into the internal "thought process" and protocol messages between agents.
 - **Self-Healing WebSockets**: The `useWebSocket` composable automatically handles reconnections and message queueing during network blips.
@@ -41,22 +41,25 @@ We avoid `any`. All data structures are strictly typed in `src/types/`:
 - **`enums.ts`**: Centralized enums for `UserRole`, `AgentType`, `TriggerType`, `ModelProvider`.
 - **`agent.ts`**: Comprehensive interfaces for Agent configurations.
 
+### 4. Configuration
+- **Path Aliases**: The project uses `@` as an alias for `src/`. This is configured in both `vite.config.ts` and `tsconfig.app.json` to ensure consistent resolution during build and type checking.
+
 ## Key Features
 
-### 🤖 System Agent IDE
+### System Agent IDE
 A dedicated "Meta-Prompt Engineering Workbench" (`SystemAgentIDE.vue`) that allows admins to:
 - Design the "Brain" of the system agents.
 - **Simulate** conversations in real-time with a built-in sandbox.
 - **Version Control**: Rollback to previous system prompts instantly.
 
-### 👥 Role-Based Access Control (RBAC)
+### Role-Based Access Control (RBAC)
 Deeply integrated permission system:
 - **Super Admin**: Full system access (Database, System Agents).
 - **Teacher**: Course creation and management.
 - **Student**: Access to assigned courses and chat interface.
 - **Impersonation**: Admins can "view as" other users for debugging.
 
-### 🔄 Multi-Agent Orchestration
+### Multi-Agent Orchestration
 Support for diverse agent types with specific configurations:
 - **Teacher/Student Agents**: Standard conversational agents.
 - **Design Agents**: Specialized in creating content.
