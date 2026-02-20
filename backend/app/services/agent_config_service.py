@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models.agent_config import AgentConfig, AgentConfigCreate
+from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentConfigVersion
 from app.models.agent_key import AgentKey
 from app.models.project import Project, UserProjectLink
 from app.models.user import User, UserRole
@@ -134,6 +134,46 @@ class AgentConfigService:
         await self.session.commit()
         await self.session.refresh(agent_config)
         return agent_config
+
+    async def upsert_project_agent_config_by_type(
+        self, project_id: UUID, agent_type: str, config_in: AgentConfigCreate, current_user: User
+    ) -> AgentConfig:
+        project = await self.session.get(Project, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        if current_user.role != UserRole.ADMIN:
+            link = await self.session.get(UserProjectLink, (current_user.id, project_id))
+            if not link or link.role not in ["admin", "owner", "editor"]:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
+
+        query: Any = select(AgentConfig).where(
+            AgentConfig.project_id == project_id, AgentConfig.type == agent_type
+        )
+        result = await self.session.exec(query)
+        agent_config = result.first()
+
+        if agent_config:
+            # Update
+            self._apply_config_updates(agent_config, config_in)
+            self.session.add(agent_config)
+            await self.session.commit()
+            await self.session.refresh(agent_config)
+            return agent_config
+        else:
+            # Create
+            new_config = AgentConfig(
+                project_id=project_id,
+                type=agent_type,
+                system_prompt=config_in.system_prompt,
+                model_provider=config_in.model_provider,
+                encrypted_api_key=config_in.api_key,
+                settings=config_in.settings,
+            )
+            self.session.add(new_config)
+            await self.session.commit()
+            await self.session.refresh(new_config)
+            return new_config
 
     async def _check_update_permissions(
         self, agent_config: AgentConfig, current_user: User
@@ -278,6 +318,67 @@ class AgentConfigService:
                 )
                 self.session.add(new_key)
 
+        await self.session.commit()
+        await self.session.refresh(agent_config)
+        return agent_config
+
+    # =====================================================
+    # Versioning Methods
+    # =====================================================
+
+    async def create_version(
+        self, config_id: UUID, version_label: str, current_user: User
+    ) -> AgentConfigVersion:
+        agent_config = await self.get_project_agent_config(config_id, current_user)
+        
+        # Require editing privileges
+        if agent_config.project_id and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+            if not link or link.role not in ["admin", "owner", "editor"]:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
+
+        version = AgentConfigVersion(
+            config_id=config_id,
+            version_label=version_label,
+            system_prompt=agent_config.system_prompt,
+            model_provider=agent_config.model_provider,
+            model=agent_config.model,
+            settings=agent_config.settings,
+            created_by=current_user.id
+        )
+        self.session.add(version)
+        await self.session.commit()
+        await self.session.refresh(version)
+        return version
+
+    async def list_versions(self, config_id: UUID, current_user: User) -> List[AgentConfigVersion]:
+        await self.get_project_agent_config(config_id, current_user)
+        query = select(AgentConfigVersion).where(AgentConfigVersion.config_id == config_id).order_by(AgentConfigVersion.created_at.desc())
+        result = await self.session.exec(query)
+        return result.all()
+
+    async def restore_version(
+        self, config_id: UUID, version_id: UUID, current_user: User
+    ) -> AgentConfig:
+        agent_config = await self.get_project_agent_config(config_id, current_user)
+
+        # Require editing privileges
+        if agent_config.project_id and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+            if not link or link.role not in ["admin", "owner", "editor"]:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
+
+        version = await self.session.get(AgentConfigVersion, version_id)
+        if not version or version.config_id != config_id:
+            raise HTTPException(status_code=404, detail="Version not found")
+
+        agent_config.system_prompt = version.system_prompt
+        agent_config.model_provider = version.model_provider
+        agent_config.model = version.model
+        if version.settings:
+            agent_config.settings = version.settings
+            
+        self.session.add(agent_config)
         await self.session.commit()
         await self.session.refresh(agent_config)
         return agent_config

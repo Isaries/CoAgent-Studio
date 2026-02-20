@@ -43,6 +43,11 @@ class AgentThreadRead(AgentThreadBase):
     updated_at: datetime
 
 
+class AgentThreadUpdate(SQLModel):
+    name: Optional[str] = None
+    metadata_json: Optional[str] = None
+
+
 class ThreadMessageBase(SQLModel):
     role: str = Field(description="Role of the sender (user, assistant, tool, system)")
     content: str
@@ -65,3 +70,8 @@ class ThreadMessageRead(ThreadMessageBase):
     id: UUID
     thread_id: UUID
     created_at: datetime
+
+
+class ThreadMessageUpdate(SQLModel):
+    content: Optional[str] = None
+    metadata_json: Optional[str] = None

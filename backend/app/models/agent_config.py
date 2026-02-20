@@ -147,3 +147,18 @@ class AgentConfigRead(SQLModel):
     masked_api_key: Optional[str] = None  # Calculated field for UI
     user_key_ids: Optional[List[UUID]] = []
     # encrypted_api_key is explicitly excluded from this model to prevent leak
+
+
+class VersionCreate(SQLModel):
+    version_label: str
+
+
+class VersionRead(SQLModel):
+    id: UUID
+    config_id: UUID
+    version_label: str
+    system_prompt: str
+    model_provider: str
+    model: Optional[str] = None
+    created_at: datetime
+    created_by: Optional[UUID] = None

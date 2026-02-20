@@ -1,19 +1,16 @@
 from typing import Any, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import select
+from fastapi import APIRouter, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
 from app.models.organization import (
-    Organization,
     OrganizationCreate,
     OrganizationRead,
-    OrganizationUpdate,
-    UserOrganizationLink,
 )
 from app.models.user import User
+from app.services.organization_service import OrganizationService
 
 router = APIRouter()
 
@@ -28,15 +25,8 @@ async def read_organizations(
     """
     Retrieve organizations user is a member of.
     """
-    statement = (
-        select(Organization)
-        .join(UserOrganizationLink)
-        .where(UserOrganizationLink.user_id == current_user.id)
-        .offset(skip)
-        .limit(limit)
-    )
-    result = await session.exec(statement)
-    return result.all()
+    service = OrganizationService(session)
+    return await service.get_organizations_for_user(current_user, skip=skip, limit=limit)
 
 
 @router.post("", response_model=OrganizationRead)
@@ -49,23 +39,8 @@ async def create_organization(
     """
     Create new organization. User becomes owner.
     """
-    organization = Organization.model_validate(
-        organization_in, update={"owner_id": current_user.id}
-    )
-    session.add(organization)
-    await session.commit()
-    await session.refresh(organization)
-
-    # Link user as owner
-    link = UserOrganizationLink(
-        user_id=current_user.id,
-        organization_id=organization.id,
-        role="owner",
-    )
-    session.add(link)
-    await session.commit()
-
-    return organization
+    service = OrganizationService(session)
+    return await service.create_organization(organization_in, current_user)
 
 
 @router.get("/{org_id}", response_model=OrganizationRead)
@@ -78,12 +53,5 @@ async def read_organization(
     """
     Get organization by ID.
     """
-    # Check access
-    link = await session.get(UserOrganizationLink, (current_user.id, org_id))
-    if not link:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
-    organization = await session.get(Organization, org_id)
-    if not organization:
-        raise HTTPException(status_code=404, detail="Organization not found")
-    return organization
+    service = OrganizationService(session)
+    return await service.get_organization(org_id, current_user)

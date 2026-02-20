@@ -1,8 +1,7 @@
 from typing import Any, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import SQLModel
+from fastapi import APIRouter, Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
@@ -15,7 +14,7 @@ from app.models.course import (
 )
 from app.models.user import User, UserRole
 from app.services.course_service import CourseService
-from app.services.permission_service import permission_service
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -43,7 +42,7 @@ async def read_courses(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Retrieve courses.
+    Retrieve courses r.
     Admins see all. Others see owned or enrolled.
     """
     service = CourseService(session)
@@ -62,19 +61,24 @@ async def read_courses(
 async def read_course(
     course_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(deps.get_current_user), # Dependency checks for valid user, but we will pass it 
 ) -> Any:
     """
     Get course by ID.
     """
     service = CourseService(session)
     course = await service.get_course_by_id(course_id)
+    # The actual check for access to get_course_by_id is slightly permissive, usually anyone can GET a course they have an ID to 
+    # if we wanted strict read checks, we'd add it to service. 
+    # Legacy code checked `permission_service("read")`. Let's assume CourseService can handle it if needed.
+    from fastapi import HTTPException
+    from app.services.permission_service import permission_service
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-
+        
     if not await permission_service.check(current_user, "read", course, session):
         raise HTTPException(status_code=403, detail="Not enough permissions")
-
+        
     return course
 
 
@@ -109,7 +113,7 @@ async def delete_course(
     return await service.delete_course(course_id, current_user)
 
 
-class EnrollmentRequest(SQLModel):
+class EnrollmentRequest(BaseModel):
     user_email: Optional[str] = None
     user_id: Optional[UUID] = None
     role: str = "student"
@@ -145,7 +149,6 @@ async def read_course_members(
     service = CourseService(session)
     members_list, owner_id = await service.get_members(course_id, current_user)
 
-    # Map to Response Model
     members_dict = {}
     for user, role in members_list:
         members_dict[user.id] = CourseMember(
@@ -156,15 +159,12 @@ async def read_course_members(
             role=role,
         )
 
-    # Ensure owner is in the list as 'teacher' if not already
+    # In modern 3-tier, the service would ensure owner is fetched and returned. 
+    # For now, if owner is missing from list we fetch just like legacy.
     if owner_id in members_dict:
         members_dict[owner_id].role = "teacher"
     else:
-        # Fetch owner if missing from link query (usually implies filtering, but here we query links)
-        # Service could return owner obj too, but let's query if needed or simple ignore if pure link query
-        # Original logic fetched owner separately.
-        # Let's keep it simple: If owner not in links, we fetch.
-        owner = await session.get(User, owner_id)  # type: ignore[func-returns-value]
+        owner = await session.get(User, owner_id)
         if owner:
             members_dict[owner.id] = CourseMember(
                 user_id=owner.id,
