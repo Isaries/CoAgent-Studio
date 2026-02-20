@@ -9,6 +9,7 @@ from app.core.cache import cache
 from app.core.scheduler_utils import is_agent_scheduled_now
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.message import Message
+from app.models.room import RoomAgentLink
 
 
 class AgentConfigRepository:
@@ -16,13 +17,13 @@ class AgentConfigRepository:
         self.session = session
 
     async def get_active_configs(
-        self, course_id: UUID
+        self, room_id: UUID
     ) -> Tuple[Optional[AgentConfig], Optional[AgentConfig]]:
         """
-        Get active Teacher and Student configs for a course, utilizing 60s cache.
+        Get active Teacher and Student configs for a room via RoomAgentLink, utilizing 60s cache.
         """
         # Try Cache
-        cache_key = f"configs:course:{course_id}"
+        cache_key = f"configs:room:{room_id}"
         cached_data = await cache.get_json(cache_key)
 
         t_conf = None
@@ -36,7 +37,8 @@ class AgentConfigRepository:
             # DB Query
             query: Any = (
                 select(AgentConfig)
-                .where(AgentConfig.course_id == course_id)
+                .join(RoomAgentLink, RoomAgentLink.agent_id == AgentConfig.id)
+                .where(RoomAgentLink.room_id == room_id)
                 .order_by(col(AgentConfig.updated_at).desc())
             )
             result = await self.session.exec(query)
@@ -72,12 +74,12 @@ class AgentConfigRepository:
 
         return t_conf, s_conf
 
-    async def get_external_configs(self, course_id: UUID) -> list[AgentConfig]:
+    async def get_external_configs(self, room_id: UUID) -> list[AgentConfig]:
         """
-        Get all active external agent configs for a course.
+        Get all active external agent configs for a room.
         External agents can participate in multi-agent conversations.
         """
-        cache_key = f"external_configs:course:{course_id}"
+        cache_key = f"external_configs:room:{room_id}"
         cached_data = await cache.get_json(cache_key)
         
         if cached_data:
@@ -85,8 +87,9 @@ class AgentConfigRepository:
         
         query: Any = (
             select(AgentConfig)
+            .join(RoomAgentLink, RoomAgentLink.agent_id == AgentConfig.id)
             .where(
-                AgentConfig.course_id == course_id,
+                RoomAgentLink.room_id == room_id,
                 AgentConfig.is_external == True,
                 AgentConfig.is_active == True,
             )

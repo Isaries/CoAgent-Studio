@@ -1,13 +1,15 @@
 import { ref, watch, type Ref } from 'vue'
 import type { ScheduleConfig, AgentConfig, ScheduleRule } from '../types/agent'
 
+import { CalendarMode } from '../types/enums'
+
 export function useScheduleConfig(
   activeTab: Ref<string>,
   activeTeacherConfig: Ref<AgentConfig | undefined>
 ) {
   const scheduleConfig = ref<ScheduleConfig>({
     specific: [],
-    general: { mode: 'none', rules: [] }
+    general: { mode: CalendarMode.NONE, rules: [] }
   })
   const syncSchedule = ref(false)
 

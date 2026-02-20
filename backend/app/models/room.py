@@ -6,6 +6,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .course import Course
+    from .agent_config import AgentConfig
 
 
 class RoomBase(SQLModel):
@@ -22,6 +23,11 @@ class UserRoomLink(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="user.id", primary_key=True)
     room_id: UUID = Field(foreign_key="room.id", primary_key=True)
     role: str = Field(default="student")
+
+
+class RoomAgentLink(SQLModel, table=True):
+    room_id: UUID = Field(foreign_key="room.id", primary_key=True)
+    agent_id: UUID = Field(foreign_key="agentconfig.id", primary_key=True)
 
 
 class Room(RoomBase, table=True):

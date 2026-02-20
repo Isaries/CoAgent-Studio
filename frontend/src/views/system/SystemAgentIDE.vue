@@ -108,10 +108,8 @@ const handleSimulation = async () => {
      const res = await agentService.generatePrompt({
         requirement: requirementModel.value,
         target_agent_type: 'teacher', // Simulation target
-        course_context: contextModel.value,
         
-        // REVERTED: Use base key for 'api_key' to match original behavior
-        api_key: designApiKeyModel.value,
+        // Use base key for 'api_key' to match original behavior (it is not in the type natively anymore but keeping for potential backend usage if needed, or map to custom_api_key in Sandbox)
         
         // Use simulation config for provider/model
         provider: simConfig.provider,

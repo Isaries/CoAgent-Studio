@@ -14,6 +14,9 @@ from app.api.api_v1.endpoints import (
     rooms,
     users,
     user_keys,
+    organizations,
+    projects,
+    threads,
     admin_db,
 )
 
@@ -22,6 +25,10 @@ api_router.include_router(login.router, tags=["login"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 # New: User Keys
 api_router.include_router(user_keys.router, prefix="/users/keys", tags=["user-keys"])
+
+api_router.include_router(organizations.router, prefix="/organizations", tags=["organizations"])
+api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
+api_router.include_router(threads.router, prefix="/threads", tags=["threads"])
 
 api_router.include_router(courses.router, prefix="/courses", tags=["courses"])
 api_router.include_router(rooms.router, prefix="/rooms", tags=["rooms"])

@@ -9,14 +9,14 @@ import type {
 } from '../types/agent'
 
 export const agentService = {
-  getAgents: (courseId: string) =>
-    api.get<AgentConfig[]>(`${API_ENDPOINTS.AGENTS.BASE}/${courseId}`),
+  getAgents: (projectId: string) =>
+    api.get<AgentConfig[]>(`${API_ENDPOINTS.AGENTS.BASE}/${projectId}`),
 
   getSystemAgents: () =>
     api.get<AgentConfig[]>(API_ENDPOINTS.AGENTS.SYSTEM),
 
-  createAgent: (courseId: string, data: Partial<AgentConfig>) =>
-    api.post<AgentConfig>(`${API_ENDPOINTS.AGENTS.BASE}/${courseId}`, data),
+  createAgent: (projectId: string, data: Partial<AgentConfig>) =>
+    api.post<AgentConfig>(`${API_ENDPOINTS.AGENTS.BASE}/${projectId}`, data),
 
   updateAgent: (data: Partial<AgentConfig>) => {
     if (!data.id) throw new Error('Config ID required for update')

@@ -6,7 +6,10 @@ from .announcement import Announcement, AnnouncementCreate, AnnouncementRead
 from .artifact import Artifact, ArtifactCreate, ArtifactRead, ArtifactUpdate, ArtifactType, AgentCapability
 from .course import Course, CourseCreate, CourseRead, CourseUpdate, UserCourseLink
 from .message import Message, MessageCreate, MessageRead
-from .room import Room, RoomCreate, RoomRead, RoomUpdate
+from .organization import Organization, OrganizationCreate, OrganizationRead, OrganizationUpdate, UserOrganizationLink
+from .project import Project, ProjectCreate, ProjectRead, ProjectUpdate, UserProjectLink
+from .room import Room, RoomCreate, RoomRead, RoomUpdate, UserRoomLink, RoomAgentLink
+from .thread import AgentThread, AgentThreadCreate, AgentThreadRead, ThreadMessage, ThreadMessageCreate, ThreadMessageRead
 from .user import User, UserCreate, UserRead, UserRole, UserUpdate
 from .user_api_key import UserAPIKey, UserAPIKeyCreate, UserAPIKeyRead
 
@@ -41,10 +44,28 @@ __all__ = [
     "Message",
     "MessageCreate",
     "MessageRead",
+    "Organization",
+    "OrganizationCreate",
+    "OrganizationRead",
+    "OrganizationUpdate",
+    "UserOrganizationLink",
+    "Project",
+    "ProjectCreate",
+    "ProjectRead",
+    "ProjectUpdate",
+    "UserProjectLink",
     "Room",
     "RoomCreate",
     "RoomRead",
     "RoomUpdate",
+    "UserRoomLink",
+    "RoomAgentLink",
+    "AgentThread",
+    "AgentThreadCreate",
+    "AgentThreadRead",
+    "ThreadMessage",
+    "ThreadMessageCreate",
+    "ThreadMessageRead",
     "User",
     "UserCreate",
     "UserRead",

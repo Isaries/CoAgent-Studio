@@ -8,7 +8,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api import deps
 from app.models.course import Course
 from app.models.message import Message
-from app.models.room import Room, RoomCreate, RoomRead, RoomUpdate, UserRoomLink
+from app.models.agent_config import AgentConfigRead
+from app.models.room import Room, RoomCreate, RoomRead, RoomUpdate, UserRoomLink, RoomAgentLink
 from app.models.user import User
 from app.services.permission_service import permission_service
 
@@ -174,3 +175,90 @@ async def assign_user_to_room(
     return {
         "message": f"User {user_to_assign.full_name or user_to_assign.username or user_to_assign.email} assigned to room"
     }
+
+
+@router.post("/{room_id}/agents/{agent_id}")
+async def assign_agent_to_room(
+    room_id: UUID,
+    agent_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    room = await session.get(Room, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    if not await permission_service.check(current_user, "update", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    from app.models.agent_config import AgentConfig
+    # We should also check if the user has permission to deploy this AgentConfig, 
+    # but for now we'll just check if it exists.
+    agent = await session.get(AgentConfig, agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # Check if already assigned
+    link = await session.get(RoomAgentLink, (room_id, agent_id))
+    if link:
+        return {"message": "Agent already assigned to room"}
+
+    new_link = RoomAgentLink(room_id=room_id, agent_id=agent_id)
+    session.add(new_link)
+    await session.commit()
+
+    return {"message": "Agent assigned to room"}
+
+
+@router.delete("/{room_id}/agents/{agent_id}")
+async def remove_agent_from_room(
+    room_id: UUID,
+    agent_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    room = await session.get(Room, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    if not await permission_service.check(current_user, "update", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    link = await session.get(RoomAgentLink, (room_id, agent_id))
+    if not link:
+        raise HTTPException(status_code=404, detail="Agent not assigned to this room")
+
+    await session.delete(link)
+    await session.commit()
+    return {"message": "Agent removed from room"}
+
+
+@router.get("/{room_id}/agents", response_model=List[AgentConfigRead])
+async def read_room_agents(
+    room_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    room = await session.get(Room, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    from app.models.agent_config import AgentConfig
+    query: Any = (
+        select(AgentConfig)
+        .join(RoomAgentLink, RoomAgentLink.agent_id == AgentConfig.id)
+        .where(RoomAgentLink.room_id == room_id)
+    )
+    result = await session.exec(query)
+    configs = result.all()
+    
+    # Masking keys would be needed, but AgentConfigRead schema usually handles or endpoints do it
+    from app.core.security import mask_api_key
+    response_data = []
+    for config in configs:
+        c_read = AgentConfigRead.model_validate(config)
+        if config.encrypted_api_key:
+            c_read.masked_api_key = mask_api_key(config.encrypted_api_key)
+        response_data.append(c_read)
+        
+    return response_data

@@ -23,6 +23,18 @@ const router = createRouter({
           meta: { requiresNonStudent: true }
         },
         {
+          path: 'workspace',
+          name: 'workspace',
+          component: () => import('../views/WorkspaceView.vue'),
+          meta: { requiresNonStudent: true }
+        },
+        {
+          path: 'projects/:projectId/agents/:agentId',
+          name: 'agent-detail',
+          component: () => import('../views/AgentView.vue'),
+          meta: { requiresNonStudent: true }
+        },
+        {
           path: 'courses',
           name: 'courses',
           component: () => import('../views/CourseListView.vue')

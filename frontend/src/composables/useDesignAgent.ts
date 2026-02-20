@@ -4,9 +4,9 @@ import type { AgentConfig, DesignDbState, AgentConfigVersion } from '../types/ag
 import { useToastStore } from '../stores/toast'
 
 export function useDesignAgent(
-  scope: 'course' | 'system',
-  courseId?: string,
-  courseTitle?: Ref<string | undefined>,
+  scope: 'project' | 'system',
+  projectId?: string,
+  projectTitle?: Ref<string | undefined>,
   activeTab?: Ref<string>
 ) {
   const toast = useToastStore()
@@ -82,11 +82,10 @@ export function useDesignAgent(
       const res = await agentService.generatePrompt({
         requirement: req,
         target_agent_type: activeTab?.value || 'teacher', // Default to teacher for system
-        course_context: designDb.value.context || courseTitle?.value || '',
-        api_key: designApiKey.value,
-        course_id: scope === 'course' ? courseId : undefined,
+        project_id: scope === 'project' ? projectId : undefined,
         provider: provider,
-        // Sandbox params
+        // Optional sandbox context/overrides
+        custom_system_prompt: designDb.value.context || projectTitle?.value || '',
         ...(sandbox.value.enabled ? {
           custom_system_prompt: sandbox.value.systemPrompt || undefined,
           custom_api_key: sandbox.value.customApiKey || undefined,
@@ -117,7 +116,7 @@ export function useDesignAgent(
     const payload: any = {
       name: 'Design Agent Config',
       type: 'design',
-      course_id: scope === 'course' ? courseId : undefined,
+      project_id: scope === 'project' ? projectId : undefined,
       // Default values if not overridden
       system_prompt: 'System Design Agent',
       model_provider: 'gemini',
@@ -142,8 +141,8 @@ export function useDesignAgent(
       } else {
         if (designConfig.value) {
           await agentService.updateAgent(payload)
-        } else if (courseId) {
-          await agentService.createAgent(courseId, payload)
+        } else if (projectId) {
+          await agentService.createAgent(projectId, payload)
         }
       }
 

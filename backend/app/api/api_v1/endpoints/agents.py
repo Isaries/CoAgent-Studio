@@ -90,17 +90,17 @@ async def update_system_agent_config(
     return c_read
 
 
-@router.get("/{course_id}")
+@router.get("/{project_id}")
 async def read_agent_configs(
-    course_id: UUID,
+    project_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Get all agent configs for a course.
+    Get all agent configs for a project.
     """
     service = AgentConfigService(session)
-    configs = await service.get_course_agent_configs(course_id, current_user)
+    Configs = await service.get_project_agent_configs(project_id, current_user)
 
     # Mask keys for response
     response_data = []
@@ -113,11 +113,11 @@ async def read_agent_configs(
     return response_data
 
 
-@router.post("/{course_id}")
-async def create_course_agent_config(
+@router.post("/{project_id}")
+async def create_project_agent_config(
     *,
     session: AsyncSession = Depends(deps.get_session),
-    course_id: UUID,
+    project_id: UUID,
     config_in: AgentConfigCreate,
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
@@ -128,7 +128,7 @@ async def create_course_agent_config(
     service = AgentConfigService(session)
 
     # Logic moved to service: duplicate check, auto-activate, permission check
-    new_config = await service.create_and_initialize_config(course_id, config_in, current_user)
+    new_config = await service.create_and_initialize_config(project_id, config_in, current_user)
 
     c_read = AgentConfigRead.model_validate(new_config)
 
@@ -210,7 +210,7 @@ async def get_agent_keys(
     service = AgentConfigService(session)
 
     # Verify existence and permission
-    await service.get_course_agent_config(agent_id, current_user)
+    await service.get_project_agent_config(agent_id, current_user)
 
     # Service returns list of AgentKey sqlmodels.
     keys = await service.get_agent_keys(agent_id)
@@ -291,20 +291,20 @@ async def create_global_agent(
     return c_read
 
 
-@router.post("/global/{agent_id}/clone-to-course/{course_id}")
-async def clone_global_agent_to_course(
+@router.post("/global/{agent_id}/clone-to-project/{project_id}")
+async def clone_global_agent_to_project(
     *,
     agent_id: UUID,
-    course_id: UUID,
+    project_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Clone a global agent template to a specific course.
+    Clone a global agent template to a specific project.
     Creates an instance linked to the parent template.
     """
     service = AgentConfigService(session)
-    cloned_config = await service.clone_global_agent_to_course(agent_id, course_id, current_user)
+    cloned_config = await service.clone_global_agent_to_project(agent_id, project_id, current_user)
 
     c_read = AgentConfigRead.model_validate(cloned_config)
     if cloned_config.encrypted_api_key:

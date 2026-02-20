@@ -12,5 +12,17 @@ export const roomService = {
 
   async deleteRoom(id: string) {
     return api.delete(`/rooms/${id}`)
+  },
+
+  async getRoomAgents(roomId: string) {
+    return api.get<any[]>(`/rooms/${roomId}/agents`)
+  },
+
+  async assignAgentToRoom(roomId: string, agentId: string) {
+    return api.post(`/rooms/${roomId}/agents/${agentId}`)
+  },
+
+  async removeAgentFromRoom(roomId: string, agentId: string) {
+    return api.delete(`/rooms/${roomId}/agents/${agentId}`)
   }
 }

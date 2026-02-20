@@ -62,10 +62,10 @@ async def get_message_count_gap(room_id: UUID, session: AsyncSession) -> int:
 
 
 async def _get_active_configs(
-    session: AsyncSession, course_id: UUID
+    session: AsyncSession, room_id: UUID
 ) -> Tuple[Optional[AgentConfig], Optional[AgentConfig]]:
     repo = AgentConfigRepository(session)
-    return await repo.get_active_configs(course_id)
+    return await repo.get_active_configs(room_id)
 
 
 async def _get_history(
@@ -147,7 +147,7 @@ async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:  # 
         if not room:
             return
 
-        teacher_config, student_config = await _get_active_configs(session, room.course_id)
+        teacher_config, student_config = await _get_active_configs(session, room.id)
         history = await _get_history(session, UUID(room_id), teacher_config, student_config)
 
         # Resolve keys
@@ -172,7 +172,7 @@ async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:  # 
                 logger.info(
                     "agent_tool_use", role="teacher", tool_count=len(response), room_id=str(room.id)
                 )
-                await handle_tool_calls(session, room.course_id, response)
+                await handle_tool_calls(session, room.id, response)
 
         elif trigger_role == "student" and student_config:
             # Student Logic
@@ -219,7 +219,7 @@ async def process_agents_logic(
     if not room or room.ai_mode == "off":
         return
 
-    teacher_config, student_config = await _get_active_configs(session, room.course_id)
+    teacher_config, student_config = await _get_active_configs(session, room.id)
 
     # Resolve Keys
     active_configs = []
@@ -318,7 +318,7 @@ async def _execute_teacher_turn(
                 logger.info(
                     "agent_tool_use", role="teacher", tool_count=len(response), room_id=str(room.id)
                 )
-                tool_results = await handle_tool_calls(session, room.course_id, response)
+                tool_results = await handle_tool_calls(session, room.id, response)
                 
                 if tool_results:
                     results_str = "\n".join(tool_results)
@@ -431,7 +431,7 @@ async def _notify_external_agents(
     and can respond with their own messages to be broadcast.
     """
     repo = AgentConfigRepository(session)
-    external_configs = await repo.get_external_configs(room.course_id)
+    external_configs = await repo.get_external_configs(room.id)
     
     if not external_configs:
         return
@@ -526,7 +526,7 @@ async def check_and_process_time_triggers(room_id: str, session: AsyncSession, a
     if not room or room.ai_mode == "off":
         return
 
-    teacher_config, student_config = await _get_active_configs(session, room.course_id)
+    teacher_config, student_config = await _get_active_configs(session, room.id)
     if not teacher_config and not student_config:
         return
 

@@ -141,26 +141,26 @@ class AgentRegistry:
     async def get_agents_by_type(
         self,
         type_name: str,
-        course_id: Optional[UUID] = None,
+        project_id: Optional[UUID] = None,
     ) -> List[AgentConfig]:
         """Get all agent configs of a specific type."""
         query = select(AgentConfig).where(AgentConfig.type == type_name)
         
-        if course_id:
-            query = query.where(AgentConfig.course_id == course_id)
+        if project_id:
+            query = query.where(AgentConfig.project_id == project_id)
         
         result = await self._session.exec(query)
         return list(result.all())
     
     async def get_external_agents(
         self,
-        course_id: Optional[UUID] = None,
+        project_id: Optional[UUID] = None,
     ) -> List[AgentConfig]:
         """Get all external agents (for A2A routing)."""
         query = select(AgentConfig).where(AgentConfig.is_external == True)
         
-        if course_id:
-            query = query.where(AgentConfig.course_id == course_id)
+        if project_id:
+            query = query.where(AgentConfig.project_id == project_id)
         
         result = await self._session.exec(query)
         return list(result.all())

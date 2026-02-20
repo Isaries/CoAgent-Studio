@@ -74,9 +74,9 @@ class DesignAgentService:
         model = None
 
         if not api_key:
-            if request.course_id:
-                course_configs = await self.config_service.get_course_agent_configs(request.course_id, user)
-                design_config = next((c for c in course_configs if c.type == AgentType.DESIGN), None)
+            if getattr(request, 'project_id', None):
+                project_configs = await self.config_service.get_project_agent_configs(request.project_id, user)
+                design_config = next((c for c in project_configs if c.type == AgentType.DESIGN), None)
                 if design_config:
                     api_key = design_config.encrypted_api_key
                     if not provider and design_config.model_provider:

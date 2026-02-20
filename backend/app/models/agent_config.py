@@ -9,6 +9,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .agent_key import AgentKey
+    from .project import Project
 
 
 class AgentType(str, Enum):
@@ -31,7 +32,7 @@ class AgentCategory(str, Enum):
 
 
 class AgentConfigBase(SQLModel):
-    course_id: Optional[UUID] = Field(default=None, foreign_key="course.id", index=True)
+    project_id: Optional[UUID] = Field(default=None, foreign_key="project.id", index=True)
     type: str = Field(index=True)  # teacher, student, etc.
     name: str = Field(default="Default Profile")
     model_provider: str = Field(default="gemini")  # gemini, openai
@@ -83,6 +84,8 @@ class AgentConfig(AgentConfigBase, table=True):
     versions: List["AgentConfigVersion"] = Relationship(
         back_populates="agent_config", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+    
+    project: Optional["Project"] = Relationship(back_populates="agent_configs")
 
 
 class AgentConfigVersion(SQLModel, table=True):
@@ -114,7 +117,7 @@ class AgentConfigCreate(AgentConfigBase):
 
 class AgentConfigRead(SQLModel):
     id: UUID
-    course_id: Optional[UUID] = None
+    project_id: Optional[UUID] = None
     type: str
     name: Optional[str] = "Default Profile"
     model_provider: str = "gemini"

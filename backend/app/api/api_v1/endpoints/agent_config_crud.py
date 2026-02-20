@@ -7,10 +7,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
 from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentConfigRead, AgentConfigVersion
-from app.models.course import Course
+from app.models.project import Project, UserProjectLink
 from app.models.user import User, UserRole
-from app.services.permission_service import permission_service
-
 router = APIRouter()
 
 # ... existing design endpoint ...
@@ -18,49 +16,53 @@ router = APIRouter()
 # CRUD for Agent Config
 
 
-@router.get("/{course_id}", response_model=List[AgentConfigRead])
+@router.get("/{project_id}", response_model=List[AgentConfigRead])
 async def read_agent_configs(
-    course_id: UUID,
+    project_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:  # type: ignore[func-returns-value]
     """
-    Get all agent configs for a course.
+    Get all agent configs for a project.
     """
-    course = await session.get(Course, course_id)  # type: ignore[func-returns-value]
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    project = await session.get(Project, project_id)  # type: ignore[func-returns-value]
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
-    if not await permission_service.check(current_user, "manage_config", course, session):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    if current_user.role != UserRole.ADMIN:
+        link = await session.get(UserProjectLink, (current_user.id, project_id))
+        if not link:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    query: Any = select(AgentConfig).where(AgentConfig.course_id == course_id)
+    query: Any = select(AgentConfig).where(AgentConfig.project_id == project_id)
     result = await session.exec(query)
     return result.all()
 
 
-@router.put("/{course_id}/{agent_type}", response_model=AgentConfigRead)
+@router.put("/{project_id}/{agent_type}", response_model=AgentConfigRead)
 async def update_agent_config(
     *,
     session: AsyncSession = Depends(deps.get_session),
-    course_id: UUID,
+    project_id: UUID,
     agent_type: str,
     config_in: AgentConfigCreate,
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:  # type: ignore[func-returns-value]
     """
-    Update or Create Agent Config for a specific type in a course.
+    Update or Create Agent Config for a specific type in a project.
     """
-    course = await session.get(Course, course_id)  # type: ignore[func-returns-value]
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    project = await session.get(Project, project_id)  # type: ignore[func-returns-value]
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
-    if current_user.role != UserRole.ADMIN and course.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    if current_user.role != UserRole.ADMIN:
+        link = await session.get(UserProjectLink, (current_user.id, project_id))
+        if not link or link.role not in ["admin", "owner", "editor"]:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Check if exists
     query: Any = select(AgentConfig).where(
-        AgentConfig.course_id == course_id, AgentConfig.type == agent_type
+        AgentConfig.project_id == project_id, AgentConfig.type == agent_type
     )
     result = await session.exec(query)
     agent_config = result.first()
@@ -81,7 +83,7 @@ async def update_agent_config(
     else:
         # Create
         new_config = AgentConfig(
-            course_id=course_id,
+            project_id=project_id,
             type=agent_type,
             system_prompt=config_in.system_prompt,
             model_provider=config_in.model_provider,
@@ -138,13 +140,15 @@ async def create_config_version(
         raise HTTPException(status_code=404, detail="Config not found")
         
     # Check permissions
-    if agent_config.course_id:
-        course = await session.get(Course, agent_config.course_id)
-        if not course:
-             raise HTTPException(status_code=404, detail="Course not found")
+    if agent_config.project_id:
+        project = await session.get(Project, agent_config.project_id)
+        if not project:
+             raise HTTPException(status_code=404, detail="Project not found")
              
-        if not await permission_service.check(current_user, "manage_config", course, session):
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+        if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            link = await session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+            if not link or link.role not in ["admin", "owner", "editor"]:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
     else:
         # System Agent: Only Admin
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
@@ -179,10 +183,15 @@ async def list_config_versions(
         raise HTTPException(status_code=404, detail="Config not found")
     
     # Basic read permission check
-    if agent_config.course_id:
-        course = await session.get(Course, agent_config.course_id)
-        if not await permission_service.check(current_user, "read", course, session):
-             raise HTTPException(status_code=403, detail="Not enough permissions")
+    if agent_config.project_id:
+        project = await session.get(Project, agent_config.project_id)
+        if not project:
+             raise HTTPException(status_code=404, detail="Project not found")
+             
+        if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            link = await session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+            if not link:
+                 raise HTTPException(status_code=403, detail="Not enough permissions")
     else:
         # System Agent: Admin or Teacher? Usually Admin for editing, but maybe readable?
         # Let's say Admin only for system config versions
@@ -217,10 +226,15 @@ async def restore_config_version(
         raise HTTPException(status_code=400, detail="Version does not belong to this config")
 
     # Check permissions (Write)
-    if agent_config.course_id:
-        course = await session.get(Course, agent_config.course_id)
-        if not await permission_service.check(current_user, "manage_config", course, session):
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+    if agent_config.project_id:
+        project = await session.get(Project, agent_config.project_id)
+        if not project:
+             raise HTTPException(status_code=404, detail="Project not found")
+             
+        if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            link = await session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+            if not link or link.role not in ["admin", "owner", "editor"]:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
     else:
         # System Agent
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:

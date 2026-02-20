@@ -43,17 +43,9 @@ async def test_get_room_messages():
     mock_msg = Message(id=uuid4(), content="Hi", room_id=room_id, sender_id=uuid4())
     mock_user = User(id=mock_msg.sender_id, full_name="Sender")
 
-    # Mock exec result
-    # We need to ensure that iterating over result yields (msg, user) tuples
+    # Mock the repo method directly
     mock_rows = [(mock_msg, mock_user)]
-
-    # Mock object that is awaitable and iterable
-    # session.exec returns a Result object which is iterable
-
-    mock_result_obj = Mock()
-    mock_result_obj.__iter__ = Mock(return_value=iter(mock_rows))
-
-    session.exec.return_value = mock_result_obj
+    service.message_repo.get_room_history_with_users = AsyncMock(return_value=mock_rows)
 
     messages = await service.get_room_messages(room_id)
 

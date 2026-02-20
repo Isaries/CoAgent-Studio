@@ -7,7 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.agent_config import AgentConfig, AgentConfigCreate
 from app.models.agent_key import AgentKey
-from app.models.course import Course
+from app.models.project import Project, UserProjectLink
 from app.models.user import User, UserRole
 
 
@@ -18,7 +18,7 @@ class AgentConfigService:
     async def get_system_agent_configs(self, current_user: User) -> List[AgentConfig]:
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             raise HTTPException(status_code=403, detail="Not enough permissions")
-        query: Any = select(AgentConfig).where(AgentConfig.course_id == None)
+        query: Any = select(AgentConfig).where(AgentConfig.project_id == None)
         result = await self.session.exec(query)
         return result.all()
 
@@ -29,7 +29,7 @@ class AgentConfigService:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
         query: Any = select(AgentConfig).where(
-            AgentConfig.course_id == None, AgentConfig.type == agent_type
+            AgentConfig.project_id == None, AgentConfig.type == agent_type
         )
         result = await self.session.exec(query)
         agent_config = result.first()
@@ -46,7 +46,7 @@ class AgentConfigService:
         else:
             # Create
             new_config = AgentConfig(
-                course_id=None,
+                project_id=None,
                 type=agent_type,
                 system_prompt=config_in.system_prompt,
                 model_provider=config_in.model_provider,
@@ -59,45 +59,38 @@ class AgentConfigService:
             await self.session.refresh(new_config)
             return new_config
 
-    async def get_course_agent_configs(
-        self, course_id: UUID, current_user: User
+    async def get_project_agent_configs(
+        self, project_id: UUID, current_user: User
     ) -> List[AgentConfig]:
-        course = await self.session.get(Course, course_id)  # type: ignore[func-returns-value]
-        if not course:
-            raise HTTPException(status_code=404, detail="Course not found")
+        project = await self.session.get(Project, project_id)  # type: ignore[func-returns-value]
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
 
-        # Permission: Admin, Owner, or TA?
-        # Usually settings page calls this.
-        if (
-            current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-            and course.owner_id != current_user.id
-        ):
-            # Allow TA? Current logic in endpoint seemed to allow "if not course" raise, but didn't strictly check permission for GET?
-            # Let's check original code.
-            # Oh, the original code had a print "DEBUG" but then had no permission check visible in snippet?
-            # Wait, usually read is stricter. Let's enforce Owner/Admin for now as it contains API keys (masked).
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+        # Permission Check
+        if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            link = await self.session.get(UserProjectLink, (current_user.id, project_id))
+            if not link:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
 
-        query = select(AgentConfig).where(AgentConfig.course_id == course_id)
+        query = select(AgentConfig).where(AgentConfig.project_id == project_id)
         result = await self.session.exec(query)
         return result.all()
 
     async def create_and_initialize_config(
-        self, course_id: UUID, config_in: AgentConfigCreate, current_user: User
+        self, project_id: UUID, config_in: AgentConfigCreate, current_user: User
     ) -> AgentConfig:
-        course = await self.session.get(Course, course_id)  # type: ignore[func-returns-value]
-        if not course:
-            raise HTTPException(status_code=404, detail="Course not found")
+        project = await self.session.get(Project, project_id)  # type: ignore[func-returns-value]
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
 
-        if (
-            current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-            and course.owner_id != current_user.id
-        ):
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+        if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            link = await self.session.get(UserProjectLink, (current_user.id, project_id))
+            if not link or link.role not in ["admin", "owner"]:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
 
         # 1. Existing Configs Check (Name Duplicate & Auto-Activate)
         query = select(AgentConfig).where(
-            AgentConfig.course_id == course_id, AgentConfig.type == config_in.type
+            AgentConfig.project_id == project_id, AgentConfig.type == config_in.type
         )
         existing_configs = (await self.session.exec(query)).all()
 
@@ -110,7 +103,7 @@ class AgentConfigService:
         is_first = len(existing_configs) == 0
 
         agent_config = AgentConfig(
-            course_id=course_id,
+            project_id=project_id,
             type=config_in.type,
             system_prompt=config_in.system_prompt,
             model_provider=config_in.model_provider,
@@ -145,16 +138,15 @@ class AgentConfigService:
     async def _check_update_permissions(
         self, agent_config: AgentConfig, current_user: User
     ) -> None:
-        if agent_config.course_id:
-            course = await self.session.get(Course, agent_config.course_id)  # type: ignore[func-returns-value]
-            if not course:
+        if agent_config.project_id:
+            project = await self.session.get(Project, agent_config.project_id)  # type: ignore[func-returns-value]
+            if not project:
                 return  # Orphaned config, allow admin? Or fail? Logic was pass.
 
-            if (
-                current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-                and course.owner_id != current_user.id
-            ):
-                raise HTTPException(status_code=403, detail="Not enough permissions")
+            if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+                if not link or link.role not in ["admin", "owner"]:
+                    raise HTTPException(status_code=403, detail="Not enough permissions")
         else:
             # Global Agent (System or My Agent)
             # System agents (no created_by or created_by is admin?) - Actually system agents created_by might be None or Admin.
@@ -193,14 +185,12 @@ class AgentConfigService:
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
 
-        if agent_config.course_id:
-            course = await self.session.get(Course, agent_config.course_id)
-            if (
-                course
-                and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-                and course.owner_id != current_user.id
-            ):
-                raise HTTPException(status_code=403, detail="Not enough permissions")
+        if agent_config.project_id:
+            project = await self.session.get(Project, agent_config.project_id)
+            if project and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+                if not link or link.role not in ["admin", "owner"]:
+                    raise HTTPException(status_code=403, detail="Not enough permissions")
         else:
             # Global Agent (System or My Agent)
             is_owner = agent_config.created_by == current_user.id
@@ -215,19 +205,17 @@ class AgentConfigService:
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
 
-        if agent_config.course_id:
-            course = await self.session.get(Course, agent_config.course_id)
-            if (
-                course
-                and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-                and course.owner_id != current_user.id
-            ):
-                raise HTTPException(status_code=403, detail="Not enough permissions")
+        if agent_config.project_id:
+            project = await self.session.get(Project, agent_config.project_id)
+            if project and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+                if not link or link.role not in ["admin", "owner"]:
+                    raise HTTPException(status_code=403, detail="Not enough permissions")
 
-        # Deactivate others of same type in this course
-        if agent_config.course_id:
+        # Deactivate others of same type in this project
+        if agent_config.project_id:
             query = select(AgentConfig).where(
-                AgentConfig.course_id == agent_config.course_id,
+                AgentConfig.project_id == agent_config.project_id,
                 AgentConfig.type == agent_config.type,
             )
             others = await self.session.exec(query)
@@ -240,19 +228,17 @@ class AgentConfigService:
         await self.session.commit()
         return agent_config
 
-    async def get_course_agent_config(self, agent_id: UUID, current_user: User) -> AgentConfig:
+    async def get_project_agent_config(self, agent_id: UUID, current_user: User) -> AgentConfig:
         agent_config = await self.session.get(AgentConfig, agent_id)  # type: ignore[func-returns-value]
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
 
-        if agent_config.course_id:
-            course = await self.session.get(Course, agent_config.course_id)
-            if (
-                course
-                and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-                and course.owner_id != current_user.id
-            ):
-                raise HTTPException(status_code=403, detail="Not enough permissions")
+        if agent_config.project_id:
+            project = await self.session.get(Project, agent_config.project_id)
+            if project and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+                if not link:
+                    raise HTTPException(status_code=403, detail="Not enough permissions")
         else:
             if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
                 raise HTTPException(status_code=403, detail="Not enough permissions")
@@ -268,7 +254,7 @@ class AgentConfigService:
         self, agent_config_id: UUID, keys_data: dict, current_user: User
     ) -> AgentConfig:
         # Verify permissions and existence
-        agent_config = await self.get_course_agent_config(agent_config_id, current_user)
+        agent_config = await self.get_project_agent_config(agent_config_id, current_user)
 
         # keys_data = {"room_key": "val", "global_key": "val", "backup_key": "val"}
 
@@ -318,7 +304,7 @@ class AgentConfigService:
         Create a new global agent template (My Agent).
         """
         agent_config = AgentConfig(
-            course_id=None,  # Global agent has no course
+            project_id=None,  # Global agent has no project
             type=config_in.type,
             name=config_in.name or "My Agent",
             system_prompt=config_in.system_prompt,
@@ -337,11 +323,11 @@ class AgentConfigService:
         await self.session.refresh(agent_config)
         return agent_config
 
-    async def clone_global_agent_to_course(
-        self, agent_id: UUID, course_id: UUID, current_user: User
+    async def clone_global_agent_to_project(
+        self, agent_id: UUID, project_id: UUID, current_user: User
     ) -> AgentConfig:
         """
-        Clone a global agent template to a specific course.
+        Clone a global agent template to a specific project.
         Creates an instance linked to the parent template.
         """
         # 1. Get parent template
@@ -356,20 +342,19 @@ class AgentConfigService:
         if parent_config.created_by != current_user.id:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
-        # 3. Check course exists and user has access
-        course = await self.session.get(Course, course_id)
-        if not course:
-            raise HTTPException(status_code=404, detail="Course not found")
+        # 3. Check project exists and user has access
+        project = await self.session.get(Project, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
 
-        if (
-            current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-            and course.owner_id != current_user.id
-        ):
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+        if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+            link = await self.session.get(UserProjectLink, (current_user.id, project_id))
+            if not link or link.role not in ["admin", "owner"]:
+                raise HTTPException(status_code=403, detail="Not enough permissions")
 
         # 4. Clone the config
         cloned_config = AgentConfig(
-            course_id=course_id,
+            project_id=project_id,
             type=parent_config.type,
             name=parent_config.name,
             system_prompt=parent_config.system_prompt,
@@ -404,14 +389,12 @@ class AgentConfigService:
             raise HTTPException(status_code=400, detail="Agent has no parent template to sync from")
 
         # Permission check
-        if agent_config.course_id:
-            course = await self.session.get(Course, agent_config.course_id)
-            if (
-                course
-                and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-                and course.owner_id != current_user.id
-            ):
-                raise HTTPException(status_code=403, detail="Not enough permissions")
+        if agent_config.project_id:
+            project = await self.session.get(Project, agent_config.project_id)
+            if project and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+                if not link or link.role not in ["admin", "owner"]:
+                    raise HTTPException(status_code=403, detail="Not enough permissions")
 
         # Get parent
         parent_config = await self.session.get(AgentConfig, agent_config.parent_config_id)

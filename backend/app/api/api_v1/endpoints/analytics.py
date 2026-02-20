@@ -40,29 +40,15 @@ async def generate_course_analytics(
         if not link or link.role != "ta":
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    # 1. Get Analytics Agent Config
-    # Prioritize Active, then Latest
-    query: Any = (
-        select(AgentConfig)
-        .where(AgentConfig.course_id == course_id, AgentConfig.type == AgentType.ANALYTICS)
-        .order_by(col(AgentConfig.is_active).desc(), col(AgentConfig.updated_at).desc())
-    )
-    result = await session.exec(query)
-    config = result.first()
-
-    # Fallback to system-level config if missing
+    # 1. Get System Analytics Agent Config
     sys_query = select(AgentConfig).where(
-        AgentConfig.course_id == None, AgentConfig.type == AgentType.ANALYTICS
+        AgentConfig.project_id == None, AgentConfig.type == AgentType.ANALYTICS
     )
     sys_result = await session.exec(sys_query)
     sys_config = sys_result.first()
 
-    prompt = (config.system_prompt if config else None) or (
-        sys_config.system_prompt if sys_config else None
-    )
-    key = (config.encrypted_api_key if config else None) or (
-        sys_config.encrypted_api_key if sys_config else None
-    )
+    prompt = sys_config.system_prompt if sys_config else None
+    key = sys_config.encrypted_api_key if sys_config else None
 
     if not key:
         raise HTTPException(

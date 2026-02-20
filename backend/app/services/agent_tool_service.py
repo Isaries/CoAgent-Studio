@@ -6,6 +6,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.llm_service import ToolCall
 from app.models.agent_config import AgentConfig, AgentType
+from app.models.room import RoomAgentLink
 
 UPDATE_TRIGGER_TOOL_DEF = {
     "type": "function",
@@ -76,7 +77,7 @@ MANAGE_ARTIFACT_TOOL_DEF = {
 }
 
 
-async def handle_tool_calls(session: AsyncSession, course_id: UUID, tool_calls: List[ToolCall], room_id: UUID = None, user_id: UUID = None) -> List[str]:
+async def handle_tool_calls(session: AsyncSession, room_id: UUID, tool_calls: List[ToolCall], user_id: UUID = None) -> List[str]:
     """
     Handle tool calls executed by the Agent.
     Returns a list of result strings to be fed back to the agent or logged.
@@ -87,7 +88,7 @@ async def handle_tool_calls(session: AsyncSession, course_id: UUID, tool_calls: 
             args = tool.arguments
             await _update_agent_trigger(
                 session,
-                course_id,
+                room_id,
                 str(args.get("target_agent", "")),
                 str(args.get("trigger_type", "")),
                 float(args.get("value", 0.0)),
@@ -266,7 +267,7 @@ async def _handle_manage_artifact(
 
 
 async def _update_agent_trigger(
-    session: AsyncSession, course_id: UUID, target_role: str, type_: str, value: float
+    session: AsyncSession, room_id: UUID, target_role: str, type_: str, value: float
 ):
     print(f"[Agent Tool] Updating trigger for {target_role}: {type_}={value}")
 
@@ -281,7 +282,8 @@ async def _update_agent_trigger(
     # Find config
     query: Any = (
         select(AgentConfig)
-        .where(AgentConfig.course_id == course_id)
+        .join(RoomAgentLink, RoomAgentLink.agent_id == AgentConfig.id)
+        .where(RoomAgentLink.room_id == room_id)
         .where(AgentConfig.type == agent_type)
         .order_by(col(AgentConfig.updated_at).desc())
         .limit(1)

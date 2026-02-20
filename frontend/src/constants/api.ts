@@ -16,6 +16,16 @@ export const API_ENDPOINTS = {
     A2A: {
         WEBHOOK: '/a2a/webhook',
         HEALTH: '/a2a/health'
+    },
+    ORGANIZATIONS: {
+        BASE: '/organizations'
+    },
+    PROJECTS: {
+        BASE: '/projects'
+    },
+    THREADS: {
+        BASE: '/threads',
+        STATELESS: (agentId: string) => `/threads/stateless/${agentId}`
     }
 } as const
 

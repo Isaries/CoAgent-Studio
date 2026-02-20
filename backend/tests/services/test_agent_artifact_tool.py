@@ -20,9 +20,15 @@ async def test_agent_create_task_artifact(
 ):
     """Test creating a task artifact via agent tool."""
     
-    # Create Room
+    # Create Course and Room
+    from app.models.course import Course
     from app.models.room import Room
-    room = Room(name="Test Room", description="Test Desc", created_by=mock_superuser.id)
+    course = Course(title="Test Course", description="Test", owner_id=mock_superuser.id)
+    db_session.add(course)
+    await db_session.commit()
+    await db_session.refresh(course)
+    
+    room = Room(name="Test Room", description="Test Desc", course_id=course.id, created_by=mock_superuser.id)
     db_session.add(room)
     await db_session.commit()
     await db_session.refresh(room)
@@ -72,9 +78,15 @@ async def test_agent_update_artifact(
 ):
     """Test updating an artifact via agent tool."""
     
-    # Create Room
+    # Create Course and Room
+    from app.models.course import Course
     from app.models.room import Room
-    room = Room(name="Test Room", description="Test Desc", created_by=mock_superuser.id)
+    course = Course(title="Test Course", description="Test", owner_id=mock_superuser.id)
+    db_session.add(course)
+    await db_session.commit()
+    await db_session.refresh(course)
+    
+    room = Room(name="Test Room", description="Test Desc", course_id=course.id, created_by=mock_superuser.id)
     db_session.add(room)
     await db_session.commit()
     await db_session.refresh(room)
@@ -130,9 +142,15 @@ async def test_agent_delete_artifact(
 ):
     """Test deleting an artifact via agent tool."""
     
-    # Create Room
+    # Create Course and Room
+    from app.models.course import Course
     from app.models.room import Room
-    room = Room(name="Test Room", description="Test Desc", created_by=mock_superuser.id)
+    course = Course(title="Test Course", description="Test", owner_id=mock_superuser.id)
+    db_session.add(course)
+    await db_session.commit()
+    await db_session.refresh(course)
+    
+    room = Room(name="Test Room", description="Test Desc", course_id=course.id, created_by=mock_superuser.id)
     db_session.add(room)
     await db_session.commit()
     await db_session.refresh(room)

@@ -7,6 +7,7 @@ Supports:
 - Soft delete for data recovery
 """
 
+from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
@@ -128,7 +129,6 @@ class ArtifactService:
         artifact.version += 1
         artifact.last_modified_by = modified_by
         
-        from datetime import datetime
         artifact.updated_at = datetime.utcnow()
         
         await self.session.commit()

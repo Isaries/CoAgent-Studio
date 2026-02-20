@@ -5,7 +5,6 @@ from uuid import UUID, uuid4
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from .agent_config import AgentConfig
     from .announcement import Announcement
     from .room import Room
 
@@ -47,9 +46,9 @@ class Course(CourseBase, table=True):
     # To be safe without seeing all models (Announcement, etc), I will ONLY add relationship for 'rooms' and 'agent_configs' which I have confirmed.
     # And 'user_links' which is defined in this file.
 
-    agent_configs: List["AgentConfig"] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
-    )
+    # agent_configs: List["AgentConfig"] = Relationship(
+    #     sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    # )
     announcements: List["Announcement"] = Relationship(
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

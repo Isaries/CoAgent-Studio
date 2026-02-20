@@ -267,7 +267,7 @@ export default {
           </li>
           <li><router-link to="/courses" active-class="active">My Courses</router-link></li>
           <li v-if="!isStudent">
-            <router-link to="/my-agents" active-class="active">My Agents</router-link>
+            <router-link to="/workspace" active-class="active">Workspace (Agents)</router-link>
           </li>
           <li v-if="!isStudent">
             <router-link to="/analytics" active-class="active">Analytics</router-link>

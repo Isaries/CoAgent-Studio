@@ -57,6 +57,7 @@ async def _setup_db_schema():
     async with engine.begin() as conn:
         from sqlmodel import SQLModel
 
+        await conn.run_sync(SQLModel.metadata.drop_all)
         await conn.run_sync(SQLModel.metadata.create_all)
     await engine.dispose()
 
@@ -236,6 +237,7 @@ class MockLLMService(LLMService):
         prompt: str,
         system_prompt: Optional[str] = None,
         api_key: Optional[str] = None,
+        api_keys: Optional[Dict[str, str]] = None,
         model: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> LLMResponse:

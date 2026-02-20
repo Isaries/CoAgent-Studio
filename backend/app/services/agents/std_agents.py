@@ -36,8 +36,13 @@ class TeacherAgent(AgentCore, A2AAgentMixin):
     async def generate_reply(
         self, message_history: list, tools: Optional[list] = None
     ) -> Union[str, list]:
-        # Construct context
-        context = "\n".join([f"{m.sender_id}: {m.content}" for m in message_history[-10:]])
+        # Construct context handling both Message and ThreadMessage
+        context_lines = []
+        for m in message_history[-10:]:
+            sender = getattr(m, 'sender_id', getattr(m, 'role', 'unknown'))
+            content = getattr(m, 'content', '')
+            context_lines.append(f"{sender}: {content}")
+        context = "\n".join(context_lines)
         prompt = f"""
         Chat History:
         {context}
@@ -137,7 +142,12 @@ class StudentAgent(AgentCore, A2AAgentMixin):
         return random.random() < (ai_frequency * 0.8)
 
     async def generate_proposal(self, message_history: list) -> str:
-        context = "\n".join([f"{m.sender_id}: {m.content}" for m in message_history[-10:]])
+        context_lines = []
+        for m in message_history[-10:]:
+            sender = getattr(m, 'sender_id', getattr(m, 'role', 'unknown'))
+            content = getattr(m, 'content', '')
+            context_lines.append(f"{sender}: {content}")
+        context = "\n".join(context_lines)
         prompt = f"""
         Chat History:
         {context}

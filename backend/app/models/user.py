@@ -7,6 +7,8 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .user_api_key import UserAPIKey
+    from .organization import UserOrganizationLink
+    from .project import UserProjectLink
 
 
 class UserRole(str, Enum):
@@ -41,6 +43,12 @@ class User(UserBase, table=True):
     )
     
     # Relationships will be added later (enrollments, messages, etc.)
+    organization_links: List["UserOrganizationLink"] = Relationship(
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    project_links: List["UserProjectLink"] = Relationship(
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 
 class UserCreate(UserBase):

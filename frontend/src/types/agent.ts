@@ -45,7 +45,7 @@ export interface AgentKeys {
 export interface AgentConfig {
   id: string
   name: string
-  course_id: string | null
+  project_id: string
   type: AgentType
   system_prompt: string
   model_provider: string
@@ -125,9 +125,7 @@ export interface VersionCreate {
 export interface GeneratePromptRequest {
   requirement: string
   target_agent_type: string
-  course_context: string
-  api_key?: string
-  course_id?: string
+  project_id?: string
   provider: string
 
   // Sandbox extensions
