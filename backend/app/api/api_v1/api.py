@@ -10,6 +10,7 @@ from app.api.api_v1.endpoints import (
     artifacts,
     chat,
     courses,
+    graph,
     login,
     rooms,
     users,
@@ -43,6 +44,9 @@ api_router.include_router(admin_db.router, prefix="/admin/db", tags=["admin_db"]
 
 # New: Artifact/Workspace endpoints
 api_router.include_router(artifacts.router, prefix="/workspaces", tags=["workspaces"])
+
+# GraphRAG Knowledge Graph
+api_router.include_router(graph.router, prefix="/graph", tags=["graph"])
 
 
 

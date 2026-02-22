@@ -45,6 +45,18 @@ async def lifespan(app: FastAPI):
         from app.core.room_monitor import room_monitor
 
         await room_monitor.start(arq_pool=app.state.arq_pool)
+
+        # 5. Init GraphRAG clients (Neo4j + Qdrant)
+        from app.core.neo4j_client import neo4j_client
+        from app.core.qdrant_client import vector_store
+
+        try:
+            await neo4j_client.connect()
+            await vector_store.connect()
+            logger.info("graphrag_clients_ready")
+        except Exception as graph_err:
+            logger.warning(f"GraphRAG clients not available (non-fatal): {graph_err}")
+
     except Exception as e:
         logger.critical(f"Startup Failed: Could not initialize Redis/ARQ dependencies. {e}")
         raise RuntimeError(
@@ -58,6 +70,13 @@ async def lifespan(app: FastAPI):
     await room_monitor.stop()
     await app.state.arq_pool.close()
     await cache.close()
+
+    # GraphRAG cleanup
+    from app.core.neo4j_client import neo4j_client
+    from app.core.qdrant_client import vector_store
+
+    await neo4j_client.close()
+    await vector_store.close()
 
 
 app = FastAPI(

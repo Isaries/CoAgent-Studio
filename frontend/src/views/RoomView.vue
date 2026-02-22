@@ -7,13 +7,15 @@ import KanbanBoard from '../components/workspace/KanbanBoard.vue'
 import RoomChat from '../components/room/RoomChat.vue'
 import RoomDocs from '../components/room/RoomDocs.vue'
 import RoomProcess from '../components/room/RoomProcess.vue'
+import RoomGraphView from '../components/room/RoomGraphView.vue'
+import GraphQueryPanel from '../components/room/GraphQueryPanel.vue'
 import { useRoomChat } from '../composables/useRoomChat'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const workspaceStore = useWorkspaceStore()
 const roomId = route.params.id as string
-const activeTab = ref<'chat' | 'board' | 'docs' | 'process'>('chat')
+const activeTab = ref<'chat' | 'board' | 'docs' | 'process' | 'graph'>('chat')
 
 // Use the Chat Composable
 const {
@@ -77,6 +79,13 @@ onUnmounted(() => {
             @click="activeTab = 'process'"
           >
             Process
+          </button>
+          <button
+            class="join-item btn btn-sm"
+            :class="{ 'btn-active btn-accent': activeTab === 'graph' }"
+            @click="activeTab = 'graph'"
+          >
+            🧠 Knowledge Graph
           </button>
         </div>
       </div>
@@ -142,5 +151,15 @@ onUnmounted(() => {
 
     <!-- Process View -->
     <RoomProcess v-if="activeTab === 'process'" />
+
+    <!-- Knowledge Graph View -->
+    <div v-if="activeTab === 'graph'" class="flex-1 flex overflow-hidden">
+      <div class="flex-1">
+        <RoomGraphView :room-id="roomId" />
+      </div>
+      <div class="w-96 border-l border-base-300">
+        <GraphQueryPanel :room-id="roomId" />
+      </div>
+    </div>
   </div>
 </template>

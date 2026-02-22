@@ -90,7 +90,10 @@ class ArtifactService:
 
         if self.socket_manager:
             await self._broadcast_update(room_id, artifact)
-        
+
+        # Publish GraphRAG event (non-fatal)
+        await self._publish_graphrag_event("artifact_create", room_id, artifact.id)
+
         return artifact
     
     async def update_artifact(
@@ -142,7 +145,10 @@ class ArtifactService:
 
         if self.socket_manager:
             await self._broadcast_update(artifact.room_id, artifact)
-        
+
+        # Publish GraphRAG event (non-fatal)
+        await self._publish_graphrag_event("artifact_update", artifact.room_id, artifact.id)
+
         return artifact
     
     async def delete_artifact(
@@ -204,4 +210,28 @@ class ArtifactService:
             await self.socket_manager.broadcast(payload, str(room_id))
         except Exception as e:
             logger.error("artifact_broadcast_failed", error=str(e))
+
+    async def _publish_graphrag_event(
+        self, event_type: str, room_id: UUID, artifact_id: UUID
+    ) -> None:
+        """Publish a GraphRAG ingestion event to Redis Streams (non-fatal)."""
+        try:
+            from app.core.config import settings
+            import redis.asyncio as aioredis
+
+            r = aioredis.from_url(
+                f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}",
+                decode_responses=True,
+            )
+            await r.xadd(
+                "graphrag:events",
+                {
+                    "type": event_type,
+                    "room_id": str(room_id),
+                    "artifact_id": str(artifact_id),
+                },
+            )
+            await r.aclose()
+        except Exception as e:
+            logger.debug("graphrag_event_publish_skipped", error=str(e))
 
