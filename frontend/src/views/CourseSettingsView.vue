@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useToastStore } from '../stores/toast'
 import api from '../api'
 
 const route = useRoute()
+const router = useRouter()
 const courseId = route.params.id as string
 const toast = useToastStore()
 
@@ -17,8 +18,13 @@ const loadCourse = async () => {
   try {
     const res = await api.get(`/courses/${courseId}`)
     course.value = res.data
-  } catch (e) {
+  } catch (e: any) {
     console.error(e)
+    if (e.response?.status === 403 || e.response?.status === 404) {
+      toast.error('You do not have access to this course.')
+      router.push('/courses')
+      return
+    }
     toast.error('Failed to load course details')
   } finally {
     isLoading.value = false

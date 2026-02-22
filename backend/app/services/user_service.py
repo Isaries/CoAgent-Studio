@@ -3,6 +3,7 @@ import uuid
 from typing import Any, List, Optional
 from uuid import UUID
 
+import aiofiles
 from fastapi import HTTPException, UploadFile
 from sqlmodel import col, or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -163,9 +164,13 @@ class UserService:
                 status_code=403, detail="Only Super Admins can delete Admin accounts"
             )
 
+        # Snapshot user data before delete to avoid DetachedInstanceError
+        from app.models.user import UserRead
+        user_snapshot = UserRead.model_validate(user)
+
         await self.session.delete(user)
         await self.session.commit()
-        return user
+        return user_snapshot
 
     async def upload_avatar(self, file: UploadFile, current_user: User) -> User:
         # Validate
@@ -192,17 +197,17 @@ class UserService:
         file_path = os.path.join(static_dir, filename)
 
         real_file_size = 0
-        with open(file_path, "wb") as buffer:
+        async with aiofiles.open(file_path, "wb") as buffer:
             while True:
                 chunk = await file.read(1024 * 1024)
                 if not chunk:
                     break
                 real_file_size += len(chunk)
                 if real_file_size > file_size_limit:
-                    buffer.close()
+                    await buffer.close()
                     os.remove(file_path)
                     raise HTTPException(status_code=400, detail="File too large")
-                buffer.write(chunk)
+                await buffer.write(chunk)
 
         relative_path = f"/static/avatars/{filename}"
         current_user.avatar_url = relative_path

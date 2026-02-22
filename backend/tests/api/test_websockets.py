@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -15,6 +16,9 @@ async def test_websocket_connect():
     Test WebSocket connection using TestClient.
     We use a REAL token (generated) and Mock the DB Session's .get() method
     to return a user when looking up the token's subject.
+
+    Since the WebSocket endpoint now uses `get_session_context()` (an async context
+    manager) rather than `Depends(get_session)`, we monkey-patch it directly.
     """
     # 0. Prepare User and Token
     user_id = uuid4()
@@ -33,49 +37,50 @@ async def test_websocket_connect():
 
     mock_session.add = mock_add
 
-    # Mock get (for fetching user by ID)
+    # Mock get (for fetching user by ID and Room)
     mock_session.get.return_value = mock_user
 
-    async def override_get_session():
+    # 2. Patch get_session_context to return our mock session
+    @asynccontextmanager
+    async def mock_get_session_context():
         yield mock_session
 
-    app.dependency_overrides[get_session] = override_get_session
-
-    # 2. Test
-    client = TestClient(app)
-    room_id = str(uuid4())
+    import app.api.api_v1.endpoints.chat as chat_module
+    original_get_session_context = chat_module.get_session_context
+    chat_module.get_session_context = mock_get_session_context
 
     # Mock ARQ Pool
     mock_arq_pool = AsyncMock()
     app.state.arq_pool = mock_arq_pool
 
-    # 2. Test
+    # 3. Test
     client = TestClient(app)
     room_id = str(uuid4())
 
     # Correct URL: /api/v1/chat/ws/...
-    with client.websocket_connect(f"/api/v1/chat/ws/{room_id}?token={token}") as websocket:
-        # Send text
-        websocket.send_text("Hello World")
+    try:
+        with client.websocket_connect(f"/api/v1/chat/ws/{room_id}?token={token}") as websocket:
+            # Send text
+            websocket.send_text("Hello World")
 
-        # Receive broadcast (JSON)
-        data = websocket.receive_text()
-        import json
+            # Receive broadcast (JSON)
+            data = websocket.receive_text()
+            import json
 
-        msg_obj = json.loads(data)
+            msg_obj = json.loads(data)
 
-        # Verify structure
-        assert msg_obj["type"] == "message"
-        assert msg_obj["content"] == "Hello World"
-        assert "sender" in msg_obj
-        assert "timestamp" in msg_obj
+            # Verify structure
+            assert msg_obj["type"] == "message"
+            assert msg_obj["content"] == "Hello World"
+            assert "sender" in msg_obj
+            assert "timestamp" in msg_obj
 
-        # Verify agent trigger (ARQ job enqueued)
-        # The endpoint calls: await websocket.app.state.arq_pool.enqueue_job("run_agent_cycle_task", room_id, str(user_msg.id))
-        assert mock_arq_pool.enqueue_job.called
-        args = mock_arq_pool.enqueue_job.call_args
-        assert args[0][0] == "run_agent_cycle_task"
-        assert args[0][1] == room_id
-
-    # Cleanup
-    app.dependency_overrides.clear()
+            # Verify agent trigger (ARQ job enqueued)
+            assert mock_arq_pool.enqueue_job.called
+            args = mock_arq_pool.enqueue_job.call_args
+            assert args[0][0] == "run_agent_cycle_task"
+            assert args[0][1] == room_id
+    finally:
+        # Cleanup
+        chat_module.get_session_context = original_get_session_context
+        app.dependency_overrides.clear()

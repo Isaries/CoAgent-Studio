@@ -2,7 +2,7 @@
 /**
  * KanbanBoard - Main Kanban board component for workspace.
  */
-import { ref, onMounted, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import KanbanColumn from './KanbanColumn.vue'
 import type { TaskContent } from '@/types/artifact'
@@ -26,12 +26,6 @@ const editingTitle = ref('')
 watch(() => props.roomId, (newId) => {
   if (newId && store.currentRoomId !== newId) {
     store.loadArtifacts(newId)
-  }
-})
-
-onMounted(() => {
-  if (!store.currentRoomId || store.currentRoomId !== props.roomId) {
-    store.loadArtifacts(props.roomId)
   }
 })
 

@@ -1,126 +1,120 @@
-# CoAgent Studio Frontend
+# CoAgent Studio — Frontend
 
-## Project Overview
-CoAgent Studio is a professional-grade intelligent agent workspace built with **Vue 3**, **TypeScript**, and **Vite**. It is designed to provide a robust "IDE-like" environment for configuring, testing, and managing AI agents (Teacher, Student, Design, Analytics).
-
-The codebase follows a **"Perfect State"** philosophy: strict type safety, zero lint warnings, and a decoupled architecture to ensure maintainability and scalability.
-
-## Experience Highlights
-
-### Collaborative Room Interface (RoomView.vue)
-The heart of the experience is the real-time chat room, featuring:
-- **A2A Trace Visualization**: A toggleable debug mode to peek into the internal "thought process" and protocol messages between agents.
-- **Self-Healing WebSockets**: The `useWebSocket` composable automatically handles reconnections and message queueing during network blips.
-- **Optimistic UI**: Immediate feedback for user actions while synchronizing with the backend.
+Vue 3 SPA providing a collaborative, real-time workspace for interacting with and designing AI agents.
 
 ## Tech Stack
-- **Framework**: Vue 3 (Composition API, separate `<script setup>`)
-- **Language**: TypeScript (Strict Mode)
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS + DaisyUI (with custom design tokens)
-- **State Management**: Pinia (Stores) + Composables (Logic)
-- **Routing**: Vue Router 4 (with Navigation Guards)
-- **Quality Assurance**: ESLint, Prettier, `vue-tsc` (Type Check)
 
-## Architecture & Design Patterns
+| Concern | Technology |
+|---|---|
+| Framework | Vue 3 (Composition API + `<script setup>`) + TypeScript |
+| Build | Vite 7 |
+| Styling | Tailwind CSS + DaisyUI |
+| State | Pinia (global) + Composables (local logic) |
+| Routing | Vue Router 4 (with auth + role guards) |
+| Rich Text | Tiptap |
+| Process Diagrams | Vue Flow |
+| HTTP Client | Axios (with auto-retry on 401) |
+| Real-time | Native WebSockets (`useWebSocket` composable) |
+| Type Check | vue-tsc (strict mode) |
+| Lint/Format | ESLint + Prettier |
 
-### 1. Orchestrator Pattern
-Complex views like `CourseSettingsView` act as **Orchestrators**. They manage high-level state (loading, error handling, saving) and delegate rendering to specialized "dumb" components:
-- **`CourseBrainHeader`**: Manages navigation tabs and primary actions.
-- **`CourseBrainEditor`**: Handles specific form inputs for prompts, models, and triggers.
-- **`VersionSidebar`**: Manages history and restoration independently.
+---
 
-### 2. Composition over Inheritance
-Logic is extracted into reusable **Composables** (`src/composables/`) rather than mixing it into components or large stores:
-- **`useAuth`**: Centralizes login, logout, user roles, and impersonation logic.
-- **`useAgentSandbox`**: Manages the chat simulation state and history.
-- **`useVersionControl`**: Abstracts the complexity of fetching and restoring agent configuration versions.
+## Project Structure
 
-### 3. Strict Type Safety
-We avoid `any`. All data structures are strictly typed in `src/types/`:
-- **`enums.ts`**: Centralized enums for `UserRole`, `AgentType`, `TriggerType`, `ModelProvider`.
-- **`agent.ts`**: Comprehensive interfaces for Agent configurations.
+```
+src/
+├── api.ts               # Axios instance + global interceptors (401 refresh, 403/500 toast)
+├── router/
+│   └── index.ts         # All routes with requiresAuth / requiresAdmin / requiresNonStudent guards
+├── stores/
+│   ├── auth.ts          # User session, impersonation state
+│   ├── workspace.ts     # Artifacts (kanban tasks, docs, processes) with optimistic updates
+│   └── toast.ts         # Global notification store
+├── composables/
+│   ├── useWebSocket.ts  # WS lifecycle with exponential-backoff reconnect + auto-cleanup
+│   ├── useRoomChat.ts   # Chat messages, WS connection, A2A trace handling
+│   ├── useAuth.ts       # Login, logout, impersonation actions
+│   ├── useDesignAgent.ts    # Agent version control + design state
+│   └── usePermissions.ts    # Per-component RBAC helper functions
+├── services/            # API wrappers (one file per resource)
+├── components/
+│   ├── chat/            # MessageBubble, ChatInput
+│   ├── room/            # RoomChat, RoomDocs, RoomProcess
+│   ├── workspace/       # KanbanBoard, KanbanColumn, AgentSandbox
+│   └── common/          # ResizableSplitPane, ConfirmModal, Toast
+├── views/               # Page-level components (one per route)
+│   ├── RoomView.vue         # Main collaborative room (chat + board + docs + process)
+│   ├── AgentView.vue        # Agent design IDE + sandbox
+│   ├── CourseDetailView.vue # Course homepage
+│   └── ...
+├── types/               # TypeScript interfaces (agent.ts, chat.ts, artifact.ts, enums.ts)
+├── constants/           # API endpoint paths, HTTP status codes
+└── utils/               # Pure helpers (cookies, sanitize)
+```
 
-### 4. Configuration
-- **Path Aliases**: The project uses `@` as an alias for `src/`. This is configured in both `vite.config.ts` and `tsconfig.app.json` to ensure consistent resolution during build and type checking.
-
-## Key Features
-
-### System Agent IDE
-A dedicated "Meta-Prompt Engineering Workbench" (`SystemAgentIDE.vue`) that allows admins to:
-- Design the "Brain" of the system agents.
-- **Simulate** conversations in real-time with a built-in sandbox.
-- **Version Control**: Rollback to previous system prompts instantly.
-
-### Role-Based Access Control (RBAC)
-Deeply integrated permission system:
-- **Super Admin**: Full system access (Database, System Agents).
-- **Teacher**: Course creation and management.
-- **Student**: Access to assigned courses and chat interface.
-- **Impersonation**: Admins can "view as" other users for debugging.
-
-### Multi-Agent Orchestration
-Support for diverse agent types with specific configurations:
-- **Teacher/Student Agents**: Standard conversational agents.
-- **Design Agents**: Specialized in creating content.
-- **Analytics Agents**: Background processors for data insight.
+---
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js (>= 18)
-- npm (>= 9)
+- Node.js ≥ 18
+- npm ≥ 9
+- Backend running at `localhost:8000` (see root README)
 
-### Installation
+### Install & Run
 ```bash
-git clone https://github.com/Isaries/CoAgent-Studio.git
-cd CoAgent-Studio/frontend
 npm install
-```
-
-### Development
-```bash
 npm run dev
 ```
-Access the app at `http://localhost:5173`.
+→ App available at http://localhost:5173
 
-### Quality Checks
-Before committing, ensure your code meets the quality standards:
+Vite proxies all `/api` requests to the backend (`http://localhost:8000`) — no CORS setup needed in dev.
+
+---
+
+## Architecture Patterns
+
+### 1. Composable-first Logic
+Business logic lives in `src/composables/`, not in components or Pinia stores.
+
+- **`useWebSocket`** — Handles connection lifecycle, reconnect, cleanup on `onUnmounted`.
+- **`useRoomChat`** — Wraps `useWebSocket` + chat state, A2A trace parsing, and workspace artifact dispatch.
+- **`useDesignAgent`** — Agent config state + version control API calls.
+
+### 2. Pinia for Global Shared State
+Only truly shared state lives in stores:
+- **`useAuthStore`** — Current user + impersonation flag.
+- **`useWorkspaceStore`** — Artifacts with optimistic updates + WebSocket-driven real-time sync.
+
+### 3. Route Guards
+All routes under `/` require `requiresAuth`. Role-specific routes use `requiresAdmin` or `requiresNonStudent`. On 403/404 API responses, views redirect to `/courses` rather than showing broken UI.
+
+---
+
+## Code Quality
+
 ```bash
-# 1. Linting (Auto-fix)
+# Type check (must pass before PR)
+npx vue-tsc --noEmit
+
+# Lint + auto-fix
 npm run lint
 
-# 2. Type Checking (Strict)
-npx vue-tsc --noEmit
+# Format
+npm run format
 ```
 
-## Code Structure
-```
-src/
-├─ api/                       # API definitions
-├─ components/
-│   ├─ common/                # Shared widgets (ResizableSplitPane, Toast)
-│   └─ icons/                 # Atomic SVG components
-├─ composables/               # Shared logic (useAuth, useVersionControl)
-├─ constants/                 # App-wide constants
-├─ layouts/                   # Layout wrappers (BaseLayout)
-├─ stores/                    # Pinia State (Global user state)
-├─ types/                     # TypeScript definitions (The Source of Truth)
-├─ views/                     # Route Views
-│   ├─ course-settings/       # Course Agent Logic
-│   └─ system/                # System Agent IDE
-└─ utils/                     # Pure utility functions
-```
+> All `vue-tsc` errors must be zero. Avoid `any` — add types to `src/types/` instead.
 
-## Contributing
-1. **Consistency**: Use the `useComposable` pattern for new logic.
-2. **Types**: Add new types to `src/types/` before writing components.
-3. **Icons**: Use `src/components/icons/` for SVGs.
-4. **Commits**: Follow conventional commits (e.g., `feat:`, `fix:`, `refactor:`).
+---
 
-## Troubleshooting
-- **`vue-tsc` errors?**: Check `src/types/enums.ts`. We do not allow implicit `any`.
-- **401 Loop?**: The `api.ts` interceptor handles token expiration. Ensure backend cookies are set correctly.
+## Key Rules for Contributors
+
+1. **Types first** — Define data shapes in `src/types/` before writing components.
+2. **Composable pattern** — Extract reusable logic into `src/composables/useXxx.ts`.
+3. **No `idx` as v-for key** — Use unique IDs or stable composite keys.
+4. **Redirect on errors** — Catch 403/404 in views and call `router.push()`.
 
 ## License
 MIT

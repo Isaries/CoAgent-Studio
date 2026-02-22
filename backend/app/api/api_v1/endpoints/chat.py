@@ -2,13 +2,13 @@ from typing import Any, List, Optional
 from uuid import UUID
 
 # Process agents is now run_agent_cycle_task in worker, handled via arq
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
 from app.core.config import settings
-from app.core.db import get_session
+from app.core.db import get_session, get_session_context
 from app.core.socket_manager import manager
 from app.models.user import User
 from app.schemas.socket import SocketMessage
@@ -59,7 +59,6 @@ async def websocket_endpoint(
     websocket: WebSocket,
     room_id: str,
     token: Optional[str] = Query(None),
-    session: AsyncSession = Depends(get_session),
 ) -> None:
     # Authenticate via Query Token OR Cookie
     if not token:
@@ -69,58 +68,62 @@ async def websocket_endpoint(
         await websocket.close(code=1008)
         return
 
-    user = await get_current_user_ws(token, session)
-    if not user:
-        await websocket.close(code=1008)
-        return
-
-    # Check Permissions for Room
-    # Need to convert room_id str to UUID? SQLModel seems to handle it, but let's be safe if it's UUID type in DB.
-    # Room model uses UUID.
-    try:
-        r_uuid = UUID(room_id)
-        room = await session.get(Room, r_uuid)
-        if not room:
-            await websocket.close(code=1008)
-            return
-        
-        if not await permission_service.check(user, "read", room, session):
+    # --- Auth & permission check: use a short-lived session ---
+    async with get_session_context() as session:
+        user = await get_current_user_ws(token, session)
+        if not user:
             await websocket.close(code=1008)
             return
 
-    except ValueError:
-        await websocket.close(code=1008)
-        return
+        # Snapshot user info before session closes (for broadcasting later)
+        user_id = user.id
+        user_email = user.email
+        display_name = user.full_name or user.username or user.email or "Unknown"
 
+        # Check Permissions for Room
+        try:
+            r_uuid = UUID(room_id)
+            room = await session.get(Room, r_uuid)
+            if not room:
+                await websocket.close(code=1008)
+                return
+
+            if not await permission_service.check(user, "read", room, session):
+                await websocket.close(code=1008)
+                return
+
+        except ValueError:
+            await websocket.close(code=1008)
+            return
+
+    # --- Session is now released; enter message loop ---
     await manager.connect(websocket, room_id)
     try:
         while True:
             data = await websocket.receive_text()
 
-            # Save User Message
-            chat_service = ChatService(session)
-            user_msg = await chat_service.save_user_message(room_id, user, data)
+            # Each message gets its own short-lived session
+            async with get_session_context() as msg_session:
+                chat_service = ChatService(msg_session)
+                user_msg = await chat_service.save_user_message(room_id, user_id, data)
+                timestamp = (user_msg.created_at.isoformat() + "Z") if user_msg.created_at else ""
+                msg_id = str(user_msg.id)
 
-            # Broadcast User Message (JSON)
-            display_name = user.full_name or user.username or user.email or "Unknown"
-            timestamp = (user_msg.created_at.isoformat() + "Z") if user_msg.created_at else ""
-
+            # Broadcast User Message (JSON) — no DB session needed
             socket_msg = SocketMessage(
                 type="message",
                 sender=display_name,
                 content=data,
                 timestamp=timestamp,
                 room_id=room_id,
-                metadata={"is_ai": False, "sender_id": str(user.id)},
+                metadata={"is_ai": False, "sender_id": str(user_id)},
             )
             await manager.broadcast(socket_msg.model_dump(), room_id)
 
             # Trigger Agents
-            
-            # Assuming app.state.arq_pool exists
             if hasattr(websocket.app.state, "arq_pool"):
                  task_service = TaskService(websocket.app.state.arq_pool)
-                 await task_service.enqueue_agent_cycle(room_id, str(user_msg.id))
+                 await task_service.enqueue_agent_cycle(room_id, msg_id)
             else:
                  print("ARQ Pool not initialized")
 
@@ -130,7 +133,7 @@ async def websocket_endpoint(
         sys_msg = SocketMessage(
             type="system",
             sender="System",
-            content=f"Client #{user.email} left",
+            content=f"Client #{user_email} left",
             timestamp="",  # Use current time if needed
             room_id=room_id,
         )

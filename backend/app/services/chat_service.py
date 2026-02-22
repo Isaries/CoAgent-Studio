@@ -4,7 +4,6 @@ from uuid import UUID
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.message import Message
-from app.models.user import User
 from app.repositories.message_repo import MessageRepository
 
 
@@ -39,9 +38,9 @@ class ChatService:
             )
         return messages_out
 
-    async def save_user_message(self, room_id: str, user: User, content: str) -> Message:
+    async def save_user_message(self, room_id: str, sender_id: UUID, content: str) -> Message:
         """
         Save a user message to the database.
         """
         # room_id is passed as str from websocket, convert to UUID
-        return await self.message_repo.create(content, UUID(room_id), user.id)
+        return await self.message_repo.create(content, UUID(room_id), sender_id)

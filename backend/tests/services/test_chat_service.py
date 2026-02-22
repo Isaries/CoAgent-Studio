@@ -22,7 +22,7 @@ async def test_save_user_message():
     session.commit = AsyncMock()
     session.refresh = AsyncMock()
 
-    msg = await service.save_user_message(room_id, user, content)
+    msg = await service.save_user_message(room_id, user.id, content)
 
     assert msg.content == content
     assert str(msg.room_id) == room_id

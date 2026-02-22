@@ -42,7 +42,7 @@ const handleSend = (text: string) => {
     <div ref="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-4 bg-base-100">
       <MessageBubble
         v-for="(msg, idx) in messages"
-        :key="idx"
+        :key="`${msg.timestamp}-${msg.sender}-${idx}`"
         :sender="msg.sender"
         :content="msg.content"
         :is-self="msg.isSelf"

@@ -79,7 +79,8 @@ const router = createRouter({
         {
           path: 'admin/users',
           name: 'user-list',
-          component: () => import('../views/UserListView.vue')
+          component: () => import('../views/UserListView.vue'),
+          meta: { requiresAdmin: true }
         },
         {
           path: 'admin/database',

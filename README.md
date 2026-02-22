@@ -1,138 +1,166 @@
 # CoAgent Studio
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Status](https://img.shields.io/badge/status-active-success.svg)
+![Stack](https://img.shields.io/badge/stack-Vue3%20%2B%20FastAPI-brightgreen)
+![Database](https://img.shields.io/badge/db-PostgreSQL%2016-blue)
 
-CoAgent Studio is a professional-grade Multi-Agent Orchestration Platform designed for education and complex system automation. It provides a real-time, collaborative environment where users interact with specialized AI agents (Teachers, Students, Designers, Analysts).
+**CoAgent Studio** is a full-stack, multi-agent orchestration platform for education. It lets teachers and students interact with specialized AI agents (Teacher, Student, Designer, Analytics) in real-time collaborative rooms, while administrators can design, version, and monitor agent behavior through a built-in IDE.
 
-## System Architecture
+---
 
-The platform uses a modern, containerized microservices architecture:
+## Architecture Overview
 
-- **Agent-to-Agent (A2A) Protocol**: A strictly typed communication layer enabling autonomous coordination between agents (Teacher, Student, System).
-- **Resilient AI Service**: Built-in circuit breakers and fallback mechanisms for robust LLM interactions.
-
-### Component Diagram
-
-```mermaid
-flowchart TD
-    Client[Client Browser] -->|HTTP/WebSocket| Nginx[Reverse Proxy / LB]
-    
-    subgraph "Docker Application Network"
-        Nginx -->|Static Assets| Frontend["Frontend (Vue 3)"]
-        Nginx -->|API Requests| Backend["Backend (FastAPI)"]
-        
-        Backend -->|Persistance| DB[(PostgreSQL)]
-        Backend -->|Cache/Queues| Redis[(Redis)]
-        
-        Backend <-->|LLM API| OpenAI["OpenAI / Gemini"]
-    end
+```
+Browser (Vue 3 SPA)
+      │  HTTP + WebSocket
+      ▼
+FastAPI Backend (Python async)
+  ├── PostgreSQL  — persistent data (users, courses, rooms, agents, artifacts)
+  ├── Redis       — async task queue (ARQ worker for LLM jobs)
+  └── LLM APIs   — OpenAI / Google Gemini (via unified LLMService)
 ```
 
-## Technology Stack
+### Key Architectural Concepts
 
-### Frontend (/frontend)
-- **Framework**: Vue 3 (Composition API) + TypeScript
-- **Build**: Vite
-- **Styling**: Tailwind CSS + DaisyUI
-- **State**: Pinia + Composables
-- **Real-time**: Native WebSockets
+| Concept | Where | Description |
+|---|---|---|
+| **Agent-to-Agent (A2A) Protocol** | `backend/app/core/` | Typed message bus for autonomous agent coordination |
+| **WebSocket Room Broadcasting** | `backend/app/core/socket_manager.py` | Atomic per-room message delivery |
+| **ARQ Task Queue** | `backend/app/worker.py` | Offloads heavy LLM inference to background workers |
+| **Optimistic UI** | `frontend/src/stores/workspace.ts` | Immediate local state updates with server-side rollback |
+| **Role-Based Access Control** | Router guards + `permission_service.py` | Super Admin / Admin / Teacher / TA / Student / Guest |
 
-### Backend (/backend)
-- **Framework**: FastAPI (Async Python)
-- **Database ORM**: SQLModel (SQLAlchemy + Pydantic)
-- **Migrations**: Alembic
-- **Async Task Queue**: ARQ + Redis
-- **AI Integration**: OpenAI SDK, Google GenAI
-- **Security**: JWT (HttpOnly Cookies), OAuth2 Password Flow
+---
+
+## Tech Stack
+
+### Frontend (`/frontend`)
+- **Vue 3** (Composition API + `<script setup>`) + **TypeScript**
+- **Vite** (bundler) · **Pinia** (state) · **Vue Router 4** (with auth guards)
+- **Tailwind CSS** + **DaisyUI** · **Vue Flow** (process diagrams) · **Tiptap** (rich-text docs)
+- Native **WebSockets** with auto-reconnect + exponential backoff
+
+### Backend (`/backend`)
+- **FastAPI** (async Python 3.10+) with full **OpenAPI** docs at `/docs`
+- **SQLModel** (Pydantic + SQLAlchemy 2.0 async) · **Alembic** (migrations)
+- **ARQ + Redis** (background task queue) · **aiofiles** (async file I/O)
+- **JWT HttpOnly Cookies** (OAuth2 password flow + refresh token)
+- **OpenAI SDK** + **Google GenAI** unified behind `LLMFactory`
 
 ### Infrastructure
-- **Containerization**: Docker & Docker Compose
-- **Database**: PostgreSQL 16
-- **Cache**: Redis 7
+- **Docker Compose** (single command to run all services)
+- **PostgreSQL 16** · **Redis 7-alpine**
 
-## Documentation
+---
 
-Detailed documentation and reports can be found in the `docs/` directory:
-- **Security Audit Report**: `docs/security_audit_report.md`
-- **Bug Fix Reports**: `docs/bug_fix_report.md`
+## Quick Start
 
-## Quick Start (Docker Composition)
+### Option A — Docker (Recommended)
 
-The recommended way to run CoAgent Studio is via Docker Compose, which orchestrates all services (Frontend, Backend, DB, Redis).
+**1. Configure environment**
 
-### Prerequisites
-- Docker Desktop (or Engine + Compose)
-- Git
-
-### 1. Setup Environment
-Create a `.env` file in the project root:
-
+Copy and edit `.env` in the project root:
 ```env
-# Security
-SECRET_KEY=change_this_to_a_secure_random_string
-BACKEND_CORS_ORIGINS=["http://localhost:5173","http://localhost:8000"]
-
-# Database
+SECRET_KEY=change_this_to_a_long_random_string
 POSTGRES_SERVER=db
-POSTGRES_USER=postgres
+POSTGRES_USER=user
 POSTGRES_PASSWORD=password
 POSTGRES_DB=coagent_db
-
-# External AI Providers (Optional)
+BACKEND_CORS_ORIGINS=["http://localhost:5173"]
+# Optional AI keys (agents won't respond without these)
 OPENAI_API_KEY=sk-...
 GOOGLE_API_KEY=AIza...
 ```
 
-### 2. Launch
+**2. Launch all services**
 ```bash
 docker compose up --build -d
 ```
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:8000/docs
 
-### Troubleshooting
-If you encounter issues with frontend dependencies or stale volumes, run:
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000 |
+| Interactive API Docs (Swagger) | http://localhost:8000/docs |
+
+---
+
+### Option B — Manual Development
+
+**Run backing services only (DB + Redis):**
 ```bash
-docker compose up --build --force-recreate
+docker compose up db redis -d
 ```
 
-## Manual Development
-
-If you wish to run services individually for development:
-
-### Backend
+**Backend:**
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-docker compose up db redis -d  # Run only backing services
-uvicorn app.main:app --reload
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend
+**Frontend:**
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
+---
+
+## Project Structure
+
+```
+CoAgent-Studio/
+├── backend/           # FastAPI application
+│   ├── app/
+│   │   ├── api/       # Route handlers (users, courses, agents, chat, …)
+│   │   ├── core/      # Config, DB, security, WebSocket, LLM, A2A
+│   │   ├── models/    # SQLModel table definitions
+│   │   ├── repositories/ # Data access layer (BaseRepo + specializations)
+│   │   ├── services/  # Business logic (CourseService, AgentConfigService, …)
+│   │   └── worker.py  # ARQ background worker entry point
+│   ├── alembic/       # Database migration scripts
+│   └── tests/         # pytest suite (97 tests)
+├── frontend/          # Vue 3 SPA
+│   └── src/
+│       ├── api.ts         # Axios instance + interceptors
+│       ├── components/    # Reusable UI components
+│       ├── composables/   # Logic hooks (useWebSocket, useRoomChat, …)
+│       ├── router/        # Vue Router with auth/role guards
+│       ├── services/      # API call wrappers
+│       ├── stores/        # Pinia stores (auth, workspace, toast)
+│       ├── types/         # TypeScript type definitions
+│       └── views/         # Page-level components
+├── docs/
+│   └── A2A_PROTOCOL.md    # Agent-to-Agent protocol specification
+├── docker-compose.yml
+└── .env                   # Environment variables (not committed)
+```
+
+---
+
 ## Key Features
-- **Real-Time Collaboration**: WebSocket-based chat rooms with atomic broadcasting.
-- **Role-Based Access Control (RBAC)**: Granular permissions for Admins, Teachers, and Students.
-- **Multi-Model Support**: Seamlessly switch between OpenAI and Gemini models.
-- **Agent Sandbox**: "IDE-like" environment for designing and testing system prompts.
-- **Async Processing**: Background jobs for heavy analytics and long-running AI tasks.
+
+- **Real-Time Chat Rooms** — WebSocket broadcast with A2A trace visualization
+- **Agent Design IDE** — Version-controlled system prompt editor with live sandbox
+- **Kanban Board + Docs + Process Diagrams** — AI-generated workspace artifacts
+- **Multi-Model Support** — OpenAI GPT & Google Gemini via unified API
+- **Impersonation Mode** — Admins can "view as" any user for debugging
+- **Async LLM Jobs** — Heavy inference runs in background via ARQ + Redis
+
+---
 
 ## Contributing
-Please see the specific `README.md` in the `frontend` and `backend` directories for detailed contribution guidelines tailored to each stack.
 
-1. Fork the repo.
-2. Create a feature branch (`git checkout -b feature/amazing-feature`).
-3. Commit your changes (`git commit -m 'feat: Add amazing feature'`).
-4. Push to the branch (`git push origin feature/amazing-feature`).
-5. Open a Pull Request.
+1. Fork the repo and create a feature branch (`git checkout -b feat/my-feature`)
+2. See `backend/README.md` and `frontend/README.md` for stack-specific guidelines
+3. Run backend tests: `pytest` (97 tests must pass)
+4. Run frontend type check: `vue-tsc --noEmit`
+5. Open a Pull Request against `main`
 
 ## License
-Distributed under the MIT License.
+MIT

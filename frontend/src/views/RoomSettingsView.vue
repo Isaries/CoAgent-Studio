@@ -36,8 +36,13 @@ const fetchSettings = async () => {
 
     await fetchRoomAgents()
     await fetchAvailableProjects()
-  } catch (e) {
+  } catch (e: any) {
     console.error('Failed to fetch settings', e)
+    if (e.response?.status === 403 || e.response?.status === 404) {
+      toast.error('You do not have access to this room.')
+      router.push('/courses')
+      return
+    }
   }
 }
 

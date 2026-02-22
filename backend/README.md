@@ -1,146 +1,164 @@
-# CoAgent Studio Backend
+# CoAgent Studio — Backend
 
-This directory contains the server-side application for CoAgent Studio, built with **FastAPI**. It powers the multi-agent orchestration platform with RESTful APIs, real-time WebSockets, and asynchronous background processing.
+FastAPI-based backend powering multi-agent orchestration, real-time WebSockets, and async LLM task processing.
 
 ## Tech Stack
 
-- **Framework**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.10+)
-- **Database**: PostgreSQL 16
-- **ORM**: [SQLModel](https://sqlmodel.tiangolo.com/) (Pydantic + SQLAlchemy)
-- **Migrations**: [Alembic](https://alembic.sqlalchemy.org/)
-- **Real-time**: Native WebSockets with Atomic Broadcasting
-- **Async Tasks**: [ARQ](https://arq-docs.helpmanual.io/) + Redis
-- **Security**: OAuth2 with Password Flow (JWT HttpOnly Cookies)
-- **AI Integration**: OpenAI SDK, Google GenAI (with Resilience Patterns)
+| Layer | Technology |
+|---|---|
+| Framework | FastAPI (async Python 3.10+) |
+| ORM | SQLModel (SQLAlchemy 2.0 async + Pydantic) |
+| Database | PostgreSQL 16 |
+| Migrations | Alembic |
+| Task Queue | ARQ + Redis |
+| File I/O | aiofiles (non-blocking) |
+| Auth | JWT HttpOnly Cookies (OAuth2 + refresh) |
+| LLM | OpenAI SDK + Google GenAI via `LLMFactory` |
+| Testing | pytest + pytest-asyncio (97 tests) |
 
-## Agent-to-Agent (A2A) Protocol
-
-The core of CoAgent Studio is the **A2A Protocol**, a strictly typed communication standard that allows agents to collaborate autonomously.
-
-- **Agent Identity**: Agents are strongly typed (`AgentId.TEACHER`, `AgentId.STUDENT`) to prevent addressing errors.
-- **Message Types**: Standardized interactions including `PROPOSAL`, `EVALUATION_REQUEST`, and `BROADCAST`.
-- **Mixin Pattern**: The `A2AAgentMixin` provides a drop-in interface for any service to become an A2A participant.
-
-## Resilient LLM Service
-
-The `LLMService` (`app/core/llm_service.py`) implements a robust Factory pattern with built-in **Circuit Breakers**:
-- **Fault Tolerance**: Automatically detects API failures (OpenAI/Gemini) and prevents cascading errors.
-- **Async Clients**: Fully asynchronous implementations for high-concurrency performance.
-- **Unified Interface**: `LLMFactory` abstracts the provider, allowing seamless switching between models.
-
-## Security
-
-A comprehensive security audit has been performed on the backend.
-
-- **Authentication**: Usage of `HTTPOnly` and `SameSite` cookies to prevent XSS-based token theft.
-- **Input Sanitization**: Use of `SQLModel` prevents common SQL injection vectors.
-- **Audit Reports**: Detailed security findings are available in `docs/security_audit_report.md`.
+---
 
 ## Project Structure
 
-```bash
+```
 backend/
-├── alembic/                # Database migration scripts
 ├── app/
-│   ├── api/v1/             # API Router (Users, Login, Rooms, Agents)
-│   ├── core/               # Config, Security, WebSocket Manager
-│   ├── models/             # SQLModel Database Tables
-│   ├── services/           # Business Logic (AgentRunner, ChatService)
-│   └── main.py             # App Entrypoint
-├── tests/                  # Pytest Suite
-├── Dockerfile              # Production Docker Image
-├── requirements.txt        # Python Dependencies
-└── alembic.ini             # Migration Config
+│   ├── api/
+│   │   ├── deps.py              # Auth + role dependencies (Depends)
+│   │   └── api_v1/
+│   │       └── endpoints/       # users, courses, rooms, agents, chat, login
+│   ├── core/
+│   │   ├── config.py            # Pydantic Settings
+│   │   ├── db.py                # Async engine + get_session / get_session_context
+│   │   ├── security.py          # JWT creation + Fernet encryption
+│   │   ├── socket_manager.py    # WebSocket room broadcaster
+│   │   ├── llm_service.py       # LLMFactory + unified async LLM client
+│   │   └── a2a/                 # Agent-to-Agent protocol implementation
+│   ├── models/                  # SQLModel table definitions
+│   ├── repositories/
+│   │   └── base_repo.py         # Generic CRUD base (no jsonable_encoder)
+│   ├── services/                # Business logic layer
+│   │   ├── user_service.py      # User CRUD + async avatar upload (aiofiles)
+│   │   ├── agent_config_service.py  # Agent design, versions, keys
+│   │   ├── course_service.py    # Course + enrollment management
+│   │   ├── room_service.py      # Room + agent assignment
+│   │   ├── permission_service.py    # Centralized RBAC checks
+│   │   ├── chat_service.py      # Message persistence
+│   │   └── thread_service.py    # Agent thread + LLM invocation
+│   ├── initial_data.py          # DB seeding on startup (creates super admin)
+│   ├── main.py                  # App entry point, lifespan, middleware
+│   └── worker.py                # ARQ background worker (LLM inference jobs)
+├── alembic/                     # Migration scripts
+├── tests/                       # pytest suite
+├── Dockerfile
+├── requirements.txt
+├── alembic.ini
+├── pytest.ini
+└── pyproject.toml               # ruff + mypy config
 ```
 
-## Getting Started
+---
+
+## Local Setup
 
 ### Prerequisites
-
 - Python 3.10+
-- PostgreSQL
-- Redis
+- PostgreSQL 16 + Redis (or run via Docker)
 
-### Local Setup (Manual)
+### Steps
 
-1. **Create Virtual Environment**:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-2. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure Environment**:
-   Create a `.env` file in this directory (or root) with the following:
-   ```env
-   SECRET_KEY=dev_secret_key_change_me
-   POSTGRES_SERVER=localhost
-   POSTGRES_USER=postgres
-   POSTGRES_PASSWORD=password
-   POSTGRES_DB=coagent_db
-   BACKEND_CORS_ORIGINS=["http://localhost:5173"]
-   ```
-
-4. **Run Database Migrations**:
-   ```bash
-   alembic upgrade head
-   ```
-
-5. **Start Dev Server**:
-   ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
-   
-   Access API Docs at: http://localhost:8000/docs
-
-### Docker Setup (Recommended)
-
-Run from the project root:
+**1. Start backing services**
 ```bash
-docker compose up --build
+docker compose up db redis -d   # from project root
 ```
 
-## Key Components
+**2. Create virtual environment**
+```bash
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-### Real-Time WebSocket Manager
-Located in `app/core/socket_manager.py`. It handles:
-- Connection lifecycle (Connect/Disconnect).
-- Room-based broadcasting.
-- Atomic message delivery to ensuring strict ordering.
+**3. Configure environment**
 
-### Agent Runner Service
-Located in `app/services/agent_service.py`. It handles:
-- **Prompt Construction**: Merging system prompts with conversation history.
-- **Model Invocation**: Calling OpenAI/Gemini APIs.
-- **Tool Execution**: Parsing model output to execute defined tools (if any).
+Create `backend/.env` (or use root `.env`):
+```env
+SECRET_KEY=your_secret_key_min_32_chars
+POSTGRES_SERVER=localhost
+POSTGRES_USER=user
+POSTGRES_PASSWORD=password
+POSTGRES_DB=coagent_db
+BACKEND_CORS_ORIGINS=["http://localhost:5173"]
+FERNET_SECRET_KEY=<base64-url-encoded-32-byte-key>
+```
 
-### Security Components
-- **Authentication**: `app/api/v1/endpoints/login.py` issues HttpOnly JWTs.
-- **Dependency Injection**: `app/api/deps.py` provides `get_current_user` dependencies for route protection.
+**4. Run migrations & seed**
+```bash
+alembic upgrade head
+python -m app.initial_data       # Creates default super admin
+```
 
-## Database Migrations (Alembic)
+**5. Start dev server**
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+→ Swagger UI: http://localhost:8000/docs
 
-To create a new migration after modifying models in `app/models`:
+**6. Start the ARQ worker (optional — needed for agent inference)**
+```bash
+python -m arq app.worker.WorkerSettings
+```
+
+---
+
+## Key Concepts
+
+### `get_session` vs `get_session_context`
+- **`get_session`** — FastAPI `Depends()` generator. Use for regular HTTP endpoints.
+- **`get_session_context`** — Async context manager. Use for WebSocket handlers and background tasks where a short-lived session per operation is needed (prevents connection pool exhaustion).
+
+### Permission System
+All resource access is routed through `permission_service.py`. Never hardcode role checks in endpoints — call `permission_service.check(user, action, resource, session)` instead.
+
+### BaseRepository `update()`
+Uses `obj_in.model_dump(exclude_unset=True)` — no `jsonable_encoder` — to avoid `MissingGreenlet` errors from lazy-loaded relationships in async SQLAlchemy.
+
+---
+
+## Database Migrations
+
+After modifying any `app/models/*.py` file:
 ```bash
 alembic revision --autogenerate -m "Description of change"
-```
-
-To apply migrations:
-```bash
 alembic upgrade head
 ```
 
+---
+
 ## Testing
 
-Run the test suite with pytest:
 ```bash
+# Run all tests (97 total)
 pytest
+
+# Run with verbose output
+pytest -v
+
+# Run a specific test file
+pytest tests/services/test_artifact_service.py
 ```
-Configuration is in `pytest.ini`.
+
+Tests use a real PostgreSQL test database with transaction rollback isolation — no test data pollutes production.
+
+---
+
+## Code Quality
+
+```bash
+ruff check app/           # Linting
+ruff format app/          # Formatting
+mypy app/                 # Type checking
+```
 
 ## License
 MIT

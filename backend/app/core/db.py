@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -16,13 +17,23 @@ engine = create_async_engine(
     pool_recycle=3600,
 )
 
+# Shared session factory (created once)
+_async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    # try:
-    #     with open("db_trace.log", "a") as f:
-    #         f.write("get_session called\n")
-    # except:
-    #     pass
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with async_session() as session:
+    """FastAPI Depends() compatible generator."""
+    async with _async_session_factory() as session:
+        yield session
+
+
+@asynccontextmanager
+async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Async context manager for non-DI scenarios (WebSocket handlers, background tasks).
+    Usage:
+        async with get_session_context() as session:
+            ...
+    """
+    async with _async_session_factory() as session:
         yield session

@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from .user_api_key import UserAPIKey
     from .organization import UserOrganizationLink
     from .project import UserProjectLink
+    from .course import UserCourseLink
+    from .room import UserRoomLink
 
 
 class UserRole(str, Enum):
@@ -47,6 +49,12 @@ class User(UserBase, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     project_links: List["UserProjectLink"] = Relationship(
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    course_links: List["UserCourseLink"] = Relationship(
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    room_links: List["UserRoomLink"] = Relationship(
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 

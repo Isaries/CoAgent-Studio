@@ -100,7 +100,7 @@ async def read_agent_configs(
     Get all agent configs for a project.
     """
     service = AgentConfigService(session)
-    Configs = await service.get_project_agent_configs(project_id, current_user)
+    configs = await service.get_project_agent_configs(project_id, current_user)
 
     # Mask keys for response
     response_data = []
@@ -466,7 +466,7 @@ async def test_external_agent_connection(
     Sends a health check request to the webhook URL.
     """
     service = AgentConfigService(session)
-    config = await service.get_course_agent_config(config_id, current_user) # Permission check included
+    config = await service.get_project_agent_config(config_id, current_user) # Permission check included
     
     if not config.is_external:
         raise HTTPException(status_code=400, detail="Not an external agent")
