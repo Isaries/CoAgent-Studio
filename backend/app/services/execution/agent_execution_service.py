@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, cast
 from uuid import UUID
 
@@ -7,18 +8,64 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.services.agents.std_agents import StudentAgent, TeacherAgent
 from app.core.a2a import A2ADispatcher, A2AMessage, MessageType, AgentId
+from app.core.trigger_resolver import resolve_effective_trigger
 from app.factories.agent_factory import AgentFactory
 from app.models.agent_config import AgentConfig, AgentType
+from app.models.agent_room_state import AgentRoomState
 from app.models.message import Message
-from app.models.room import Room
+from app.models.room import Room, RoomAgentLink
 from app.repositories.agent_repo import AgentConfigRepository
 
-# AgentToolService requires session, ensure imports are clean
 from app.services.agent_tool_service import UPDATE_TRIGGER_TOOL_DEF, MANAGE_ARTIFACT_TOOL_DEF, handle_tool_calls
 from app.services.orchestration.agent_orchestrator import AgentOrchestrator
 
 logger = structlog.get_logger()
 
+
+
+def _apply_state_reset_if_needed(state: AgentRoomState, effective_trigger: dict) -> bool:
+    """Checks state_reset config and resets counters if the interval has passed."""
+    reset_config = effective_trigger.get("state_reset", {})
+    if not reset_config.get("enabled"):
+        return False
+
+    interval_days = reset_config.get("interval_days", 1)
+    reset_time_str = reset_config.get("reset_time", "00:00")
+    
+    try:
+        reset_hour, reset_minute = map(int, reset_time_str.split(':'))
+    except Exception:
+        return False
+
+    overrides = state.active_overrides or {}
+    last_reset_str = overrides.get("_last_reset_at")
+    now = datetime.utcnow()
+
+    if last_reset_str:
+        try:
+            last_reset = datetime.fromisoformat(last_reset_str)
+        except Exception:
+            last_reset = datetime.min
+    else:
+        # First time checking, initialize to yesterday to trigger immediately
+        last_reset = now - timedelta(days=interval_days)
+
+    next_reset_date = last_reset.date() + timedelta(days=interval_days)
+    next_reset = datetime(
+        next_reset_date.year, next_reset_date.month, next_reset_date.day, 
+        reset_hour, reset_minute
+    )
+
+    if now >= next_reset:
+        state.message_count_since_last_reply = 0
+        state.monologue_count = 0
+        state.is_sleeping = False
+        if not state.active_overrides:
+            state.active_overrides = {}
+        state.active_overrides["_last_reset_at"] = now.isoformat()
+        return True
+
+    return False
 
 
 # Helper to resolve keys
@@ -213,7 +260,7 @@ async def process_agents_logic(
     room_id: str, session: AsyncSession, redis, last_message: Message
 ) -> None:
     """
-    Trigger Agent logic.
+    Trigger Agent logic with AgentRoomState lifecycle management.
     """
     room = await session.get(Room, UUID(room_id))  # type: ignore[func-returns-value]
     if not room or room.ai_mode == "off":
@@ -225,11 +272,32 @@ async def process_agents_logic(
     active_configs = []
     if teacher_config: active_configs.append(teacher_config)
     if student_config: active_configs.append(student_config)
-    
+
     if not active_configs:
         return
-        
+
     keys_map = await _resolve_agent_keys(session, active_configs)
+    repo = AgentConfigRepository(session)
+
+    # --- AgentRoomState: update on user message ---
+    is_user_message = last_message.agent_type is None
+    states = {}
+    links = {}
+    for config in active_configs:
+        state = await repo.get_or_create_state(UUID(room_id), config.id)
+        link = await repo.get_room_agent_link(UUID(room_id), config.id)
+        states[config.id] = state
+        links[config.id] = link
+
+        if is_user_message:
+            state.is_sleeping = False
+            state.monologue_count = 0
+            state.message_count_since_last_reply += 1
+            state.last_user_message_at = datetime.utcnow()
+            state.updated_at = datetime.utcnow()
+            session.add(state)
+
+    await session.flush()
 
     msg_gap = await get_message_count_gap(UUID(room_id), session)
 
@@ -237,9 +305,22 @@ async def process_agents_logic(
     teacher_config = next((c for c in active_configs if c.type == AgentType.TEACHER), None)
     student_config = next((c for c in active_configs if c.type == AgentType.STUDENT), None)
 
-    # Load history once
-    # We need a unified context window? Or max of all?
-    max_window = max((c.context_window for c in active_configs), default=10)
+    # Resolve context window from effective trigger
+    max_window = 10
+    for config in active_configs:
+        state = states.get(config.id)
+        effective = resolve_effective_trigger(
+            config, links.get(config.id), state
+        )
+        if state and _apply_state_reset_if_needed(state, effective):
+            state.version += 1
+            session.add(state)
+            
+        ctx = effective.get("trigger", {}).get("context_strategy", {})
+        if ctx.get("type") == "all":
+            max_window = max(max_window, 9999)
+        else:
+            max_window = max(max_window, ctx.get("n", config.context_window))
 
     hist_query = (
         select(Message)
@@ -253,15 +334,23 @@ async def process_agents_logic(
     # Initialize Agents Map
     agents = AgentFactory.create_agents_map(teacher_config, student_config, keys_map=keys_map)
 
-    # Orchestration Logic
-    # -------------------
-    # Use Orchestrator to decide next action
+    # Build config map with state/link for orchestrator
+    config_map = {}
+    state_map = {}
+    link_map = {}
+    if teacher_config:
+        config_map[AgentType.TEACHER] = teacher_config
+        state_map[AgentType.TEACHER] = states.get(teacher_config.id)
+        link_map[AgentType.TEACHER] = links.get(teacher_config.id)
+    if student_config:
+        config_map[AgentType.STUDENT] = student_config
+        state_map[AgentType.STUDENT] = states.get(student_config.id)
+        link_map[AgentType.STUDENT] = links.get(student_config.id)
+
+    # Orchestration Logic — pass state and link
     decision = await AgentOrchestrator.decide_turn(
-        room,
-        agents,
-        {AgentType.TEACHER: teacher_config, AgentType.STUDENT: student_config},
-        history,
-        msg_gap,
+        room, agents, config_map, history, msg_gap,
+        state_map=state_map, link_map=link_map,
     )
 
     if not decision:
@@ -271,69 +360,97 @@ async def process_agents_logic(
     role = decision["role"]
     action = decision["action"]
     agent = decision["agent"]
+    config = decision.get("config")
+    state = states.get(config.id) if config else None
+    link = links.get(config.id) if config else None
 
     if role == AgentType.TEACHER and action == "reply":
-        should_run = True  # Decided by Orchestrator
-        if await _execute_teacher_turn(
-            session, redis, room, agent, teacher_config, should_run, history, room_id
-        ):
-            return
+        executed = await _execute_teacher_turn(
+            session, redis, room, agent, teacher_config, True, history, room_id,
+            agent_config_id=teacher_config.id if teacher_config else None,
+        )
+        if executed and state:
+            await _post_agent_speak(session, state, config, link)
 
     elif role == AgentType.STUDENT and action == "propose":
-        should_run = True  # Decided by Orchestrator
         await _execute_student_turn(
-            session,
-            redis,
-            room,
-            agent,
-            student_config,
-            should_run,
-            agents.get(AgentType.TEACHER),  # Need teacher instance
-            history,
-            room_id,
+            session, redis, room, agent, student_config, True,
+            agents.get(AgentType.TEACHER), history, room_id,
         )
+        s_state = states.get(student_config.id) if student_config else None
+        if s_state and student_config:
+            await _post_agent_speak(session, s_state, student_config, links.get(student_config.id))
 
-    # 3. Notify External Agents (if any)
-    # External agents receive messages via webhook and can respond
+    # Notify External Agents
     await _notify_external_agents(session, redis, room, history, room_id)
 
 
+async def _post_agent_speak(
+    session: AsyncSession, state: AgentRoomState, config: AgentConfig,
+    link: Optional[RoomAgentLink] = None,
+) -> None:
+    """
+    After an agent speaks: update counters and check close conditions.
+    """
+    state.monologue_count += 1
+    state.message_count_since_last_reply = 0
+    state.last_agent_message_at = datetime.utcnow()
+    state.updated_at = datetime.utcnow()
+
+    # Check close conditions
+    effective = resolve_effective_trigger(config, link, state)
+    close = effective.get("close", {})
+    strategy = close.get("strategy", "none")
+
+    if strategy == "agent_monologue":
+        limit = close.get("monologue_limit", 3)
+        if limit and state.monologue_count >= limit:
+            state.is_sleeping = True
+            logger.info("agent_sleeping", agent_id=str(config.id), reason="monologue_limit")
+
+    elif strategy == "user_timeout":
+        # This is checked in time triggers, not here
+        pass
+
+    state.version += 1
+    session.add(state)
+    await session.flush()
+
+
 async def _execute_teacher_turn(
-    session, redis, room, teacher_agent, teacher_config, should_run, history, room_id
+    session, redis, room, teacher_agent, teacher_config, should_run, history, room_id,
+    agent_config_id=None,
 ) -> bool:
     can_teacher = room.ai_mode in ["teacher_only", "both"]
     if can_teacher and teacher_agent and should_run:
-        force_reply = teacher_config.trigger_config is not None
-        if force_reply or teacher_agent.should_reply(history, room.ai_frequency):
+        logger.info(
+            "agent_decision", role="teacher", action="reply_start", room_id=str(room.id)
+        )
+
+        t_agent = cast(TeacherAgent, teacher_agent)
+        response = await t_agent.generate_reply(history, tools=[UPDATE_TRIGGER_TOOL_DEF, MANAGE_ARTIFACT_TOOL_DEF])
+
+        if isinstance(response, list):  # List[ToolCall]
             logger.info(
-                "agent_decision", role="teacher", action="reply_start", room_id=str(room.id)
+                "agent_tool_use", role="teacher", tool_count=len(response), room_id=str(room.id)
+            )
+            tool_results = await handle_tool_calls(
+                session, room.id, response, agent_config_id=agent_config_id
             )
 
-            # Pass tools to teacher agent
-            # TeacherAgent.generate_reply now accepts tools
-            t_agent = cast(TeacherAgent, teacher_agent)
-            response = await t_agent.generate_reply(history, tools=[UPDATE_TRIGGER_TOOL_DEF, MANAGE_ARTIFACT_TOOL_DEF])
-
-            if isinstance(response, list):  # List[ToolCall]
-                logger.info(
-                    "agent_tool_use", role="teacher", tool_count=len(response), room_id=str(room.id)
-                )
-                tool_results = await handle_tool_calls(session, room.id, response)
-                
-                if tool_results:
-                    results_str = "\n".join(tool_results)
-                    # Broadcast tool results so the user/agent knows what happened
-                    await _save_and_broadcast(
-                        session, redis, f"Tool Output:\n{results_str}", room_id, AgentType.TEACHER, "[System]"
-                    )
-                
-                return True  # Teacher used a tool, treat as a turn taken
-
-            elif isinstance(response, str):
+            if tool_results:
+                results_str = "\n".join(tool_results)
                 await _save_and_broadcast(
-                    session, redis, response, room_id, AgentType.TEACHER, "[Teacher AI]"
+                    session, redis, f"Tool Output:\n{results_str}", room_id, AgentType.TEACHER, "[System]"
                 )
-                return True
+
+            return True
+
+        elif isinstance(response, str):
+            await _save_and_broadcast(
+                session, redis, response, room_id, AgentType.TEACHER, "[Teacher AI]"
+            )
+            return True
 
     return False
 
@@ -363,8 +480,6 @@ async def _execute_student_turn(
     
     can_student = room.ai_mode == "both"
     if can_student and student_agent and teacher_agent and should_run:
-        force_reply = student_config.trigger_config is not None
-        if force_reply or student_agent.should_reply(history, room.ai_frequency):
             logger.info(
                 "agent_decision", role="student", action="propose_start", room_id=str(room.id)
             )
@@ -520,7 +635,9 @@ async def _save_and_broadcast(session, redis, content, room_id, agent_type, pref
 
 async def check_and_process_time_triggers(room_id: str, session: AsyncSession, arq_pool) -> None:
     """
-    Fast check. If trigger needed, enqueue job.
+    Fast check for time-based triggers using new trigger config structure.
+    Supports time_interval_mins and user_silent_mins with OR/AND logic.
+    Also checks user_timeout close condition.
     """
     room = await session.get(Room, UUID(room_id))  # type: ignore[func-returns-value]
     if not room or room.ai_mode == "off":
@@ -530,19 +647,90 @@ async def check_and_process_time_triggers(room_id: str, session: AsyncSession, a
     if not teacher_config and not student_config:
         return
 
-    # Time Context
-    silence_duration, t_since, s_since = await _get_time_context(session, UUID(room_id))
+    repo = AgentConfigRepository(session)
+    silence_duration, t_since, s_since = await repo.get_time_context(UUID(room_id))
 
-    # Check Triggers
-    teacher_action = _check_time_trigger(teacher_config, t_since, silence_duration)
+    teacher_action = False
     student_action = False
-    if student_config and not teacher_action:
-        student_action = _check_time_trigger(student_config, s_since, silence_duration)
+
+    for config, since in [(teacher_config, t_since), (student_config, s_since)]:
+        if not config:
+            continue
+
+        state = await repo.get_or_create_state(UUID(room_id), config.id)
+        link = await repo.get_room_agent_link(UUID(room_id), config.id)
+
+        # Skip sleeping agents
+        if state.is_sleeping:
+            # But check user_timeout close condition — if user has been silent
+            # and agent is sleeping, nothing changes. If user spoke, sleep is
+            # already cleared in process_agents_logic.
+            continue
+
+        effective = resolve_effective_trigger(config, link, state)
+        if _apply_state_reset_if_needed(state, effective):
+            state.version += 1
+            session.add(state)
+            await session.flush()
+            
+        trigger = effective.get("trigger", {})
+        logic = effective.get("logic", "or")
+        enabled = trigger.get("enabled_conditions", [])
+        close = effective.get("close", {})
+
+        # Check time-based trigger conditions
+        time_results = []
+
+        if "time_interval_mins" in enabled:
+            interval = trigger.get("time_interval_mins")
+            if interval and since >= (interval * 60):
+                time_results.append(True)
+            else:
+                time_results.append(False)
+
+        if "user_silent_mins" in enabled:
+            threshold = trigger.get("user_silent_mins")
+            if threshold and silence_duration >= (threshold * 60):
+                time_results.append(True)
+            else:
+                time_results.append(False)
+
+        # Also check message_count if it's an AND-logic scenario
+        if logic == "and" and "message_count" in enabled:
+            mc = trigger.get("message_count")
+            if mc:
+                time_results.append(state.message_count_since_last_reply >= mc)
+
+        should_fire = False
+        if time_results:
+            if logic == "and":
+                should_fire = all(time_results)
+            else:
+                should_fire = any(time_results)
+
+        # Check user_timeout close condition
+        if close.get("strategy") == "user_timeout":
+            timeout = close.get("timeout_mins")
+            if timeout and state.last_agent_message_at:
+                since_agent = (datetime.utcnow() - state.last_agent_message_at).total_seconds()
+                if since_agent >= (timeout * 60) and silence_duration >= (timeout * 60):
+                    state.is_sleeping = True
+                    state.updated_at = datetime.utcnow()
+                    state.version += 1
+                    session.add(state)
+                    await session.flush()
+                    logger.info("agent_sleeping", agent_id=str(config.id), reason="user_timeout")
+                    continue
+
+        if should_fire:
+            if config.type == AgentType.TEACHER:
+                teacher_action = True
+            else:
+                student_action = True
 
     if not teacher_action and not student_action:
         return
 
-    # Action Needed -> Enqueue
     if arq_pool:
         if teacher_action:
             await arq_pool.enqueue_job("run_agent_time_task", room_id, "teacher")
@@ -555,16 +743,3 @@ async def check_and_process_time_triggers(room_id: str, session: AsyncSession, a
 async def _get_time_context(session: AsyncSession, room_id: UUID) -> Tuple[float, float, float]:
     repo = AgentConfigRepository(session)
     return await repo.get_time_context(room_id)
-
-
-def _check_time_trigger(config: AgentConfig, since: float, silence: float) -> bool:
-    if not config:
-        return False
-    conf = config.trigger_config or {}
-    if conf.get("type") == "time_interval":
-        interval = float(conf.get("value", 60))
-        return since >= interval
-    elif conf.get("type") == "silence":
-        threshold = float(conf.get("value", 60))
-        return silence >= threshold
-    return False

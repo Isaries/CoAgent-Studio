@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, watch } from 'vue'
-import { AgentType, ModelProvider, TriggerType } from '../../../types/enums'
+import { AgentType, ModelProvider } from '../../../types/enums'
 import type { AgentConfig } from '../../../types/agent'
 import { userKeyService, type UserAPIKey } from '../../../services/userKeyService'
 import ExternalAgentForm from './ExternalAgentForm.vue'
+import TriggerConfigEditor from '../../../components/scheduling/TriggerConfigEditor.vue'
+import ScheduleConfigEditor from '../../../components/scheduling/ScheduleConfigEditor.vue'
 
 const props = defineProps<{
   modelValue: AgentConfig | null
@@ -119,34 +121,10 @@ const handleTestConnection = () => {
       </div>
 
     <!-- Triggers & Behavior -->
-    <div class="card bg-base-100 shadow-sm border border-base-200">
-      <div class="card-body">
-         <h3 class="card-title text-sm uppercase tracking-wide opacity-70">Behavior & Triggers</h3>
-         <div v-if="config.trigger_config" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-control">
-              <label class="label"><span class="label-text">Trigger Type</span></label>
-              <select v-model="config.trigger_config.type" class="select select-bordered w-full">
-                <option :value="TriggerType.MESSAGE_COUNT">Message Count</option>
-                <option :value="TriggerType.TIME_INTERVAL">Time Interval</option>
-                <option :value="TriggerType.MANUAL">Manual Only</option>
-              </select>
-            </div>
-            
-            <div class="form-control" v-if="config.trigger_config.type !== TriggerType.MANUAL">
-              <label class="label"><span class="label-text">Threshold Value</span></label>
-              <input type="number" v-model.number="config.trigger_config.value" class="input input-bordered w-full" />
-              <label class="label">
-                <span class="label-text-alt opacity-60">
-                  {{ config.trigger_config.type === TriggerType.MESSAGE_COUNT ? 'Messages' : 'Seconds' }}
-                </span>
-              </label>
-            </div>
-         </div>
-         <div v-else class="text-base-content/50 text-sm">
-           No trigger configuration set.
-         </div>
-      </div>
-    </div>
+    <TriggerConfigEditor v-model="config.trigger_config" />
+
+    <!-- Schedule -->
+    <ScheduleConfigEditor v-model="config.schedule_config" label="Agent Schedule" />
 
     <!-- Model Settings -->
     <div class="card bg-base-100 shadow-sm border border-base-200">

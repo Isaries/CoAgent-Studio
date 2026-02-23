@@ -1,40 +1,100 @@
-import { AgentType, CalendarMode, TriggerType } from './enums'
+import { AgentType, CalendarMode, TriggerType, ScheduleMode, ScheduleRuleType, TriggerLogic, TriggerCondition, CloseStrategy, ContextStrategyType } from './enums'
 
-export interface TriggerConfig {
+// ============================================================
+// Legacy Types (kept for backward compatibility during migration)
+// ============================================================
+
+export interface LegacyTriggerConfig {
   type: TriggerType
   value: number
 }
 
-export interface ScheduleRule {
+export interface LegacyScheduleRule {
   start_time: string
   end_time: string
   days?: number[]
 }
 
-export interface SpecificScheduleException {
-  date: string
-  start: string
-  end: string
+export interface LegacyScheduleConfig {
+  specific: { date: string; start: string; end: string }[]
+  general: { mode: CalendarMode; start_date?: string; end_date?: string; rules: LegacyScheduleRule[] }
 }
 
-export interface GeneralSchedule {
-  mode: CalendarMode
-  start_date?: string
-  end_date?: string
-  rules: ScheduleRule[]
+// ============================================================
+// New Types — matches backend Pydantic schemas
+// ============================================================
+
+export interface ScheduleRule {
+  type: ScheduleRuleType
+  date?: string        // YYYY-MM-DD for specific_date
+  days?: number[]      // 1=Mon..7=Sun for day_of_week
+  time_range?: [string, string] | null  // ["HH:MM","HH:MM"] or null for all-day
 }
 
 export interface ScheduleConfig {
-  specific: SpecificScheduleException[]
-  general: GeneralSchedule
+  mode: ScheduleMode
+  rules: ScheduleRule[]
+}
+
+export interface ContextStrategy {
+  type: ContextStrategyType
+  n: number
+}
+
+export interface TriggerBounds {
+  min?: number
+  max?: number
+}
+
+export interface TriggerRule {
+  enabled_conditions: TriggerCondition[]
+  message_count?: number | null
+  time_interval_mins?: number | null
+  user_silent_mins?: number | null
+  context_strategy: ContextStrategy
+}
+
+export interface CloseRule {
+  strategy: CloseStrategy
+  monologue_limit?: number | null
+  timeout_mins?: number | null
+}
+
+export interface SelfModification {
+  duration_hours: number  // 0=disabled, >0=temp, -1=permanent
+  bounds?: Record<string, TriggerBounds> | null
+}
+
+export interface StateReset {
+  enabled: boolean
+  interval_days: number
+  reset_time: string  // "HH:MM"
+}
+
+export interface TriggerConfig {
+  logic: TriggerLogic
+  trigger: TriggerRule
+  close: CloseRule
+  self_modification: SelfModification
+  state_reset: StateReset
+}
+
+// Room Agent Link settings
+export interface RoomAgentLinkSettings {
+  room_id: string
+  agent_id: string
+  is_active: boolean
+  schedule_config?: ScheduleConfig | null
+  trigger_config?: TriggerConfig | null
+  created_at?: string
+  updated_at?: string
 }
 
 export interface AgentSettings {
   sync_schedule?: boolean
-  [key: string]: unknown // Safer than any, forces type checking before use
+  [key: string]: unknown
 }
 
-// Consolidated AgentKey interface
 export interface AgentKeys {
   room_key?: string
   global_key?: string

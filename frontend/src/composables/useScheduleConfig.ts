@@ -1,80 +1,58 @@
-import { ref, watch, type Ref } from 'vue'
-import type { ScheduleConfig, AgentConfig, ScheduleRule } from '../types/agent'
+import { ref } from 'vue'
+import type { ScheduleConfig, ScheduleRule } from '../types/agent'
+import { ScheduleMode, ScheduleRuleType } from '../types/enums'
 
-import { CalendarMode } from '../types/enums'
-
-export function useScheduleConfig(
-  activeTab: Ref<string>,
-  activeTeacherConfig: Ref<AgentConfig | undefined>
-) {
-  const scheduleConfig = ref<ScheduleConfig>({
-    specific: [],
-    general: { mode: CalendarMode.NONE, rules: [] }
-  })
-  const syncSchedule = ref(false)
-
-  // Helper for Schedule Rules
-  const addSpecificDate = () => {
-    if (syncSchedule.value) return
-    scheduleConfig.value.specific.push({
-      date: new Date().toISOString().split('T')[0] || '',
-      start: '09:00',
-      end: '17:00'
-    })
-  }
-  const removeSpecificDate = (idx: number) => {
-    if (syncSchedule.value) return
-    scheduleConfig.value.specific.splice(idx, 1)
-  }
-
-  const addGeneralRule = () => {
-    if (syncSchedule.value) return
-    const r: ScheduleRule = { start_time: '09:00', end_time: '17:00', days: [] }
-    if (scheduleConfig.value.general.mode === 'range_weekly') {
-      r.days = [1, 3, 5] // Mon, Wed, Fri default
-    }
-    scheduleConfig.value.general.rules.push(r)
-  }
-  const removeGeneralRule = (idx: number) => {
-    if (syncSchedule.value) return
-    scheduleConfig.value.general.rules.splice(idx, 1)
-  }
-
-  // Watcher to ensure 'days' array exists when switching to Weekly mode
-  watch(
-    () => scheduleConfig.value.general.mode,
-    (newMode) => {
-      if (newMode === 'range_weekly') {
-        scheduleConfig.value.general.rules.forEach((rule: ScheduleRule) => {
-          if (!Array.isArray(rule.days)) {
-            rule.days = []
-          }
-        })
-      }
+/**
+ * Composable for managing the new ScheduleConfig structure.
+ * Supports whitelist/blacklist mode and rule CRUD.
+ */
+export function useScheduleConfig(initialConfig?: ScheduleConfig | null) {
+  const scheduleConfig = ref<ScheduleConfig>(
+    initialConfig || {
+      mode: ScheduleMode.WHITELIST,
+      rules: [],
     }
   )
 
-  // Sync Schedule Logic
-  watch(syncSchedule, (newVal) => {
-    if (newVal && activeTab.value === 'student' && activeTeacherConfig.value) {
-      // Deep copy teacher schedule
-      try {
-        const teacherSch = activeTeacherConfig.value.schedule_config
-        if (teacherSch) {
-          scheduleConfig.value = JSON.parse(JSON.stringify(teacherSch))
-        }
-      } catch (e) {
-        console.error('Sync error', e)
-      }
+  const addRule = (type: ScheduleRuleType = ScheduleRuleType.EVERYDAY) => {
+    const rule: ScheduleRule = { type, time_range: ['09:00', '17:00'] }
+
+    if (type === ScheduleRuleType.DAY_OF_WEEK) {
+      rule.days = [1, 3, 5] // Mon, Wed, Fri default
     }
-  })
+    if (type === ScheduleRuleType.SPECIFIC_DATE) {
+      rule.date = new Date().toISOString().split('T')[0]
+    }
+
+    scheduleConfig.value.rules.push(rule)
+  }
+
+  const removeRule = (idx: number) => {
+    scheduleConfig.value.rules.splice(idx, 1)
+  }
+
+  const setMode = (mode: ScheduleMode) => {
+    scheduleConfig.value.mode = mode
+  }
+
+  const reset = () => {
+    scheduleConfig.value = { mode: ScheduleMode.WHITELIST, rules: [] }
+  }
+
+  const loadConfig = (config: ScheduleConfig | null | undefined) => {
+    if (config) {
+      scheduleConfig.value = JSON.parse(JSON.stringify(config))
+    } else {
+      reset()
+    }
+  }
 
   return {
     scheduleConfig,
-    syncSchedule,
-    addSpecificDate,
-    removeSpecificDate,
-    addGeneralRule,
-    removeGeneralRule
+    addRule,
+    removeRule,
+    setMode,
+    reset,
+    loadConfig,
   }
 }

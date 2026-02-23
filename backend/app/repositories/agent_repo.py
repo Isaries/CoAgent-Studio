@@ -5,9 +5,11 @@ from uuid import UUID
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.availability_checker import check_agent_availability
 from app.core.cache import cache
 from app.core.scheduler_utils import is_agent_scheduled_now
 from app.models.agent_config import AgentConfig, AgentType
+from app.models.agent_room_state import AgentRoomState
 from app.models.message import Message
 from app.models.room import RoomAgentLink
 
@@ -66,10 +68,10 @@ class AgentConfigRepository:
             t_conf = teacher_config
             s_conf = student_config
 
-        # Check schedules (Always run this, time changes)
-        if t_conf and not is_agent_scheduled_now(t_conf):
+        # Check three-layer availability (API Key > Agent > Room)
+        if t_conf and not await check_agent_availability(self.session, t_conf, room_id):
             t_conf = None
-        if s_conf and not is_agent_scheduled_now(s_conf):
+        if s_conf and not await check_agent_availability(self.session, s_conf, room_id):
             s_conf = None
 
         return t_conf, s_conf
@@ -192,3 +194,28 @@ class AgentConfigRepository:
         )
         hist_result = await self.session.exec(hist_query)
         return list(reversed(hist_result.all()))
+
+    async def get_or_create_state(self, room_id: UUID, agent_id: UUID) -> AgentRoomState:
+        """Get or create the runtime state for an agent in a room."""
+        result = await self.session.exec(
+            select(AgentRoomState).where(
+                AgentRoomState.room_id == room_id,
+                AgentRoomState.agent_id == agent_id,
+            )
+        )
+        state = result.first()
+        if not state:
+            state = AgentRoomState(room_id=room_id, agent_id=agent_id)
+            self.session.add(state)
+            await self.session.flush()
+        return state
+
+    async def get_room_agent_link(self, room_id: UUID, agent_id: UUID) -> Optional[RoomAgentLink]:
+        """Get the RoomAgentLink for a specific room+agent pair."""
+        result = await self.session.exec(
+            select(RoomAgentLink).where(
+                RoomAgentLink.room_id == room_id,
+                RoomAgentLink.agent_id == agent_id,
+            )
+        )
+        return result.first()

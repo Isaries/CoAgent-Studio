@@ -8,6 +8,7 @@ import { agentService } from '../services/agentService'
 import { useToastStore } from '../stores/toast'
 import type { Project } from '../types/workspace'
 import type { AgentConfig } from '../types/agent'
+import RoomAgentSettingsPanel from '../components/scheduling/RoomAgentSettingsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -188,13 +189,23 @@ onMounted(() => {
         <div v-if="!roomAgents?.length" class="text-sm opacity-50 text-center py-4 bg-base-200 rounded-lg">
             No agents assigned yet.
           </div>
-          <div v-else class="flex flex-col gap-2">
-             <div v-for="agent in roomAgents" :key="agent.id" class="flex items-center justify-between p-3 bg-base-200 rounded-lg border border-primary/20">
-               <div>
-                  <div class="font-bold text-sm">{{ agent.name }}</div>
-                  <div class="text-xs opacity-60">{{ agent.type }}</div>
+          <div v-else class="flex flex-col gap-3">
+             <div v-for="agent in roomAgents" :key="agent.id" class="collapse collapse-arrow bg-base-200 border border-primary/20 shadow-sm">
+               <input type="checkbox" /> 
+               <div class="collapse-title flex items-center justify-between font-medium">
+                  <div class="flex items-center gap-3">
+                    <div class="font-bold border-r pr-3 border-base-300">{{ agent.name }}</div>
+                    <div class="text-xs opacity-80 uppercase tracking-widest">{{ agent.type }}</div>
+                  </div>
                </div>
-               <button class="btn btn-ghost btn-xs text-error" @click="removeAgent(agent.id)">Remove</button>
+               <div class="collapse-content bg-base-100/50 pt-4">
+                 <RoomAgentSettingsPanel :room-id="roomId" :agent-id="agent.id" />
+                 
+                 <div class="divider mt-8 mb-4">Danger Zone</div>
+                 <div class="flex justify-end">
+                   <button class="btn btn-outline btn-error btn-sm" @click="removeAgent(agent.id)">Remove Agent from Room</button>
+                 </div>
+               </div>
              </div>
           </div>
         </div>

@@ -1,9 +1,11 @@
 from .agent_config import AgentConfig, AgentConfigCreate, AgentConfigRead, AgentType, AgentCategory
 from .agent_key import AgentKey
+from .agent_room_state import AgentRoomState
 from .agent_type_metadata import AgentTypeMetadata, AgentTypeMetadataRead, AgentTypeMetadataCreate
 from .analytics import AnalyticsReport
 from .announcement import Announcement, AnnouncementCreate, AnnouncementRead
 from .artifact import Artifact, ArtifactCreate, ArtifactRead, ArtifactUpdate, ArtifactType, AgentCapability
+from .audit_log import AuditLog
 from .course import Course, CourseCreate, CourseRead, CourseUpdate, UserCourseLink
 from .message import Message, MessageCreate, MessageRead
 from .organization import Organization, OrganizationCreate, OrganizationRead, OrganizationUpdate, UserOrganizationLink

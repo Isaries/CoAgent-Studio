@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -28,6 +30,20 @@ class UserRoomLink(SQLModel, table=True):
 class RoomAgentLink(SQLModel, table=True):
     room_id: UUID = Field(foreign_key="room.id", primary_key=True)
     agent_id: UUID = Field(foreign_key="agentconfig.id", primary_key=True)
+
+    # Per-room availability controls (overrides AgentConfig level)
+    is_active: bool = Field(default=True)
+    schedule_config: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSONB)
+    )
+    trigger_config: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSONB)
+    )
+
+    # Audit trail
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
 
 class Room(RoomBase, table=True):

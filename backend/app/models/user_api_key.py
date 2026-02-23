@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -20,7 +22,13 @@ class UserAPIKey(UserAPIKeyBase, table=True):
 
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     encrypted_key: str
-    
+
+    # Scheduling & Availability Controls
+    is_active: bool = Field(default=True)
+    schedule_config: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSONB)
+    )
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -34,5 +42,7 @@ class UserAPIKeyCreate(UserAPIKeyBase):
 class UserAPIKeyRead(UserAPIKeyBase):
     id: UUID
     masked_key: str
+    is_active: bool = True
+    schedule_config: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
