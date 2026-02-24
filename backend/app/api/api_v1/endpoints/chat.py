@@ -14,7 +14,6 @@ from app.models.user import User
 from app.schemas.socket import SocketMessage
 from app.services.chat_service import ChatService
 from app.services.permission_service import permission_service
-from app.services.task_service import TaskService
 from app.models.room import Room
 
 router = APIRouter()
@@ -120,10 +119,28 @@ async def websocket_endpoint(
             )
             await manager.broadcast(socket_msg.model_dump(), room_id)
 
-            # Trigger Agents
+            # --- Phase 1: State Tracking (Update last activity) ---
+            if manager.broker.redis_client:
+                import time
+                await manager.broker.redis_client.set(
+                    f"room_activity:{room_id}", 
+                    str(time.time()),
+                    ex=86400 * 7 # 7 days expiry
+                )
+
+            # --- Phase 2: Trigger Dispatch (Enqueue Event) ---
             if hasattr(websocket.app.state, "arq_pool"):
-                 task_service = TaskService(websocket.app.state.arq_pool)
-                 await task_service.enqueue_agent_cycle(room_id, msg_id)
+                 payload = {
+                     "type": "user_message",
+                     "content": data,
+                     "sender_id": str(user_id)
+                 }
+                 await websocket.app.state.arq_pool.enqueue_job(
+                     "dispatch_event_task", 
+                     "user_message", 
+                     room_id, 
+                     payload
+                 )
             else:
                  print("ARQ Pool not initialized")
 

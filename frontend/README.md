@@ -1,6 +1,6 @@
 # CoAgent Studio — Frontend
 
-Vue 3 SPA providing a collaborative, real-time workspace for interacting with and designing AI agents, including an interactive **Knowledge Graph** view powered by the GraphRAG Analytics Agent.
+Vue 3 SPA providing a visual AI agent orchestration interface: a drag-and-drop Workflow Studio, a Trigger Policy manager, real-time collaborative rooms, and an interactive Knowledge Graph powered by the GraphRAG Analytics Agent.
 
 ## Tech Stack
 
@@ -11,9 +11,9 @@ Vue 3 SPA providing a collaborative, real-time workspace for interacting with an
 | Styling | Tailwind CSS + DaisyUI |
 | State | Pinia (global) + Composables (local logic) |
 | Routing | Vue Router 4 (with auth + role guards) |
+| Workflow Canvas | Vue Flow (node-based graph editor) |
 | Rich Text | Tiptap |
-| Process Diagrams | Vue Flow |
-| Knowledge Graph | Native Canvas (force-directed, no external graph lib) |
+| Knowledge Graph | Native Canvas (force-directed, no external lib) |
 | HTTP Client | Axios (with auto-retry on 401) |
 | Real-time | Native WebSockets (`useWebSocket` composable) |
 | Type Check | vue-tsc (strict mode) |
@@ -25,42 +25,51 @@ Vue 3 SPA providing a collaborative, real-time workspace for interacting with an
 
 ```
 src/
-├── api.ts               # Axios instance + global interceptors (401 refresh, 403/500 toast)
+├── api.ts                   # Axios instance + global interceptors (401 refresh, 403/500 toast)
 ├── router/
-│   └── index.ts         # All routes with requiresAuth / requiresAdmin / requiresNonStudent guards
+│   └── index.ts             # Routes: /studio/workflows, /studio/triggers, /rooms/:id/workflow, …
 ├── stores/
-│   ├── auth.ts          # User session, impersonation state
-│   ├── workspace.ts     # Artifacts (kanban tasks, docs, processes) with optimistic updates
-│   └── toast.ts         # Global notification store
+│   ├── auth.ts              # User session, impersonation state
+│   ├── workspace.ts         # Artifacts (kanban, docs, processes) with optimistic updates
+│   └── toast.ts             # Global notification store
 ├── composables/
-│   ├── useWebSocket.ts  # WS lifecycle with exponential-backoff reconnect + auto-cleanup
-│   ├── useRoomChat.ts   # Chat messages, WS connection, A2A trace handling
-│   ├── useAuth.ts       # Login, logout, impersonation actions
+│   ├── useWebSocket.ts      # WS lifecycle with exponential-backoff reconnect + auto-cleanup
+│   ├── useRoomChat.ts       # Chat messages, WS connection, A2A trace handling
+│   ├── useAuth.ts           # Login, logout, impersonation actions
 │   ├── useDesignAgent.ts    # Agent version control + design state
 │   └── usePermissions.ts    # Per-component RBAC helper functions
 ├── services/
-│   ├── graphService.ts  # GraphRAG API wrapper (build, query, graph data, communities, status)
-│   └── …               # One file per resource (agents, courses, rooms, …)
+│   ├── workflowService.ts   # Global /workflows CRUD + /triggers CRUD + legacy room API
+│   ├── graphService.ts      # GraphRAG API wrapper
+│   └── …                   # agentService, roomService, workspaceService, …
 ├── types/
-│   ├── graph.ts         # GraphRAG types: GraphNode, GraphEdge, GraphData, CommunityReport, NODE_COLORS
-│   └── …               # agent.ts, chat.ts, artifact.ts, enums.ts
+│   ├── graph.ts             # GraphRAG: GraphNode, GraphEdge, GraphData, CommunityReport
+│   └── …                   # agent.ts, chat.ts, artifact.ts, enums.ts
+├── views/
+│   ├── studio/
+│   │   ├── WorkflowsView.vue   # Workflow list: create, open, delete global workflows
+│   │   └── TriggersView.vue    # Trigger Policy manager: create/toggle/delete rules
+│   ├── WorkflowEditorView.vue  # Dual-mode: Studio (/studio/workflows/:id) or Room legacy
+│   ├── RoomSettingsView.vue    # Room config + agent assignment + attached_workflow_id picker
+│   ├── RoomView.vue            # Room tabs: Chat | Board | Docs | Process | 🧠 Knowledge Graph
+│   ├── AgentView.vue           # Agent design IDE + sandbox
+│   └── …
 ├── components/
-│   ├── chat/            # MessageBubble, ChatInput
+│   ├── workflow/
+│   │   ├── WorkflowEditor.vue   # Vue Flow canvas (dual-mode: global / room-scoped)
+│   │   ├── AgentNode.vue        # Custom node: agent icon, type badge, pulse when active
+│   │   ├── LogicNode.vue        # Router / merge / action node
+│   │   └── PropertiesPanel.vue  # Side panel: node label, linked agent, edge type config
 │   ├── room/
 │   │   ├── RoomChat.vue         # Chat panel with A2A trace toggle
-│   │   ├── RoomDocs.vue         # Document viewer
-│   │   ├── RoomProcess.vue      # Process diagram viewer
-│   │   ├── RoomGraphView.vue    # Canvas force-directed knowledge graph visualization
-│   │   └── GraphQueryPanel.vue  # Analytics Agent Q&A + graph build trigger + community browser
-│   ├── workspace/       # KanbanBoard, KanbanColumn, AgentSandbox
-│   └── common/          # ResizableSplitPane, ConfirmModal, Toast
-├── views/
-│   ├── RoomView.vue         # Room tabs: Chat | Board | Docs | Process | 🧠 Knowledge Graph
-│   ├── AgentView.vue        # Agent design IDE + sandbox
-│   ├── CourseDetailView.vue # Course homepage
-│   └── …
-├── constants/           # API endpoint paths, HTTP status codes
-└── utils/               # Pure helpers (cookies, sanitize)
+│   │   ├── RoomGraphView.vue    # Canvas force-directed knowledge graph
+│   │   └── GraphQueryPanel.vue  # Analytics Agent Q&A + community browser
+│   ├── workspace/               # KanbanBoard, AgentSandbox
+│   └── common/                  # ResizableSplitPane, ConfirmModal, Toast
+├── layouts/
+│   └── BaseLayout.vue           # Sidebar: Workspace | 🔀 Workflow Studio | ⚡ Triggers | Analytics
+├── constants/                   # API endpoint paths
+└── utils/                       # Pure helpers (cookies, sanitize)
 ```
 
 ---
@@ -68,8 +77,7 @@ src/
 ## Getting Started
 
 ### Prerequisites
-- Node.js ≥ 18
-- npm ≥ 9
+- Node.js ≥ 18 · npm ≥ 9
 - Backend running at `localhost:8000` (see root README)
 
 ### Install & Run
@@ -79,39 +87,60 @@ npm run dev
 ```
 → App available at http://localhost:5173
 
-Vite proxies all `/api` requests to the backend (`http://localhost:8000`) — no CORS setup needed in dev.
+Vite proxies all `/api` requests to the backend — no CORS setup needed in dev.
 
 ---
 
 ## Architecture Patterns
 
-### 1. Composable-first Logic
-Business logic lives in `src/composables/`, not in components or Pinia stores.
+### 1. Workflow Studio (New)
 
-- **`useWebSocket`** — Handles connection lifecycle, reconnect, cleanup on `onUnmounted`.
-- **`useRoomChat`** — Wraps `useWebSocket` + chat state, A2A trace parsing, and workspace artifact dispatch.
-- **`useDesignAgent`** — Agent config state + version control API calls.
+Two new Studio views live at `/studio/workflows` and `/studio/triggers`.
 
-### 2. Pinia for Global Shared State
+`WorkflowEditor.vue` operates in **dual-mode**:
+- **Studio mode** (`/studio/workflows/:workflowId`) — loads/saves via `/workflows/{id}`, fetches agents globally
+- **Legacy Room mode** (`/rooms/:roomId/workflow`) — loads/saves via `/rooms/{id}/workflow`
+
+The `workflowService.ts` provides:
+```ts
+workflowService.listWorkflows()          // GET /workflows
+workflowService.createWorkflow(data)     // POST /workflows
+workflowService.updateWorkflow(id, data) // PUT /workflows/{id}
+workflowService.executeWorkflow(id, {})  // POST /workflows/{id}/execute
+
+workflowService.listTriggers()           // GET /triggers
+workflowService.createTrigger(data)      // POST /triggers
+workflowService.updateTrigger(id, data)  // PUT /triggers/{id}
+```
+
+### 2. Trigger Policy UI
+
+`TriggersView.vue` lets non-student users:
+- View all active `TriggerPolicy` rules with event type labels and target workflow names
+- Create new rules (event_type, conditions JSON, target workflow, optional scope session)
+- Toggle active/inactive + delete
+
+### 3. Composable-first Logic
+
+Business logic lives in `src/composables/`, not in components or stores.
+- **`useRoomChat`** — WebSocket + chat state + A2A trace parsing
+- **`useDesignAgent`** — Agent config state + version control API calls
+
+### 4. Pinia for Global Shared State
+
 Only truly shared state lives in stores:
-- **`useAuthStore`** — Current user + impersonation flag.
-- **`useWorkspaceStore`** — Artifacts with optimistic updates + WebSocket-driven real-time sync.
+- **`useAuthStore`** — Current user + impersonation flag
+- **`useWorkspaceStore`** — Artifacts with optimistic updates + WebSocket-driven sync
 
-### 3. Route Guards
-All routes under `/` require `requiresAuth`. Role-specific routes use `requiresAdmin` or `requiresNonStudent`. On 403/404 API responses, views redirect to `/courses` rather than showing broken UI.
+### 5. Route Guards
 
-### 4. Knowledge Graph Visualization (`RoomGraphView.vue`)
-The graph view uses a **custom canvas-based force-directed layout** with:
-- Center gravity + node repulsion + edge attraction forces
-- Color-coded nodes by entity type (via `NODE_COLORS` in `types/graph.ts`)
-- Click-to-inspect sidebar showing entity details, community membership, and all related edges
-- Entity type filter dropdown and text search (client-side filtering with opacity dimming)
-- Separate detail panel for selected node's relationships
+All routes under `/` require `requiresAuth`. Role-specific routes use `requiresAdmin` or `requiresNonStudent`.
+Studio routes (`/studio/**`) are accessible to all non-student users.
+On 403/404 API responses, views redirect to `/courses`.
 
-### 5. GraphRAG Query Panel (`GraphQueryPanel.vue`)
-- **Build Graph**: Triggers `POST /graph/{room_id}/build` → ARQ background job
-- **Natural Language Q&A**: Posts to `POST /graph/{room_id}/query`; displays intent badge (Global / Local) and cited sources
-- **Community Browser**: Fetches `GET /graph/{room_id}/communities`; collapsible accordion per cluster
+### 6. Knowledge Graph Visualization (`RoomGraphView.vue`)
+
+Custom canvas-based force-directed layout with center gravity, node repulsion, edge attraction, color-coded nodes by entity type, click-to-inspect sidebar, and entity type filter + text search.
 
 ---
 
@@ -136,9 +165,10 @@ npm run format
 
 1. **Types first** — Define data shapes in `src/types/` before writing components.
 2. **Composable pattern** — Extract reusable logic into `src/composables/useXxx.ts`.
-3. **No `idx` as v-for key** — Use unique IDs or stable composite keys.
-4. **Redirect on errors** — Catch 403/404 in views and call `router.push()`.
-5. **Graph API always checks room access** — Never skip the `_verify_room_access` dependency on graph endpoints.
+3. **Service layer** — All API calls go through `src/services/`; never call `api.get()` directly in a component.
+4. **Dual-mode awareness** — When editing `WorkflowEditor.vue`, ensure both Studio and Room modes remain functional.
+5. **No `idx` as v-for key** — Use unique IDs or stable composite keys.
+6. **Redirect on errors** — Catch 403/404 in views and call `router.push()`.
 
 ---
 

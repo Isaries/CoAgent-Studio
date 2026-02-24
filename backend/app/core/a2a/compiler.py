@@ -1,5 +1,5 @@
 """
-WorkflowCompiler – Translates a RoomWorkflow JSON graph into an
+WorkflowCompiler – Translates a Workflow JSON graph into an
 executable LangGraph StateGraph.
 
 This is the heart of the dynamic multi-agent engine.  It reads the
@@ -100,7 +100,7 @@ class WorkflowCompiler:
         Parameters
         ----------
         graph_data:
-            The ``RoomWorkflow.graph_data`` JSON with ``nodes`` and ``edges``.
+            The ``Workflow.graph_data`` JSON with ``nodes`` and ``edges``.
         agent_registry:
             Mapping from ``AgentConfig.id`` (str) → ``AgentCore`` instance.
         action_registry:

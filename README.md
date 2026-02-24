@@ -4,9 +4,11 @@
 ![Database](https://img.shields.io/badge/db-PostgreSQL%2016%20%7C%20Neo4j%205%20%7C%20Qdrant-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-yellow)
 
-**CoAgent Studio** is a full-stack, multi-agent orchestration platform for education. It lets teachers and students interact with specialized AI agents (Teacher, Student, Designer, Analytics) in real-time collaborative rooms, while administrators can design, version, and monitor agent behavior through a built-in IDE.
+**CoAgent Studio** is a full-stack **AI Agent Orchestration Platform (PaaS)**. It provides a visual workflow designer, an autonomous trigger engine, and a real-time multi-agent execution runtime — all decoupled from any single application context.
 
-A **GraphRAG (Graph Retrieval-Augmented Generation)** engine powers the Analytics Agent, building persistent knowledge graphs from conversations and enabling deep cross-session reasoning.
+Agents, Workflows, and Triggers are **first-class, top-level resources** that can be attached to collaborative rooms, invoked via API/Webhook, or activated automatically by event-driven rules.
+
+A built-in **GraphRAG (Graph Retrieval-Augmented Generation)** engine powers knowledge graph construction from conversations, enabling deep cross-session reasoning by any agent.
 
 ---
 
@@ -17,24 +19,31 @@ Browser (Vue 3 SPA)
       │  HTTP + WebSocket
       ▼
 FastAPI Backend (Python async)
-  ├── PostgreSQL  — persistent data (users, courses, rooms, agents, artifacts, messages)
-  ├── Redis       — task queue (ARQ worker) + Redis Streams (GraphRAG event bus)
+  ├── PostgreSQL  — users, courses, rooms, agents, workflows, triggers, artifacts, messages
+  ├── Redis       — pub/sub (WebSocket broadcast) + ARQ task queue + trigger activity state
   ├── Neo4j 5     — knowledge graph (entities, relationships, community clusters)
   ├── Qdrant      — vector store (entity embeddings, chunk search, community summaries)
-  └── LLM APIs   — OpenAI / Google Gemini (via unified LLMService)
+  └── LLM APIs   — OpenAI / Google Gemini (via unified LLMFactory)
+
+ARQ Worker (background)
+  ├── dispatch_event_task        — evaluates TriggerPolicy rules on events
+  ├── run_workflow_task          — executes a compiled LangGraph workflow
+  ├── evaluate_time_triggers_cron — cron: evaluates timer/silence policies every minute
+  └── GraphRAG tasks             — entity extraction, community building, full rebuild
 ```
 
 ### Key Architectural Concepts
 
-| Concept | Where | Description |
+| Concept | Location | Description |
 |---|---|---|
-| **GraphRAG Engine** | `backend/app/services/graphrag_service.py` | Extracts entity graphs from conversations, runs Leiden clustering, embeds summaries for Analytics Agent |
-| **Incremental Ingestion** | `backend/app/services/graphrag_consumer.py` | Redis Stream consumer with per-room debounce triggers extraction on new messages |
-| **Agent-to-Agent (A2A) Protocol** | `backend/app/core/` | Typed message bus for autonomous agent coordination |
-| **WebSocket Room Broadcasting** | `backend/app/core/socket_manager.py` | Atomic per-room real-time message delivery |
-| **ARQ Task Queue** | `backend/app/worker.py` | Offloads LLM inference and graph builds to background workers |
-| **Optimistic UI** | `frontend/src/stores/workspace.ts` | Immediate local state updates with server-side rollback |
-| **Role-Based Access Control** | Router guards + `permission_service.py` | Super Admin / Admin / Teacher / TA / Student / Guest |
+| **Decoupled Workflows** | `models/workflow.py` | `Workflow` is a top-level resource (not bound to a Room). Rooms, APIs, and Webhooks attach to it via `attached_workflow_id` or `TriggerPolicy` |
+| **Trigger Dispatcher** | `services/trigger_service.py` | Evaluates `TriggerPolicy` rules on every event; supports `user_message`, `silence`, `timer`, `webhook`, `manual` |
+| **ARQ Cron Engine** | `worker.py` | `evaluate_time_triggers_cron` runs each minute to fire time-based and silence-based policies |
+| **Redis Activity State** | `chat.py` → `room_activity:{id}` | O(1) Redis key tracks last activity per session for silence detection |
+| **GraphRAG Engine** | `services/graphrag_service.py` | Extracts entity graphs from conversations, runs Leiden clustering, enables semantic Q&A |
+| **Agent-to-Agent (A2A) Protocol** | `core/a2a/` | Typed message bus for autonomous multi-agent coordination |
+| **WebSocket Broadcast** | `core/socket_manager.py` | Per-room real-time delivery via Redis Pub/Sub |
+| **Role-Based Access Control** | `permission_service.py` + router guards | Super Admin / Admin / Teacher / TA / Student / Guest |
 
 ---
 
@@ -42,18 +51,17 @@ FastAPI Backend (Python async)
 
 ### Frontend (`/frontend`)
 - **Vue 3** (Composition API + `<script setup>`) + **TypeScript**
-- **Vite** (bundler) · **Pinia** (state) · **Vue Router 4** (with auth guards)
-- **Tailwind CSS** + **DaisyUI** · **Vue Flow** (process diagrams) · **Tiptap** (rich-text docs)
-- **Canvas-based** force-directed knowledge graph visualization
+- **Vite** · **Pinia** · **Vue Router 4** (with auth + role guards)
+- **Tailwind CSS** + **DaisyUI** · **Vue Flow** (Workflow Designer canvas) · **Tiptap** (rich-text)
 - Native **WebSockets** with auto-reconnect + exponential backoff
 
 ### Backend (`/backend`)
-- **FastAPI** (async Python 3.10+) with full **OpenAPI** docs at `/docs`
+- **FastAPI** (async Python 3.10+) — OpenAPI docs at `/docs`
 - **SQLModel** (Pydantic + SQLAlchemy 2.0 async) · **Alembic** (migrations)
-- **ARQ + Redis** (background task queue) · **Redis Streams** (event bus)
-- **JWT HttpOnly Cookies** (OAuth2 password flow + refresh token)
-- **OpenAI SDK** + **Google GenAI** unified behind `LLMFactory`
-- **`instructor`** (structured LLM output) · **`tiktoken`** (token-aware chunking)
+- **ARQ + Redis** (background task queue + cron jobs)
+- **LangGraph** (compiled multi-agent graph execution engine)
+- **JWT HttpOnly Cookies** (OAuth2 + refresh token)
+- **OpenAI SDK** + **Google GenAI** via unified `LLMFactory`
 
 ### Infrastructure
 - **Docker Compose** (single command to run all services)
@@ -67,8 +75,8 @@ FastAPI Backend (Python async)
 
 **1. Configure environment**
 
-Copy and edit `.env` in the project root:
 ```env
+# .env (project root)
 SECRET_KEY=change_this_to_a_long_random_string
 POSTGRES_SERVER=db
 POSTGRES_USER=user
@@ -105,31 +113,22 @@ docker compose up --build -d
 
 ### Option B — Manual Development
 
-**Run backing services:**
 ```bash
+# Start backing services
 docker compose up db redis neo4j qdrant -d
-```
 
-**Backend:**
-```bash
+# Backend
 cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
-```
 
-**ARQ Worker (required for agents + GraphRAG):**
-```bash
+# ARQ Worker (required for agents, triggers, GraphRAG)
 python -m arq app.worker.WorkerSettings
-```
 
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
+# Frontend
+cd frontend && npm install && npm run dev
 ```
 
 ---
@@ -138,38 +137,38 @@ npm run dev
 
 ```
 CoAgent-Studio/
-├── backend/           # FastAPI application
-│   ├── app/
-│   │   ├── api/       # Route handlers (users, courses, agents, chat, graph, …)
-│   │   ├── core/
-│   │   │   ├── neo4j_client.py    # Async Neo4j: entity MERGE, Leiden clustering, APOC traversal
-│   │   │   ├── qdrant_client.py   # Vector store: entity/chunk/community embeddings
-│   │   │   ├── embedding_service.py  # OpenAI text-embedding-3-small wrapper
-│   │   │   ├── llm_service.py     # LLMFactory + unified async LLM client
-│   │   │   └── a2a/               # Agent-to-Agent protocol
-│   │   ├── models/    # SQLModel table definitions + GraphRAG Pydantic schemas
-│   │   ├── repositories/ # Data access layer
-│   │   ├── services/
-│   │   │   ├── graphrag_service.py   # GraphRAG ARQ tasks (extract, cluster, summarize)
-│   │   │   ├── graphrag_consumer.py  # Redis Stream consumer (incremental ingestion)
-│   │   │   ├── graph_search_service.py # Intent routing → Global/Local search
-│   │   │   ├── chat_service.py    # Message persistence + GraphRAG event publishing
-│   │   │   └── artifact_service.py   # Artifact CRUD + GraphRAG event publishing
-│   │   └── worker.py  # ARQ worker + GraphRAG consumer lifecycle
-│   ├── alembic/       # Database migration scripts
-│   └── tests/         # pytest suite
-├── frontend/          # Vue 3 SPA
-│   └── src/
-│       ├── components/
-│       │   └── room/
-│       │       ├── RoomGraphView.vue    # Canvas force-directed knowledge graph
-│       │       ├── GraphQueryPanel.vue  # Analytics Agent Q&A + community browser
-│       │       └── …
-│       ├── services/graphService.ts     # GraphRAG API wrapper
-│       ├── types/graph.ts               # GraphRAG type definitions
-│       └── views/RoomView.vue           # Room tabs: Chat | Board | Docs | Process | 🧠 Knowledge Graph
-├── docs/
-│   └── A2A_PROTOCOL.md    # Agent-to-Agent protocol specification
+├── backend/app/
+│   ├── api/api_v1/endpoints/
+│   │   ├── chat.py           # WebSocket + state tracking + trigger dispatch
+│   │   ├── workflows.py      # Global /workflows CRUD + /execute + legacy room routes
+│   │   ├── triggers.py       # TriggerPolicy CRUD (/triggers)
+│   │   ├── agents.py         # Agent config + sandbox
+│   │   └── graph.py          # GraphRAG build / query / visualize
+│   ├── models/
+│   │   ├── workflow.py       # Workflow, WorkflowRun (decoupled from Room)
+│   │   ├── trigger.py        # TriggerPolicy (event_type, conditions, target_workflow_id)
+│   │   └── room.py           # Room (+ attached_workflow_id FK)
+│   ├── services/
+│   │   ├── trigger_service.py        # TriggerDispatcher + ARQ tasks
+│   │   ├── execution/
+│   │   │   └── agent_execution_service.py  # execute_workflow() + legacy adapter
+│   │   ├── graphrag_service.py       # GraphRAG ARQ tasks
+│   │   └── graphrag_consumer.py      # Redis Stream consumer
+│   ├── core/
+│   │   ├── a2a/              # Agent-to-Agent protocol + compiler
+│   │   └── socket_manager.py # WebSocket room broadcaster
+│   └── worker.py             # ARQ functions + cron jobs registration
+├── frontend/src/
+│   ├── views/studio/
+│   │   ├── WorkflowsView.vue   # Workflow list + create/delete
+│   │   └── TriggersView.vue    # Trigger policy management
+│   ├── views/WorkflowEditorView.vue  # Dual-mode: Studio / Legacy Room
+│   ├── components/workflow/
+│   │   ├── WorkflowEditor.vue  # Vue Flow canvas editor
+│   │   ├── AgentNode.vue       # Draggable agent node
+│   │   └── PropertiesPanel.vue # Node/edge config panel
+│   └── services/workflowService.ts  # Global + legacy + trigger APIs
+├── docs/A2A_PROTOCOL.md
 ├── docker-compose.yml
 └── .env
 ```
@@ -178,22 +177,33 @@ CoAgent-Studio/
 
 ## Key Features
 
-### Collaborative Learning
-- **Real-Time Chat Rooms** — WebSocket broadcast with A2A trace visualization
+### 🔀 Workflow Studio (New)
+- **Visual Workflow Designer** — Drag-and-drop multi-agent graph canvas
+- **Global Workflows** — Workflows are top-level resources, attachable to any room or API
+- **Manual Execution** — Trigger any workflow via API or Studio UI
+- **Execution History** — Full `WorkflowRun` audit log per workflow
+
+### ⚡ Trigger Engine (New)
+- **TriggerPolicy** — Configurable rules linking events to workflows
+- **Event Types**: `user_message`, `silence`, `timer`, `webhook`, `manual`
+- **Silence Detection** — Redis-backed O(1) last-activity tracking; fires when a room goes quiet
+- **Debounce Locking** — Redis SETNX prevents duplicate firing within cooldown windows
+- **Cron Polling** — ARQ native cron evaluates time-based policies every minute
+
+### 🏫 Collaborative Rooms (Legacy)
+- **Real-Time Chat** — WebSocket broadcast with A2A trace visualization
 - **Agent Design IDE** — Version-controlled system prompt editor with live sandbox
 - **Kanban Board + Docs + Process Diagrams** — AI-generated workspace artifacts
-- **Multi-Model Support** — OpenAI GPT & Google Gemini via unified API
 
-### 🧠 Analytics Agent (GraphRAG)
-- **Knowledge Graph** — Entities (people, concepts, technologies, artifacts) extracted from conversations
+### 🧠 GraphRAG Knowledge Engine
+- **Knowledge Graph** — Entities extracted from conversations via LLM
 - **Leiden Community Detection** — Thematic clusters via Neo4j GDS
-- **Dual Search Strategy** — Global search (community summaries) for macro questions, Local search (APOC multi-hop traversal + Qdrant chunks) for specific entities
-- **Incremental Ingestion** — Redis Stream consumer automatically updates the graph within ~10 seconds of new messages
-- **Interactive Visualization** — Canvas force-directed graph with type filtering, search, and relationship inspection
+- **Dual Search** — Global (community summaries) + Local (APOC multi-hop + Qdrant)
+- **Incremental Ingestion** — Redis Stream consumer updates graph within ~10s of new messages
 
-### Security & Operations
+### 🔐 Security & Operations
+- **RBAC** — Super Admin / Admin / Teacher / TA / Student / Guest per-resource checks
 - **Impersonation Mode** — Admins can "view as" any user for debugging
-- **RBAC** — Per-room and per-resource permission checks on every graph API
 - **Async LLM Jobs** — Heavy inference runs in background via ARQ + Redis
 
 ---

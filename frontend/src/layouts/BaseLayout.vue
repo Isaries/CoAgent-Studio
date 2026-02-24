@@ -270,6 +270,12 @@ export default {
             <router-link to="/workspace" active-class="active">Workspace (Agents)</router-link>
           </li>
           <li v-if="!isStudent">
+            <router-link to="/studio/workflows" active-class="active">🔀 Workflow Studio</router-link>
+          </li>
+          <li v-if="!isStudent">
+            <router-link to="/studio/triggers" active-class="active">⚡ Triggers</router-link>
+          </li>
+          <li v-if="!isStudent">
             <router-link to="/analytics" active-class="active">Analytics</router-link>
           </li>
           <li v-if="!isStudent">

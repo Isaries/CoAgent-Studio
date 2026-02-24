@@ -20,6 +20,7 @@ from app.api.api_v1.endpoints import (
     threads,
     admin_db,
     workflows,
+    triggers,
 )
 
 api_router = APIRouter()
@@ -51,6 +52,9 @@ api_router.include_router(graph.router, prefix="/graph", tags=["graph"])
 
 # Workflow Engine
 api_router.include_router(workflows.router, tags=["workflows"])
+
+# Trigger Policies
+api_router.include_router(triggers.router, tags=["triggers"])
 
 
 

@@ -99,7 +99,27 @@ const router = createRouter({
           name: 'system-agent-settings',
           component: () => import('../views/SystemSettingsView.vue'),
           meta: { requiresAdmin: true }
-        }
+        },
+
+        // ─── AI Studio (Decoupled Orchestration Center) ────────
+        {
+          path: 'studio/workflows',
+          name: 'studio-workflows',
+          component: () => import('../views/studio/WorkflowsView.vue'),
+          meta: { requiresNonStudent: true }
+        },
+        {
+          path: 'studio/workflows/:workflowId',
+          name: 'studio-workflow-editor',
+          component: () => import('../views/WorkflowEditorView.vue'),
+          meta: { requiresNonStudent: true }
+        },
+        {
+          path: 'studio/triggers',
+          name: 'studio-triggers',
+          component: () => import('../views/studio/TriggersView.vue'),
+          meta: { requiresNonStudent: true }
+        },
       ]
     },
     {

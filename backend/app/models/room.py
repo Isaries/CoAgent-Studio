@@ -54,6 +54,9 @@ class Room(RoomBase, table=True):
     course_id: UUID = Field(foreign_key="course.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Decoupled workflow binding: which Workflow powers this Room's AI
+    attached_workflow_id: Optional[UUID] = Field(default=None, foreign_key="workflow.id")
+
     course: "Course" = Relationship(back_populates="rooms")
 
 
@@ -65,6 +68,7 @@ class RoomRead(RoomBase):
     id: UUID
     course_id: UUID
     created_at: datetime
+    attached_workflow_id: Optional[UUID] = None
 
 
 class RoomUpdate(SQLModel):
@@ -75,3 +79,4 @@ class RoomUpdate(SQLModel):
     ai_frequency: Optional[float] = None
     ai_mode: Optional[str] = None
     workflow_engine_version: Optional[str] = None
+    attached_workflow_id: Optional[UUID] = None

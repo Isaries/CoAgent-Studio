@@ -3,6 +3,10 @@ Workflow Models for Dynamic Multi-Agent Graph Engine.
 
 Stores the visual workflow graph topology (nodes & edges) created by the
 frontend canvas, and tracks each execution run for debugging and replay.
+
+NOTE: Workflows are now **decoupled from Rooms**.  A Workflow is a
+first-class, top-level resource that can be attached to any surface
+(Room, API endpoint, Webhook, batch job, etc.) via its UUID.
 """
 
 from datetime import datetime
@@ -12,7 +16,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, SQLModel
 
 
 # ---------------------------------------------------------------------------
@@ -49,22 +53,25 @@ class WorkflowEdgeType(str, Enum):
 
 
 # ---------------------------------------------------------------------------
-# RoomWorkflow – the blueprint / topology
+# Workflow – the blueprint / topology (decoupled from Room)
 # ---------------------------------------------------------------------------
 
-class RoomWorkflowBase(SQLModel):
-    """Shared fields for RoomWorkflow create / read schemas."""
+class WorkflowBase(SQLModel):
+    """Shared fields for Workflow create / read schemas."""
     name: str = Field(default="Default Workflow")
     is_active: bool = Field(default=True)
 
 
-class RoomWorkflow(RoomWorkflowBase, table=True):
+class Workflow(WorkflowBase, table=True):
     """
-    Stores the visual graph topology for a room.
+    Stores a visual graph topology.
 
-    One room has at most one active workflow.  The ``graph_data`` JSONB
-    column holds the full node/edge structure exported by the frontend
-    canvas (Vue Flow / React Flow format).
+    A Workflow is a **top-level resource** – it does NOT belong to any Room.
+    Rooms (or other surfaces) can reference a Workflow by setting their
+    ``attached_workflow_id`` field.
+
+    The ``graph_data`` JSONB column holds the full node/edge structure
+    exported by the frontend canvas (Vue Flow format).
 
     graph_data schema:
     {
@@ -79,10 +86,9 @@ class RoomWorkflow(RoomWorkflowBase, table=True):
       ]
     }
     """
-    __tablename__ = "room_workflow"
+    __tablename__ = "workflow"
 
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
-    room_id: UUID = Field(foreign_key="room.id", unique=True, index=True)
 
     graph_data: Dict[str, Any] = Field(
         default_factory=lambda: {"nodes": [], "edges": []},
@@ -94,44 +100,49 @@ class RoomWorkflow(RoomWorkflowBase, table=True):
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
 
-class RoomWorkflowCreate(RoomWorkflowBase):
-    room_id: UUID
+class WorkflowCreate(WorkflowBase):
     graph_data: Dict[str, Any] = Field(default_factory=lambda: {"nodes": [], "edges": []})
 
 
-class RoomWorkflowRead(RoomWorkflowBase):
+class WorkflowRead(WorkflowBase):
     id: UUID
-    room_id: UUID
     graph_data: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
 
 
-class RoomWorkflowUpdate(SQLModel):
+class WorkflowUpdate(SQLModel):
     name: Optional[str] = None
     graph_data: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
 
 
 # ---------------------------------------------------------------------------
-# WorkflowRun – execution instance
+# WorkflowRun – execution instance (decoupled from Room)
 # ---------------------------------------------------------------------------
 
 class WorkflowRun(SQLModel, table=True):
     """
     Tracks a single execution of a workflow graph.
 
-    Each time a user message (or timer event) triggers the graph engine,
+    Each time a trigger event fires (user message, timer, webhook, etc.),
     a new ``WorkflowRun`` is created.  The ``state_snapshot`` stores the
     LangGraph checkpoint so the run can be paused and resumed.
+
+    ``session_id`` is a generic string identifier that ties the run back
+    to its source context (e.g. a Room ID, an API request ID, a thread ID).
     """
     __tablename__ = "workflow_run"
 
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
-    room_id: UUID = Field(foreign_key="room.id", index=True)
-    workflow_id: UUID = Field(foreign_key="room_workflow.id", index=True)
-    trigger_message_id: Optional[UUID] = Field(
-        default=None, foreign_key="message.id"
+    workflow_id: UUID = Field(foreign_key="workflow.id", index=True)
+
+    # Generic context identifier (replaces old room_id binding)
+    session_id: str = Field(index=True)
+
+    # The full trigger payload that initiated this run
+    trigger_payload: Dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSONB)
     )
 
     status: str = Field(default=WorkflowStatus.PENDING.value)
@@ -155,10 +166,20 @@ class WorkflowRun(SQLModel, table=True):
 
 class WorkflowRunRead(SQLModel):
     id: UUID
-    room_id: UUID
     workflow_id: UUID
+    session_id: str
     status: str
     execution_log: Optional[List[Dict[str, Any]]] = []
     started_at: datetime
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible aliases (ease migration for existing code)
+# ---------------------------------------------------------------------------
+RoomWorkflow = Workflow
+RoomWorkflowBase = WorkflowBase
+RoomWorkflowCreate = WorkflowCreate
+RoomWorkflowRead = WorkflowRead
+RoomWorkflowUpdate = WorkflowUpdate

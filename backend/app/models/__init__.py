@@ -14,7 +14,13 @@ from .room import Room, RoomCreate, RoomRead, RoomUpdate, UserRoomLink, RoomAgen
 from .thread import AgentThread, AgentThreadCreate, AgentThreadRead, ThreadMessage, ThreadMessageCreate, ThreadMessageRead
 from .user import User, UserCreate, UserRead, UserRole, UserUpdate
 from .user_api_key import UserAPIKey, UserAPIKeyCreate, UserAPIKeyRead
-from .workflow import RoomWorkflow, RoomWorkflowCreate, RoomWorkflowRead, RoomWorkflowUpdate, WorkflowRun, WorkflowRunRead, WorkflowStatus
+from .workflow import (
+    Workflow, WorkflowCreate, WorkflowRead, WorkflowUpdate,
+    WorkflowRun, WorkflowRunRead, WorkflowStatus,
+    # Backward-compatible aliases
+    RoomWorkflow, RoomWorkflowCreate, RoomWorkflowRead, RoomWorkflowUpdate,
+)
+from .trigger import TriggerPolicy, TriggerPolicyCreate, TriggerPolicyRead, TriggerPolicyUpdate, TriggerEventType
 
 # Import A2A models to ensure table creation
 from app.core.a2a.store import A2AMessageRecord
@@ -78,14 +84,25 @@ __all__ = [
     "UserAPIKeyCreate",
     "UserAPIKeyRead",
     "A2AMessageRecord",  # Ensure A2A table is created
-    # Workflow Engine
+    # Workflow Engine (new decoupled names)
+    "Workflow",
+    "WorkflowCreate",
+    "WorkflowRead",
+    "WorkflowUpdate",
+    "WorkflowRun",
+    "WorkflowRunRead",
+    "WorkflowStatus",
+    # Backward-compat aliases
     "RoomWorkflow",
     "RoomWorkflowCreate",
     "RoomWorkflowRead",
     "RoomWorkflowUpdate",
-    "WorkflowRun",
-    "WorkflowRunRead",
-    "WorkflowStatus",
+    # Trigger Policies
+    "TriggerPolicy",
+    "TriggerPolicyCreate",
+    "TriggerPolicyRead",
+    "TriggerPolicyUpdate",
+    "TriggerEventType",
 ]
 
 

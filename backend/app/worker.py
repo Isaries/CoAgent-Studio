@@ -13,6 +13,12 @@ from app.services.graphrag_service import (
     extract_entities_task,
     full_graph_rebuild_task,
 )
+from app.services.trigger_service import (
+    dispatch_event_task,
+    run_workflow_task,
+    evaluate_time_triggers_cron,
+)
+from arq.cron import cron
 
 logger = structlog.get_logger()
 
@@ -61,10 +67,16 @@ class WorkerSettings:
     functions: ClassVar[list] = [
         run_agent_cycle_task,
         run_agent_time_task,
+        # Trigger Dispatcher tasks
+        dispatch_event_task,
+        run_workflow_task,
         # GraphRAG tasks
         extract_entities_task,
         build_communities_task,
         full_graph_rebuild_task,
+    ]
+    cron_jobs: ClassVar[list] = [
+        cron(evaluate_time_triggers_cron, minute=set(range(60))),
     ]
     redis_settings = RedisSettings(host=settings.REDIS_HOST, port=settings.REDIS_PORT)
     on_startup = startup

@@ -20,9 +20,9 @@ export interface WorkflowGraphData {
     edges: WorkflowEdgeData[]
 }
 
-export interface RoomWorkflow {
+/** Decoupled Workflow – no longer bound to a Room */
+export interface Workflow {
     id: string
-    room_id: string
     name: string
     is_active: boolean
     graph_data: WorkflowGraphData
@@ -30,10 +30,13 @@ export interface RoomWorkflow {
     updated_at: string
 }
 
+/** @deprecated Use Workflow instead */
+export type RoomWorkflow = Workflow & { room_id?: string }
+
 export interface WorkflowRun {
     id: string
-    room_id: string
     workflow_id: string
+    session_id: string
     status: 'pending' | 'running' | 'paused' | 'completed' | 'failed'
     execution_log: Array<Record<string, any>>
     started_at: string
@@ -41,9 +44,70 @@ export interface WorkflowRun {
     error_message: string | null
 }
 
+export interface TriggerPolicy {
+    id: string
+    name: string
+    event_type: string
+    conditions: Record<string, any>
+    target_workflow_id: string
+    scope_session_id: string | null
+    is_active: boolean
+    created_at: string
+    updated_at: string
+}
+
 export const workflowService = {
+    // ===========================================
+    // Global Workflow CRUD  (new decoupled API)
+    // ===========================================
+    async listWorkflows() {
+        return api.get<Workflow[]>('/workflows')
+    },
+
+    async getWorkflowById(workflowId: string) {
+        return api.get<Workflow>(`/workflows/${workflowId}`)
+    },
+
+    async createWorkflow(data: {
+        name?: string
+        graph_data?: WorkflowGraphData
+        is_active?: boolean
+    }) {
+        return api.post<Workflow>('/workflows', data)
+    },
+
+    async updateWorkflow(workflowId: string, data: {
+        name?: string
+        graph_data?: WorkflowGraphData
+        is_active?: boolean
+    }) {
+        return api.put<Workflow>(`/workflows/${workflowId}`, data)
+    },
+
+    async deleteWorkflowById(workflowId: string) {
+        return api.delete(`/workflows/${workflowId}`)
+    },
+
+    async executeWorkflow(workflowId: string, payload: Record<string, any> = {}) {
+        return api.post(`/workflows/${workflowId}/execute`, payload)
+    },
+
+    // Runs (global)
+    async getWorkflowRuns(workflowId: string, limit = 20) {
+        return api.get<WorkflowRun[]>(`/workflows/${workflowId}/runs`, {
+            params: { limit }
+        })
+    },
+
+    async getWorkflowRunById(workflowId: string, runId: string) {
+        return api.get<WorkflowRun>(`/workflows/${workflowId}/runs/${runId}`)
+    },
+
+    // ===========================================
+    // Legacy Room-scoped (backward compat)
+    // ===========================================
     async getWorkflow(roomId: string) {
-        return api.get<RoomWorkflow | null>(`/rooms/${roomId}/workflow`)
+        return api.get<Workflow | null>(`/rooms/${roomId}/workflow`)
     },
 
     async saveWorkflow(roomId: string, data: {
@@ -51,20 +115,29 @@ export const workflowService = {
         graph_data?: WorkflowGraphData
         is_active?: boolean
     }) {
-        return api.put<RoomWorkflow>(`/rooms/${roomId}/workflow`, data)
+        return api.put<Workflow>(`/rooms/${roomId}/workflow`, data)
     },
 
     async deleteWorkflow(roomId: string) {
         return api.delete(`/rooms/${roomId}/workflow`)
     },
 
-    async getWorkflowRuns(roomId: string, limit = 20) {
-        return api.get<WorkflowRun[]>(`/rooms/${roomId}/workflow/runs`, {
-            params: { limit }
-        })
+    // ===========================================
+    // Trigger Policies
+    // ===========================================
+    async listTriggers() {
+        return api.get<TriggerPolicy[]>('/triggers')
     },
 
-    async getWorkflowRun(roomId: string, runId: string) {
-        return api.get<WorkflowRun>(`/rooms/${roomId}/workflow/runs/${runId}`)
+    async createTrigger(data: Partial<TriggerPolicy>) {
+        return api.post<TriggerPolicy>('/triggers', data)
+    },
+
+    async updateTrigger(triggerId: string, data: Partial<TriggerPolicy>) {
+        return api.put<TriggerPolicy>(`/triggers/${triggerId}`, data)
+    },
+
+    async deleteTrigger(triggerId: string) {
+        return api.delete(`/triggers/${triggerId}`)
     },
 }

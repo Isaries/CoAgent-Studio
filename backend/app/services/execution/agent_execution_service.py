@@ -68,16 +68,19 @@ async def _get_active_configs(
 
 
 # Helper to publish to Redis instead of direct socket manager
-async def publish_message(redis, room_id: str, message: str):
-    await redis.publish(f"room_{room_id}", message)
+async def publish_message(redis, channel: str, message: str):
+    await redis.publish(channel, message)
 
 
 async def publish_a2a_trace(
-    redis, room_id: str, event_type: str, details: str,
+    redis, session_id: str, event_type: str, details: str,
     *, node_id: str = None, run_id: str = None,
 ):
     """
     Publish A2A trace event to WebSocket for frontend debugging/visualization.
+
+    Uses ``session_id`` as the channel key (which may be a room_id or any
+    other context identifier).
 
     Supports two formats:
     - v1 (legacy): ``a2a_trace`` type with ``[A2A]|EVENT|details`` content.
@@ -95,23 +98,178 @@ async def publish_a2a_trace(
         "sender": f"[A2A {event_type}]",
         "content": f"[A2A]|{event_type}|{details}",
         "timestamp": ts,
-        "room_id": room_id,
+        "room_id": session_id,
         "metadata": {"is_a2a": True, "event_type": event_type},
     })
-    await redis.publish(f"room_{room_id}", payload_v1)
+    await redis.publish(f"room_{session_id}", payload_v1)
 
     # v2 workflow trace format (for canvas live-tracing)
     if node_id or run_id:
         payload_v2 = json.dumps({
             "type": "workflow_trace",
             "run_id": run_id or "",
-            "room_id": room_id,
+            "room_id": session_id,
             "event_type": event_type,
             "node_id": node_id or "",
             "sub_status": details,
             "timestamp": ts,
         })
-        await redis.publish(f"room_{room_id}", payload_v2)
+        await redis.publish(f"room_{session_id}", payload_v2)
+
+
+# ---------------------------------------------------------------------------
+# Generic Workflow Execution (Decoupled from Room)
+# ---------------------------------------------------------------------------
+
+async def execute_workflow(
+    session: AsyncSession,
+    redis,
+    workflow_id: UUID,
+    session_id: str,
+    trigger_payload: dict,
+) -> None:
+    """
+    Execute a workflow by its ID.  This is the **headless** entry point
+    that does NOT depend on Room or Message models.
+
+    Parameters
+    ----------
+    workflow_id : UUID
+        The ID of the Workflow (graph topology) to execute.
+    session_id : str
+        A generic context identifier (could be a room_id, API request ID, etc.)
+    trigger_payload : dict
+        The event payload that initiated this run (e.g. user message content).
+    """
+    from app.core.a2a.compiler import WorkflowCompiler
+    from app.models.workflow import Workflow, WorkflowRun, WorkflowStatus
+    from app.repositories.agent_repo import AgentConfigRepository
+    from app.factories.agent_factory import AgentFactory
+
+    # 1. Load workflow topology by ID
+    workflow = await session.get(Workflow, workflow_id)
+    if not workflow or not workflow.is_active:
+        logger.warning("execute_workflow_not_found", workflow_id=str(workflow_id))
+        return
+
+    # 2. Resolve all agent configs that are referenced in the graph
+    # For now, we scan the graph_data nodes for agent_id references
+    agent_ids_in_graph = []
+    for node in workflow.graph_data.get("nodes", []):
+        agent_id = node.get("config", {}).get("agent_id")
+        if agent_id:
+            agent_ids_in_graph.append(UUID(agent_id))
+
+    all_configs = []
+    for aid in agent_ids_in_graph:
+        config = await session.get(AgentConfig, aid)
+        if config:
+            all_configs.append(config)
+
+    keys_map = await _resolve_agent_keys(session, all_configs)
+
+    # 3. Build agent registry: agent_config.id -> AgentCore instance
+    agent_registry = {}
+    for config in all_configs:
+        agent_keys = keys_map.get(config.id)
+        agent = AgentFactory.create_agent(config, api_keys=agent_keys)
+        if agent:
+            agent_registry[str(config.id)] = agent
+
+    # 4. Create a WorkflowRun record
+    run = WorkflowRun(
+        workflow_id=workflow.id,
+        session_id=session_id,
+        trigger_payload=trigger_payload,
+        status=WorkflowStatus.RUNNING.value,
+    )
+    session.add(run)
+    await session.flush()
+
+    # 5. Compile and execute the graph
+    compiler = WorkflowCompiler()
+
+    # Action registry: broadcast action saves and publishes messages
+    async def broadcast_action(state: dict) -> None:
+        proposal = state.get("current_proposal", "")
+        if proposal:
+            await _save_and_broadcast(
+                session, redis, proposal, session_id,
+                AgentType.TEACHER, "[AI Agent]"
+            )
+
+    try:
+        compiled_graph = compiler.compile(
+            graph_data=workflow.graph_data,
+            agent_registry=agent_registry,
+            action_registry={"broadcast": broadcast_action},
+        )
+
+        # Build initial state from the trigger payload
+        initial_state = {
+            "messages": [trigger_payload] if trigger_payload else [],
+            "current_proposal": None,
+            "evaluation_result": None,
+            "shared_memory": {"session_id": session_id},
+            "_cycle_count": 0,
+            "_active_node_id": None,
+        }
+
+        # Publish trace: workflow started
+        await publish_a2a_trace(redis, session_id, "WORKFLOW_START", f"Workflow '{workflow.name}' triggered")
+
+        result = await compiled_graph.ainvoke(initial_state)
+
+        # Update run status
+        run.status = WorkflowStatus.COMPLETED.value
+        from datetime import datetime as dt
+        run.completed_at = dt.utcnow()
+        session.add(run)
+        await session.commit()
+
+        await publish_a2a_trace(redis, session_id, "WORKFLOW_END", "Workflow completed ✓")
+        logger.info("workflow_completed", session_id=session_id, run_id=str(run.id))
+
+    except Exception as e:
+        run.status = WorkflowStatus.FAILED.value
+        run.error_message = str(e)[:500]
+        session.add(run)
+        await session.commit()
+
+        await publish_a2a_trace(redis, session_id, "WORKFLOW_ERROR", f"Workflow failed: {str(e)[:80]}")
+        logger.error("workflow_failed", session_id=session_id, error=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Room-aware adapter (backward compat – wraps generic execute_workflow)
+# ---------------------------------------------------------------------------
+
+async def _execute_v2_graph_workflow(
+    session: AsyncSession,
+    redis,
+    room,
+    room_id: str,
+    last_message: Message,
+) -> None:
+    """
+    Legacy adapter: resolves the Room's attached_workflow_id and delegates
+    to the generic ``execute_workflow`` function.
+    """
+    # Determine the workflow to execute
+    workflow_id = getattr(room, 'attached_workflow_id', None)
+
+    if not workflow_id:
+        logger.warning("v2_no_attached_workflow", room_id=room_id)
+        return
+
+    # Build trigger payload from the message
+    trigger_payload = {
+        "type": "user_message",
+        "sender_id": str(last_message.sender_id) if hasattr(last_message, 'sender_id') and last_message.sender_id else "user",
+        "content": last_message.content or "",
+    }
+
+    await execute_workflow(session, redis, workflow_id, room_id, trigger_payload)
 
 
 async def run_agent_cycle_task(ctx, room_id: str, user_msg_id: str) -> None:
@@ -168,117 +326,6 @@ async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:  # 
         return
 
 
-async def _execute_v2_graph_workflow(
-    session: AsyncSession,
-    redis,
-    room,
-    room_id: str,
-    last_message: Message,
-) -> None:
-    """
-    Execute the v2 LangGraph-based workflow engine for a room.
-
-    Loads the RoomWorkflow graph_data, compiles it into a LangGraph,
-    resolves all agent instances, and runs the graph.
-    """
-    from app.core.a2a.compiler import WorkflowCompiler
-    from app.models.workflow import RoomWorkflow, WorkflowRun, WorkflowStatus
-    from app.repositories.agent_repo import AgentConfigRepository
-    from app.factories.agent_factory import AgentFactory
-
-    # 1. Load workflow topology
-    stmt = select(RoomWorkflow).where(RoomWorkflow.room_id == room.id)
-    result = await session.exec(stmt)
-    workflow = result.first()
-
-    if not workflow or not workflow.is_active:
-        logger.warning("v2_workflow_not_found", room_id=room_id)
-        return
-
-    # 2. Resolve all agent configs linked to this room
-    repo = AgentConfigRepository(session)
-    all_configs = await repo.get_all_active_configs(room.id)
-    if not all_configs:
-        return
-
-    keys_map = await _resolve_agent_keys(session, all_configs)
-
-    # 3. Build agent registry: agent_config.id -> AgentCore instance
-    agent_registry = {}
-    for config in all_configs:
-        agent_keys = keys_map.get(config.id)
-        agent = AgentFactory.create_agent(config, api_keys=agent_keys)
-        if agent:
-            agent_registry[str(config.id)] = agent
-
-    # 4. Create a WorkflowRun record
-    run = WorkflowRun(
-        room_id=UUID(room_id),
-        workflow_id=workflow.id,
-        trigger_message_id=last_message.id if hasattr(last_message, 'id') else None,
-        status=WorkflowStatus.RUNNING.value,
-    )
-    session.add(run)
-    await session.flush()
-
-    # 5. Compile and execute the graph
-    compiler = WorkflowCompiler()
-
-    # Action registry: broadcast action saves and publishes messages
-    async def broadcast_action(state: dict) -> None:
-        proposal = state.get("current_proposal", "")
-        if proposal:
-            await _save_and_broadcast(
-                session, redis, proposal, room_id,
-                AgentType.TEACHER, "[AI Agent]"
-            )
-
-    try:
-        compiled_graph = compiler.compile(
-            graph_data=workflow.graph_data,
-            agent_registry=agent_registry,
-            action_registry={"broadcast": broadcast_action},
-        )
-
-        # Build initial state from the triggering message
-        initial_state = {
-            "messages": [{
-                "type": "user_message",
-                "sender_id": str(last_message.sender_id) if hasattr(last_message, 'sender_id') else "user",
-                "content": last_message.content or "",
-            }],
-            "current_proposal": None,
-            "evaluation_result": None,
-            "shared_memory": {"room_id": room_id},
-            "_cycle_count": 0,
-            "_active_node_id": None,
-        }
-
-        # Publish trace: workflow started
-        await publish_a2a_trace(redis, room_id, "WORKFLOW_START", f"Workflow '{workflow.name}' triggered")
-
-        result = await compiled_graph.ainvoke(initial_state)
-
-        # Update run status
-        run.status = WorkflowStatus.COMPLETED.value
-        from datetime import datetime as dt
-        run.completed_at = dt.utcnow()
-        session.add(run)
-        await session.commit()
-
-        await publish_a2a_trace(redis, room_id, "WORKFLOW_END", "Workflow completed ✓")
-        logger.info("v2_workflow_completed", room_id=room_id, run_id=str(run.id))
-
-    except Exception as e:
-        run.status = WorkflowStatus.FAILED.value
-        run.error_message = str(e)[:500]
-        session.add(run)
-        await session.commit()
-
-        await publish_a2a_trace(redis, room_id, "WORKFLOW_ERROR", f"Workflow failed: {str(e)[:80]}")
-        logger.error("v2_workflow_failed", room_id=room_id, error=str(e))
-
-
 async def process_agents_logic(
     room_id: str, session: AsyncSession, redis, last_message: Message
 ) -> None:
@@ -296,9 +343,15 @@ async def process_agents_logic(
 
 
 
-
-async def _save_and_broadcast(session, redis, content, room_id, agent_type, prefix) -> None:
-    msg = Message(content=content, room_id=UUID(room_id), agent_type=agent_type)
+async def _save_and_broadcast(session, redis, content, session_id, agent_type, prefix) -> None:
+    # Safely parse session_id as UUID; skip DB save if it's not a valid room UUID
+    try:
+        room_uuid = UUID(session_id)
+    except (ValueError, AttributeError):
+        # Non-room context (e.g. API-triggered workflow) – just log, don't save to DB
+        logger.info("broadcast_skip_non_room", session_id=session_id)
+        return
+    msg = Message(content=content, room_id=room_uuid, agent_type=agent_type)
     session.add(msg)
     await session.commit()
     await session.refresh(msg)
@@ -311,13 +364,13 @@ async def _save_and_broadcast(session, redis, content, room_id, agent_type, pref
         "sender": prefix,  # e.g. "[Student AI]"
         "content": content,
         "timestamp": timestamp,
-        "room_id": str(room_id),
+        "room_id": str(session_id),
         "metadata": {
             "is_ai": True, 
             "agent_type": agent_type.value if hasattr(agent_type, "value") else str(agent_type)
         }
     })
-    await publish_message(redis, room_id, payload)
+    await publish_message(redis, f"room_{session_id}", payload)
 
 
 async def check_and_process_time_triggers(room_id: str, session: AsyncSession, arq_pool) -> None:

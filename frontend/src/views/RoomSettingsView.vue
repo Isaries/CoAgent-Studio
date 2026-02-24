@@ -5,9 +5,11 @@ import api from '../api'
 import { roomService } from '../services/roomService'
 import { workspaceService } from '../services/workspaceService'
 import { agentService } from '../services/agentService'
+import { workflowService } from '../services/workflowService'
 import { useToastStore } from '../stores/toast'
 import type { Project } from '../types/workspace'
 import type { AgentConfig } from '../types/agent'
+import type { Workflow } from '../services/workflowService'
 import RoomAgentSettingsPanel from '../components/scheduling/RoomAgentSettingsPanel.vue'
 
 const route = useRoute()
@@ -19,6 +21,8 @@ const courseId = ref('')
 // Config State
 const aiFrequency = ref(0.2)
 const isAnalyticsActive = ref(false)
+const attachedWorkflowId = ref<string | null>(null)
+const allWorkflows = ref<Workflow[]>([])
 
 // Agent Assignment State
 const roomAgents = ref<any[]>([])
@@ -34,9 +38,11 @@ const fetchSettings = async () => {
     courseId.value = room.course_id
     aiFrequency.value = room.ai_frequency || 0.2
     isAnalyticsActive.value = !!room.is_analytics_active
+    attachedWorkflowId.value = room.attached_workflow_id || null
 
     await fetchRoomAgents()
     await fetchAvailableProjects()
+    await fetchWorkflows()
   } catch (e: any) {
     console.error('Failed to fetch settings', e)
     if (e.response?.status === 403 || e.response?.status === 404) {
@@ -44,6 +50,15 @@ const fetchSettings = async () => {
       router.push('/courses')
       return
     }
+  }
+}
+
+const fetchWorkflows = async () => {
+  try {
+    const res = await workflowService.listWorkflows()
+    allWorkflows.value = res.data
+  } catch (e) {
+    console.error('Failed to fetch workflows', e)
   }
 }
 
@@ -114,7 +129,8 @@ const saveSettings = async () => {
   try {
     await api.put(`/rooms/${roomId}`, {
       ai_frequency: aiFrequency.value,
-      is_analytics_active: isAnalyticsActive.value
+      is_analytics_active: isAnalyticsActive.value,
+      attached_workflow_id: attachedWorkflowId.value
     })
 
     toast.success('Settings saved!')
@@ -160,10 +176,25 @@ onMounted(() => {
             v-model.number="aiFrequency"
             class="range range-primary"
           />
-          <div class="w-full flex justify-between text-xs px-2 mt-1">
+          <div class="w-full flex justify-between text-xs px-2 mt-1 mb-4">
             <span>Passive (Mentions only)</span>
             <span>Balanced</span>
             <span>Active</span>
+          </div>
+        </div>
+
+        <div class="form-control mb-4 pt-4 border-t">
+          <label class="label">
+            <span class="label-text font-bold">Attached Workflow</span>
+          </label>
+          <select v-model="attachedWorkflowId" class="select select-bordered w-full">
+            <option :value="null">None (No Workflow)</option>
+            <option v-for="wf in allWorkflows" :key="wf.id" :value="wf.id">
+              {{ wf.name }} ({{ wf.is_active ? 'Active' : 'Inactive' }})
+            </option>
+          </select>
+          <div class="text-xs opacity-70 mt-1">
+            Choose which global workflow orchestrates the agents in this room.
           </div>
         </div>
 

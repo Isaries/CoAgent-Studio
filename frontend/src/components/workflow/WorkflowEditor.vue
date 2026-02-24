@@ -27,7 +27,8 @@ import { roomService } from '../../services/roomService'
 import { useToastStore } from '../../stores/toast'
 
 const props = defineProps<{
-  roomId: string
+  roomId?: string
+  workflowId?: string
 }>()
 
 const toast = useToastStore()
@@ -73,10 +74,19 @@ const roomAgents = ref<any[]>([])
 
 const fetchRoomAgents = async () => {
   try {
-    const res = await roomService.getRoomAgents(props.roomId)
-    roomAgents.value = res.data
+    if (props.workflowId) {
+      // Studio mode: fetch all agents globally
+      const { agentService } = await import('../../services/agentService')
+      // Use global agent list (get all available agents)
+      const res = await agentService.getSystemAgents()
+      roomAgents.value = res.data
+    } else if (props.roomId) {
+      // Legacy mode: fetch agents assigned to this room
+      const res = await roomService.getRoomAgents(props.roomId)
+      roomAgents.value = res.data
+    }
   } catch (e) {
-    console.error('Failed to fetch room agents', e)
+    console.error('Failed to fetch agents', e)
   }
 }
 
@@ -194,8 +204,13 @@ const workflowName = ref('Default Workflow')
 const loadWorkflow = async () => {
   isLoading.value = true
   try {
-    const res = await workflowService.getWorkflow(props.roomId)
-    if (res.data) {
+    let res: any
+    if (props.workflowId) {
+      res = await workflowService.getWorkflowById(props.workflowId)
+    } else if (props.roomId) {
+      res = await workflowService.getWorkflow(props.roomId)
+    }
+    if (res?.data) {
       workflowName.value = res.data.name || 'Default Workflow'
       const graph = res.data.graph_data
       if (graph?.nodes?.length) {
@@ -248,10 +263,17 @@ const saveWorkflow = async () => {
       })),
     }
 
-    await workflowService.saveWorkflow(props.roomId, {
-      name: workflowName.value,
-      graph_data: graphData,
-    })
+    if (props.workflowId) {
+      await workflowService.updateWorkflow(props.workflowId, {
+        name: workflowName.value,
+        graph_data: graphData,
+      })
+    } else if (props.roomId) {
+      await workflowService.saveWorkflow(props.roomId, {
+        name: workflowName.value,
+        graph_data: graphData,
+      })
+    }
     toast.success('Workflow saved! ✓')
   } catch (e) {
     console.error(e)
