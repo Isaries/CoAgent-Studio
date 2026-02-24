@@ -104,6 +104,34 @@ class AgentConfigRepository:
         
         return configs
 
+    async def get_all_active_configs(self, room_id: UUID) -> list[AgentConfig]:
+        """
+        Get ALL active agent configs linked to a room (internal + external).
+
+        Used by the v2 graph engine which needs a complete agent registry
+        instead of the legacy teacher/student pair.
+        """
+        cache_key = f"all_configs:room:{room_id}"
+        cached_data = await cache.get_json(cache_key)
+
+        if cached_data:
+            return [AgentConfig(**c) for c in cached_data]
+
+        query: Any = (
+            select(AgentConfig)
+            .join(RoomAgentLink, RoomAgentLink.agent_id == AgentConfig.id)
+            .where(
+                RoomAgentLink.room_id == room_id,
+                RoomAgentLink.is_active == True,
+            )
+            .order_by(col(AgentConfig.updated_at).desc())
+        )
+        result = await self.session.exec(query)
+        configs = list(result.all())
+
+        await cache.set_json(cache_key, [c.model_dump() for c in configs], ttl=60)
+        return configs
+
     async def get_time_context(self, room_id: UUID) -> Tuple[float, float, float]:
         """
         Get silence duration and time since last agent messages. Cached for 5s.

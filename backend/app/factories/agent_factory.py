@@ -66,7 +66,15 @@ class AgentFactory:
 
         # DesignAgent / AnalyticsAgent / Custom agents could be added here
 
-        return None
+        # v2 fallback: create a generic AgentCore for dynamically-typed agents
+        # This enables the LangGraph workflow engine to use any agent config
+        return AgentCore(
+            provider=config.model_provider,
+            api_key=legacy_key,
+            api_keys=api_keys,
+            system_prompt=config.system_prompt,
+            model=config.model,
+        )
 
     @staticmethod
     def create_agents_map(

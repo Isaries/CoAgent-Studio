@@ -14,6 +14,7 @@ from .room import Room, RoomCreate, RoomRead, RoomUpdate, UserRoomLink, RoomAgen
 from .thread import AgentThread, AgentThreadCreate, AgentThreadRead, ThreadMessage, ThreadMessageCreate, ThreadMessageRead
 from .user import User, UserCreate, UserRead, UserRole, UserUpdate
 from .user_api_key import UserAPIKey, UserAPIKeyCreate, UserAPIKeyRead
+from .workflow import RoomWorkflow, RoomWorkflowCreate, RoomWorkflowRead, RoomWorkflowUpdate, WorkflowRun, WorkflowRunRead, WorkflowStatus
 
 # Import A2A models to ensure table creation
 from app.core.a2a.store import A2AMessageRecord
@@ -77,6 +78,14 @@ __all__ = [
     "UserAPIKeyCreate",
     "UserAPIKeyRead",
     "A2AMessageRecord",  # Ensure A2A table is created
+    # Workflow Engine
+    "RoomWorkflow",
+    "RoomWorkflowCreate",
+    "RoomWorkflowRead",
+    "RoomWorkflowUpdate",
+    "WorkflowRun",
+    "WorkflowRunRead",
+    "WorkflowStatus",
 ]
 
 

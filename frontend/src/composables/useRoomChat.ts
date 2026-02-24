@@ -11,6 +11,7 @@ export function useRoomChat(roomId: string) {
     const messages = ref<Message[]>([])
     const showA2ATrace = ref(false)
     const isConnected = ref(false)
+    const activeWorkflowNodeId = ref<string | null>(null)  // For v2 workflow live tracing
 
     // Integrate useWebSocket
     // We initialize with empty URL, connect() will set it.
@@ -98,6 +99,25 @@ export function useRoomChat(roomId: string) {
     }
 
     const handleIncomingMessage = (msg: SocketMessage) => {
+        // 0. Workflow Trace Handling (v2 graph engine)
+        if (msg.type === 'workflow_trace') {
+            const trace = msg as any
+            activeWorkflowNodeId.value = trace.node_id || null
+
+            if (showA2ATrace.value) {
+                messages.value.push({
+                    sender: `[Workflow ${trace.event_type}]`,
+                    content: trace.sub_status || trace.event_type,
+                    isSelf: false,
+                    isAi: false,
+                    isSystem: true,
+                    isA2ATrace: true,
+                    timestamp: trace.timestamp || new Date().toISOString()
+                })
+            }
+            return
+        }
+
         // 1. A2A Trace Handling
         if (msg.content?.startsWith('[A2A]')) {
             if (showA2ATrace.value) {
@@ -173,6 +193,7 @@ export function useRoomChat(roomId: string) {
         showA2ATrace,
         status,
         isConnected,
+        activeWorkflowNodeId,
         connect,
         disconnect,
         fetchHistory,

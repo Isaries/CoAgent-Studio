@@ -77,6 +77,12 @@ const router = createRouter({
           component: () => import('../views/RoomSettingsView.vue')
         },
         {
+          path: 'rooms/:id/workflow',
+          name: 'room-workflow',
+          component: () => import('../views/WorkflowEditorView.vue'),
+          meta: { requiresNonStudent: true }
+        },
+        {
           path: 'admin/users',
           name: 'user-list',
           component: () => import('../views/UserListView.vue'),

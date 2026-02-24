@@ -5,9 +5,6 @@ from app.core.agent_core import AgentCore
 from app.core.a2a.models import A2AMessage, MessageType
 from app.core.a2a.base import A2AAgentMixin, AgentId
 
-if False: # TYPE_CHECKING
-    from app.core.a2a.workflow import WorkflowContext
-
 
 class TeacherAgent(AgentCore, A2AAgentMixin):
     """

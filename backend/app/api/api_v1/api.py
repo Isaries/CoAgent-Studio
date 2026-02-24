@@ -19,6 +19,7 @@ from app.api.api_v1.endpoints import (
     projects,
     threads,
     admin_db,
+    workflows,
 )
 
 api_router = APIRouter()
@@ -47,6 +48,9 @@ api_router.include_router(artifacts.router, prefix="/workspaces", tags=["workspa
 
 # GraphRAG Knowledge Graph
 api_router.include_router(graph.router, prefix="/graph", tags=["graph"])
+
+# Workflow Engine
+api_router.include_router(workflows.router, tags=["workflows"])
 
 
 

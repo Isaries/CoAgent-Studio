@@ -20,6 +20,9 @@ class RoomBase(SQLModel):
     ai_frequency: float = Field(default=0.5)  # 0.0 to 1.0
     ai_mode: str = Field(default="teacher_only")  # off, teacher_only, both
 
+    # Workflow engine version: "v2_graph" (LangGraph)
+    workflow_engine_version: str = Field(default="v2_graph")
+
 
 class UserRoomLink(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="user.id", primary_key=True)
@@ -71,3 +74,4 @@ class RoomUpdate(SQLModel):
     is_analytics_active: Optional[bool] = None
     ai_frequency: Optional[float] = None
     ai_mode: Optional[str] = None
+    workflow_engine_version: Optional[str] = None

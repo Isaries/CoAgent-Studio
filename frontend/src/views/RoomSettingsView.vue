@@ -135,6 +135,9 @@ onMounted(() => {
     <div class="flex justify-between items-center mb-2">
       <h1 class="text-2xl font-bold">Room Settings</h1>
       <div class="flex gap-2">
+        <router-link :to="`/rooms/${roomId}/workflow`" class="btn btn-secondary">
+          🔀 Workflow Editor
+        </router-link>
         <router-link :to="`/rooms/${roomId}`" class="btn btn-ghost">Back to Room</router-link>
         <button @click="saveSettings" class="btn btn-primary">Save Configuration</button>
       </div>

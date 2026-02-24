@@ -23,12 +23,9 @@ class AgentRoomState(SQLModel, table=True):
     room_id: UUID = Field(foreign_key="room.id", index=True)
     agent_id: UUID = Field(foreign_key="agentconfig.id", index=True)
 
-    # --- Sleep / Close State ---
-    is_sleeping: bool = Field(default=False)
-
-    # --- Counters ---
-    message_count_since_last_reply: int = Field(default=0)
-    monologue_count: int = Field(default=0)
+    # --- State tracked by the legacy system removed in Phase 4 ---
+    # is_sleeping, message_count_since_last_reply, and monologue_count
+    # are no longer used because LangGraph manages workflow state intrinsically.
     last_agent_message_at: Optional[datetime] = None
     last_user_message_at: Optional[datetime] = None
 

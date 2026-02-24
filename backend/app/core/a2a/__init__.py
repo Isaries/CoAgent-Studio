@@ -19,17 +19,10 @@ from .payloads import (
     PAYLOAD_SCHEMA_REGISTRY,
 )
 
-# P1: Graph-based Workflow
-from .workflow import (
-    WorkflowGraph,
-    WorkflowNode,
-    WorkflowEdge,
-    WorkflowContext,
-    NodeType,
-    create_student_teacher_workflow,
-    create_direct_broadcast_workflow,
-)
-from .graph_executor import GraphExecutor
+
+
+# P1.5: Dynamic Workflow Compiler (LangGraph)
+from .compiler import WorkflowCompiler, MultiAgentState
 
 # P2: Resilience Patterns
 from .resilience import (
@@ -72,9 +65,9 @@ __all__ = [
     "BroadcastPayload", "ProposalPayload", "SystemPayload", "UserMessagePayload",
     "validate_payload", "create_evaluation_request", "create_evaluation_result",
     "PAYLOAD_SCHEMA_REGISTRY",
-    # Workflow
-    "WorkflowGraph", "WorkflowNode", "WorkflowEdge", "WorkflowContext", "NodeType",
-    "GraphExecutor", "create_student_teacher_workflow", "create_direct_broadcast_workflow",
+
+    # Compiler
+    "WorkflowCompiler", "MultiAgentState",
     # Resilience
     "CircuitBreaker", "CircuitState", "CircuitOpenError", "MaxRetriesExceededError",
     "get_circuit_breaker", "reset_all_breakers", "retry_with_backoff",

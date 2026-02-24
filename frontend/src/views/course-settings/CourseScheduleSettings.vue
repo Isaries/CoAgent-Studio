@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { ScheduleConfig } from '../../types/agent'
+import type { LegacyScheduleConfig } from '../../types/agent'
 
 interface Props {
-  scheduleConfig: ScheduleConfig
+  scheduleConfig: LegacyScheduleConfig
   syncSchedule: boolean
   activeTab: string
   canEdit: boolean
@@ -21,7 +21,7 @@ const emit = defineEmits([
 
 // Local State for Two-Way Binding (Prevents mutation of props)
 import { CalendarMode } from '../../types/enums'
-const localConfig = ref<ScheduleConfig>({ specific: [], general: { mode: CalendarMode.NONE, rules: [] } })
+const localConfig = ref<LegacyScheduleConfig>({ specific: [], general: { mode: CalendarMode.NONE, rules: [] } })
 
 // Update local when prop changes (from parent)
 watch(
