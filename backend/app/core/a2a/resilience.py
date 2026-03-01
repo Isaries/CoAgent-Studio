@@ -332,24 +332,27 @@ def with_resilience(
             if not breaker.can_execute():
                 retry_after = breaker.get_retry_after()
                 raise CircuitOpenError(breaker_name, retry_after)
-            
+
             async def attempt():
-                try:
-                    result = await func(*args, **kwargs)
-                    breaker.record_success()
-                    return result
-                except Exception as e:
-                    breaker.record_failure()
-                    raise
-            
-            # Execute with retries
-            return await retry_with_backoff(
-                attempt,
-                max_attempts=max_retries,
-                base_delay=base_delay,
-                max_delay=max_delay,
-                retryable_exceptions=retryable_exceptions,
-            )
+                result = await func(*args, **kwargs)
+                breaker.record_success()
+                return result
+
+            # Execute with retries — only retryable exceptions trigger retry.
+            # Non-retryable exceptions propagate immediately without
+            # tripping the circuit breaker.
+            try:
+                return await retry_with_backoff(
+                    attempt,
+                    max_attempts=max_retries,
+                    base_delay=base_delay,
+                    max_delay=max_delay,
+                    retryable_exceptions=retryable_exceptions,
+                )
+            except MaxRetriesExceededError:
+                # Record failure ONCE after all retries exhausted
+                breaker.record_failure()
+                raise
         
         return wrapper
     return decorator

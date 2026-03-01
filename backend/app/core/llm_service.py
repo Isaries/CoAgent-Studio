@@ -13,6 +13,15 @@ from app.core.a2a.resilience import with_resilience
 
 logger = logging.getLogger(__name__)
 
+
+class AllKeysExhaustedError(Exception):
+    """Raised when all API keys have been tried and none succeeded."""
+
+    def __init__(self, last_error: Exception):
+        self.last_error = last_error
+        super().__init__(f"All API keys failed. Last error: {last_error}")
+
+
 @dataclass
 class ToolCall:
     id: str
@@ -63,7 +72,7 @@ class BaseLLMService(LLMService):
         keys = list(dict.fromkeys(keys))
         
         if not keys:
-            return LLMResponse(content=f"Error: No API Key provided")
+            raise ValueError("No API key provided")
 
         last_error = None
         for i, key in enumerate(keys):
@@ -87,7 +96,7 @@ class BaseLLMService(LLMService):
                 last_error = e
                 continue
         
-        return LLMResponse(content=f"All API keys failed. Last error: {str(last_error)}")
+        raise AllKeysExhaustedError(last_error)
 
     @abstractmethod
     async def _generate_with_single_key(

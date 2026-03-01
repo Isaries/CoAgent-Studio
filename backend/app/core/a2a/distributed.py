@@ -116,6 +116,10 @@ class DistributedDispatcher:
     def _get_response_stream(self) -> str:
         """Get the response stream name."""
         return f"{self._config.stream_prefix}:responses"
+
+    def _get_dlq_stream(self, agent_id: str) -> str:
+        """Get the dead-letter queue stream name for an agent."""
+        return f"{self._config.stream_prefix}:dlq:{agent_id}"
     
     async def _ensure_consumer_group(self, stream_name: str) -> None:
         """Create consumer group if it doesn't exist."""
@@ -420,6 +424,66 @@ class DistributedDispatcher:
         except Exception as e:
             logger.error("pending_processing_error", agent_id=agent_id, error=str(e))
     
+    async def _get_delivery_count(
+        self,
+        stream_name: str,
+        entry_id: str,
+    ) -> int:
+        """Get the number of times a message has been delivered (from Redis PEL)."""
+        try:
+            pending = await self._redis.xpending_range(
+                stream_name,
+                self._config.consumer_group,
+                min=entry_id,
+                max=entry_id,
+                count=1,
+            )
+            if pending:
+                # Each entry is a dict with 'times_delivered' (or index-based tuple)
+                entry = pending[0]
+                if isinstance(entry, dict):
+                    return entry.get("times_delivered", 1)
+                # redis-py returns a list of dicts with 'times_delivered'
+                return 1
+        except Exception as e:
+            logger.warning(
+                "delivery_count_lookup_failed",
+                stream=stream_name,
+                entry_id=entry_id,
+                error=str(e),
+            )
+        return 1
+
+    async def _move_to_dlq(
+        self,
+        agent_id: str,
+        stream_name: str,
+        entry_id: str,
+        data: Dict[str, str],
+        error: str,
+    ) -> None:
+        """Move a message to the dead-letter queue and ACK the original."""
+        dlq_stream = self._get_dlq_stream(agent_id)
+
+        await self._redis.xadd(dlq_stream, {
+            "data": data.get("data", "{}"),
+            "original_stream": stream_name,
+            "original_entry_id": entry_id,
+            "error": error,
+            "moved_at": datetime.utcnow().isoformat(),
+        })
+
+        # ACK the original so it leaves the PEL
+        await self._redis.xack(stream_name, self._config.consumer_group, entry_id)
+
+        logger.warning(
+            "message_moved_to_dlq",
+            agent_id=agent_id,
+            entry_id=entry_id,
+            dlq_stream=dlq_stream,
+            error=error,
+        )
+
     async def _process_entry(
         self,
         agent_id: str,
@@ -431,31 +495,31 @@ class DistributedDispatcher:
         """Process a single stream entry."""
         try:
             msg = self._deserialize(data.get("data", "{}"))
-            
+
             logger.debug(
                 "processing_message",
                 agent_id=agent_id,
                 message_id=str(msg.id),
                 entry_id=entry_id,
             )
-            
+
             # Call handler
             response = await handler(msg)
-            
+
             # Acknowledge successful processing
             await self._redis.xack(stream_name, self._config.consumer_group, entry_id)
-            
+
             # Publish response if any
             if response:
                 await self._publish_response(response)
-            
+
             logger.info(
                 "message_processed",
                 agent_id=agent_id,
                 message_id=str(msg.id),
                 has_response=response is not None,
             )
-            
+
         except Exception as e:
             logger.error(
                 "message_processing_error",
@@ -463,8 +527,62 @@ class DistributedDispatcher:
                 entry_id=entry_id,
                 error=str(e),
             )
-            # Don't ack - message will be retried
-    
+            # Check delivery count — move to DLQ if max retries exceeded
+            delivery_count = await self._get_delivery_count(stream_name, entry_id)
+            if delivery_count >= self._config.max_retries:
+                await self._move_to_dlq(agent_id, stream_name, entry_id, data, str(e))
+            # Otherwise leave unacknowledged for retry
+
+    async def get_dlq_info(self, agent_id: str) -> Dict[str, Any]:
+        """Get information about an agent's dead-letter queue stream."""
+        if not self._redis:
+            return {}
+
+        dlq_stream = self._get_dlq_stream(agent_id)
+        try:
+            info = await self._redis.xinfo_stream(dlq_stream)
+            return {
+                "length": info.get("length", 0),
+                "first_entry": info.get("first-entry"),
+                "last_entry": info.get("last-entry"),
+            }
+        except redis.ResponseError:
+            return {"length": 0, "exists": False}
+
+    async def reprocess_dlq(
+        self,
+        agent_id: str,
+        count: int = 10,
+    ) -> int:
+        """
+        Move messages from the DLQ back to the agent's main stream for retry.
+
+        Returns the number of messages requeued.
+        """
+        if not self._redis:
+            return 0
+
+        dlq_stream = self._get_dlq_stream(agent_id)
+        main_stream = self._get_stream_name(agent_id)
+
+        # Read oldest entries from DLQ
+        entries = await self._redis.xrange(dlq_stream, count=count)
+        requeued = 0
+        for entry_id, fields in entries:
+            payload = fields.get("data")
+            if payload:
+                await self._redis.xadd(main_stream, {"data": payload})
+                await self._redis.xdel(dlq_stream, entry_id)
+                requeued += 1
+
+        if requeued:
+            logger.info(
+                "dlq_messages_reprocessed",
+                agent_id=agent_id,
+                count=requeued,
+            )
+        return requeued
+
     def stop(self) -> None:
         """Signal the consumer to stop."""
         self._running = False

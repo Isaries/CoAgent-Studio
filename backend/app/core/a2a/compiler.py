@@ -139,11 +139,11 @@ class WorkflowCompiler:
             elif ntype == WorkflowNodeType.AGENT:
                 agent_id = node.get("config", {}).get("agent_id")
                 agent = agent_registry.get(str(agent_id)) if agent_id else None
-                builder.add_node(nid, self._make_agent_node(nid, agent, node))
+                builder.add_node(nid, self._make_agent_node(nid, agent, node, self._max_cycles))
 
             elif ntype == WorkflowNodeType.ROUTER:
                 # Routers are handled via conditional edges (see Phase 2)
-                builder.add_node(nid, self._make_router_node(nid, node))
+                builder.add_node(nid, self._make_router_node(nid, node, self._max_cycles))
 
             elif ntype == WorkflowNodeType.ACTION:
                 action_name = node.get("config", {}).get("action_type", "broadcast")
@@ -177,6 +177,11 @@ class WorkflowCompiler:
                 for e in src_edges:
                     condition_label = e.get("condition", e.get("type", "default"))
                     path_map[condition_label] = e["target"]
+                # Ensure there is always an "exceeded" fallback for the
+                # global cycle guard.  Map it to the first END node if
+                # the workflow didn't explicitly define one.
+                if "exceeded" not in path_map and end_node_ids:
+                    path_map["exceeded"] = end_node_ids[0]
                 builder.add_conditional_edges(src, self._make_route_fn(src), path_map)  # type: ignore
             else:
                 # Simple sequential edges
@@ -207,6 +212,9 @@ class WorkflowCompiler:
         compile_kwargs = {}
         if checkpointer:
             compile_kwargs["checkpointer"] = checkpointer
+        # LangGraph recursion_limit is per-superstep; give headroom for
+        # routers / passthroughs that don't bump _cycle_count.
+        compile_kwargs["recursion_limit"] = self._max_cycles * 3
 
         compiled = builder.compile(**compile_kwargs)
         logger.info(
@@ -224,34 +232,53 @@ class WorkflowCompiler:
     def _make_passthrough(node_id: str):
         """A no-op node that just passes state through (START, MERGE)."""
         async def _passthrough(state: dict) -> dict:
-            state["_active_node_id"] = node_id
-            return state
+            return {"_active_node_id": node_id}
         return _passthrough
 
     @staticmethod
     def _make_end_node(node_id: str):
         """Terminal node – marks the run as complete."""
         async def _end(state: dict) -> dict:
-            state["_active_node_id"] = node_id
-            return state
+            return {"_active_node_id": node_id}
         return _end
 
     @staticmethod
-    def _make_agent_node(node_id: str, agent, node_config: dict):
+    def _make_agent_node(node_id: str, agent, node_config: dict, max_cycles: int = 50):
         """
         Create a LangGraph node backed by an ``AgentCore`` instance.
 
         The node reads ``state["messages"]`` for context, calls the LLM,
         and writes the response back into the state.
+
+        Returns a partial update dict — never mutates ``state`` in-place.
         """
         async def _agent(state: dict) -> dict:
-            state["_active_node_id"] = node_id
+            updates: dict = {"_active_node_id": node_id}
+
+            cycle_count = state.get("_cycle_count", 0)
+
+            # Global cycle guard — terminate if limit exceeded
+            if cycle_count >= max_cycles:
+                logger.warning(
+                    "workflow_cycle_limit_exceeded",
+                    node_id=node_id,
+                    cycle_count=cycle_count,
+                    max_cycles=max_cycles,
+                )
+                term_msg = {
+                    "type": MessageType.PROPOSAL.value,
+                    "sender_id": node_id,
+                    "content": f"[System] Cycle limit ({max_cycles}) exceeded. Workflow terminated.",
+                }
+                updates["messages"] = list(state.get("messages", [])) + [term_msg]
+                updates["_cycle_count"] = cycle_count + 1
+                return updates
 
             if agent is None:
                 logger.warning("workflow_agent_node_no_agent", node_id=node_id)
-                return state
+                return updates
 
-            # Build prompt from message history
+            # Build prompt from message history (read-only access to state)
             messages = state.get("messages", [])
             context_lines = []
             for m in messages[-10:]:
@@ -269,57 +296,69 @@ class WorkflowCompiler:
             response = await agent.run(prompt)
 
             # Determine the edge type from configuration
-            # to decide how to write the output
             edge_behavior = node_config.get("config", {}).get("output_behavior", "proposal")
 
             if edge_behavior == "proposal":
-                state["current_proposal"] = str(response)
+                updates["current_proposal"] = str(response)
             elif edge_behavior == "evaluation":
-                # Agent is acting as evaluator
                 approved = "YES" in str(response).upper()
-                state["evaluation_result"] = approved
+                updates["evaluation_result"] = approved
 
-            # Always append to message log
+            # Always append to message log (copy, don't mutate)
             new_msg = {
                 "type": MessageType.PROPOSAL.value,
                 "sender_id": node_id,
                 "content": str(response),
             }
-            state.setdefault("messages", []).append(new_msg)
+            updates["messages"] = list(state.get("messages", [])) + [new_msg]
 
             # Cycle limiter
-            state["_cycle_count"] = state.get("_cycle_count", 0) + 1
+            updates["_cycle_count"] = cycle_count + 1
 
             logger.info("workflow_agent_executed", node_id=node_id)
-            return state
+            return updates
 
         return _agent
 
     @staticmethod
-    def _make_router_node(node_id: str, node_config: dict):
+    def _make_router_node(node_id: str, node_config: dict, max_cycles: int = 50):
         """
         Router node – evaluates a condition and stores the result.
         The actual branching is handled by ``add_conditional_edges``.
+
+        Returns a partial update dict — never mutates ``state`` in-place.
+        Includes a global cycle guard: if ``_cycle_count >= max_cycles``,
+        forces ``_route_result = "exceeded"`` regardless of condition type.
         """
         async def _router(state: dict) -> dict:
-            state["_active_node_id"] = node_id
+            updates: dict = {"_active_node_id": node_id}
+
+            # Global cycle guard — override any condition
+            cycle_count = state.get("_cycle_count", 0)
+            if cycle_count >= max_cycles:
+                logger.warning(
+                    "workflow_router_cycle_limit_forced",
+                    node_id=node_id,
+                    cycle_count=cycle_count,
+                    max_cycles=max_cycles,
+                )
+                updates["_route_result"] = "exceeded"
+                return updates
 
             condition_type = node_config.get("config", {}).get("condition", "is_approved")
 
             if condition_type == "is_approved":
                 result = state.get("evaluation_result")
-                state["_route_result"] = "approved" if result else "rejected"
+                updates["_route_result"] = "approved" if result else "rejected"
 
             elif condition_type == "cycle_limit":
-                max_cycles = node_config.get("config", {}).get("max_cycles", 50)
-                count = state.get("_cycle_count", 0)
-                state["_route_result"] = "exceeded" if count >= max_cycles else "continue"
+                max_cfg = node_config.get("config", {}).get("max_cycles", 50)
+                updates["_route_result"] = "exceeded" if cycle_count >= max_cfg else "continue"
 
             else:
-                # Custom expression (future extensibility)
-                state["_route_result"] = "default"
+                updates["_route_result"] = "default"
 
-            return state
+            return updates
         return _router
 
     @staticmethod
@@ -331,25 +370,27 @@ class WorkflowCompiler:
 
     @staticmethod
     def _make_action_node(node_id: str, handler, node_config: dict):
-        """Action node – performs side effects (broadcast, tool calls)."""
+        """Action node – performs side effects (broadcast, tool calls).
+
+        Returns a partial update dict. The handler receives state for
+        reading but the node itself only updates ``_active_node_id``.
+        """
         async def _action(state: dict) -> dict:
-            state["_active_node_id"] = node_id
             if handler:
                 await handler(state)
             else:
                 logger.warning("workflow_action_no_handler", node_id=node_id)
-            return state
+            return {"_active_node_id": node_id}
         return _action
 
     @staticmethod
     def _make_tool_node(node_id: str, node_config: dict):
         """Tool node – invokes an external tool."""
         async def _tool(state: dict) -> dict:
-            state["_active_node_id"] = node_id
             tool_name = node_config.get("config", {}).get("tool_name", "unknown")
             logger.info("workflow_tool_node", node_id=node_id, tool=tool_name)
             # Tool execution will be implemented when tool registry is ready
-            return state
+            return {"_active_node_id": node_id}
         return _tool
 
     # ------------------------------------------------------------------
