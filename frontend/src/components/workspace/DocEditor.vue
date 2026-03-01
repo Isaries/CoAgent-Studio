@@ -28,11 +28,15 @@ const editor = useEditor({
     }),
   ],
   onUpdate: ({ editor }) => {
-    // Debounced save could go here, or just emit update
     const json = editor.getJSON()
+    const jsonStr = JSON.stringify(json)
     // Simple change detection
-    if (JSON.stringify(json) !== lastSavedContent.value) {
+    if (jsonStr !== lastSavedContent.value) {
+       isSaving.value = true
+       lastSavedContent.value = jsonStr
        emit('update', { type: 'doc', content: json as any })
+       // Reset saving indicator after a brief delay
+       setTimeout(() => { isSaving.value = false }, 500)
     }
   },
 })
@@ -147,9 +151,9 @@ onBeforeUnmount(() => {
     <!-- Status Bar -->
     <div class="flex items-center justify-between px-4 py-2 text-xs text-base-content/50 border-t border-base-200">
        <span class="flex gap-2">
-         {{ editor?.storage.characterCount.characters() }} characters
+         {{ editor?.getCharacterCount?.() ?? editor?.getText()?.length ?? 0 }} characters
          <span v-if="remoteChangePending" class="text-warning font-bold cursor-pointer hover:underline" @click="applyRemoteContent">
-           ⚠ Remote changes detected. Click to load.
+           Remote changes detected. Click to load.
          </span>
        </span>
        <span v-if="isSaving">Saving...</span>

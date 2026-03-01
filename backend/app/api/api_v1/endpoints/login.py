@@ -49,7 +49,13 @@ async def login_access_token(
         user.id, expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     )
 
-    response = Response()
+    from fastapi.responses import JSONResponse
+
+    response = JSONResponse(content={
+        "message": "Login successful",
+        "user_id": str(user.id),
+        "role": user.role,
+    })
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -110,7 +116,9 @@ async def refresh_token(
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(user.id, expires_delta=access_token_expires)
 
-    response = Response()
+    from fastapi.responses import JSONResponse
+
+    response = JSONResponse(content={"message": "Token refreshed"})
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -161,6 +169,15 @@ async def impersonate_user(
             status_code=404,
             detail="User not found",
         )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot impersonate inactive user",
+        )
+
+    import structlog
+    _logger = structlog.get_logger()
+    _logger.warning("user_impersonated", admin_id=str(current_user.id), target_user_id=str(user_id))
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(user.id, expires_delta=access_token_expires)
@@ -206,12 +223,29 @@ async def impersonate_user(
 
 
 @router.post("/login/stop-impersonate")
-async def stop_impersonate(request: Request) -> Any:
+async def stop_impersonate(
+    request: Request,
+    session: AsyncSession = Depends(deps.get_session),
+) -> Any:
     original_token = request.cookies.get("original_access_token")
     if not original_token:
         raise HTTPException(status_code=400, detail="Not impersonating")
 
-    response = Response()
+    # Validate the original token before restoring it
+    try:
+        payload = jwt.decode(original_token, settings.SECRET_KEY, algorithms=[security.ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="Invalid original token")
+        user = await session.get(User, user_id)  # type: ignore[func-returns-value]
+        if not user or not user.is_active or user.role != UserRole.SUPER_ADMIN:
+            raise HTTPException(status_code=400, detail="Invalid original token: not a super admin")
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Invalid original token") from None
+
+    from fastapi.responses import JSONResponse
+
+    response = JSONResponse(content={"message": "Impersonation stopped"})
     # Restore access token
     response.set_cookie(
         key="access_token",
@@ -226,7 +260,4 @@ async def stop_impersonate(request: Request) -> Any:
     response.delete_cookie("original_access_token")
     response.delete_cookie("is_impersonating")
 
-    response.body = b'{"message": "Impersonation stopped"}'
-    response.status_code = 200
-    response.media_type = "application/json"
     return response

@@ -145,26 +145,30 @@ class Neo4jClient:
                 logger.warning("gds_projection_failed", error=str(e), room_id=room_id)
                 return 0
 
-            # 2. Run Leiden
-            leiden_query = """
-            CALL gds.leiden.write($graph_name, {
-                writeProperty: 'community_id',
-                includeIntermediateCommunities: true
-            })
-            YIELD communityCount
-            RETURN communityCount
-            """
-            result = await session.run(leiden_query, graph_name=graph_name)
-            record = await result.single()
-            community_count = record["communityCount"] if record else 0
+            # 2. Run Leiden (with guaranteed cleanup)
+            try:
+                leiden_query = """
+                CALL gds.leiden.write($graph_name, {
+                    writeProperty: 'community_id',
+                    includeIntermediateCommunities: true
+                })
+                YIELD communityCount
+                RETURN communityCount
+                """
+                result = await session.run(leiden_query, graph_name=graph_name)
+                record = await result.single()
+                community_count = record["communityCount"] if record else 0
 
-            # 3. Cleanup projection
-            await session.run("CALL gds.graph.drop($name, false)", name=graph_name)
+                logger.info("leiden_complete", room_id=room_id, communities=community_count)
+                return community_count
+            finally:
+                # 3. Always cleanup projection even if Leiden fails
+                try:
+                    await session.run("CALL gds.graph.drop($name, false)", name=graph_name)
+                except Exception:
+                    pass
 
-            logger.info("leiden_complete", room_id=room_id, communities=community_count)
-            return community_count
-
-    async def get_community_members(self, room_id: str, community_id: int) -> List[Dict[str, Any]]:
+    async def get_community_members(self, room_id: str, community_id: int) -> Dict[str, Any]:
         """Retrieve all entities and their relationships within a community."""
         query = """
         MATCH (n:Entity {room_id: $room_id, community_id: $community_id})
@@ -263,7 +267,7 @@ class Neo4jClient:
         RETURN
             count(DISTINCT n) AS node_count,
             count(DISTINCT r) AS edge_count,
-            count(DISTINCT n.community_id) AS community_count
+            count(DISTINCT CASE WHEN n.community_id IS NOT NULL THEN n.community_id END) AS community_count
         """
         async with self.driver.session() as session:
             result = await session.run(query, room_id=room_id)

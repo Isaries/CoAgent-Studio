@@ -87,13 +87,16 @@ watch(() => props.artifact.content, (newContent) => {
   }
 }, { deep: true })
 
+let nodeCounter = 0
+
 function addNode() {
-  const id = `node-${nodes.value.length + 1}`
+  nodeCounter++
+  const id = `node-${Date.now()}-${nodeCounter}`
   const newNode: Node = {
     id,
     label: `Node ${nodes.value.length + 1}`,
     position: { x: Math.random() * 400, y: Math.random() * 400 },
-    type: 'default' // or 'input', 'output'
+    type: 'default'
   }
   nodes.value.push(newNode)
   emitUpdate()

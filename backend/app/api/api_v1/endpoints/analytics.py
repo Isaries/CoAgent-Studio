@@ -6,6 +6,7 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
+from app.core.security import decrypt_api_key
 from app.services.agents.system_agents import AnalyticsAgent
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.analytics import AnalyticsReport
@@ -33,7 +34,7 @@ async def generate_course_analytics(
 
     # Check permissions (Teacher or Admin)
     # Allow TA to view
-    if current_user.role not in [UserRole.ADMIN, UserRole.TEACHER]:
+    if current_user.role not in [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER]:
         from app.models.course import UserCourseLink
 
         link = await session.get(UserCourseLink, (current_user.id, course_id))
@@ -48,11 +49,18 @@ async def generate_course_analytics(
     sys_config = sys_result.first()
 
     prompt = sys_config.system_prompt if sys_config else None
-    key = sys_config.encrypted_api_key if sys_config else None
+    encrypted_key = sys_config.encrypted_api_key if sys_config else None
 
-    if not key:
+    if not encrypted_key:
         raise HTTPException(
             status_code=400, detail="Analytics Agent not configured (Missing API Key)"
+        )
+
+    # Decrypt the API key before use
+    key = decrypt_api_key(encrypted_key)
+    if not key:
+        raise HTTPException(
+            status_code=500, detail="Failed to decrypt Analytics Agent API key"
         )
 
     # 2. Initialize Agent

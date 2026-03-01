@@ -80,11 +80,13 @@ async def receive_external_agent_message(
     if not agent_config:
         raise HTTPException(status_code=404, detail="External agent not found")
     
-    # Validate token
+    # Validate token — always require a token when callback_token is configured
     external_config = agent_config.external_config or {}
     expected_token = external_config.get("callback_token")
-    
-    if expected_token and x_agent_token != expected_token:
+
+    if not expected_token:
+        raise HTTPException(status_code=500, detail="Agent callback_token not configured")
+    if x_agent_token != expected_token:
         raise HTTPException(status_code=401, detail="Invalid agent token")
     
     # Extract room_id from metadata (required for broadcast)

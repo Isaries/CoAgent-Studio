@@ -14,7 +14,7 @@ from app.api.deps import get_current_user
 from app.core.db import get_session
 from app.core.socket_manager import manager
 from app.models.artifact import ArtifactCreate, ArtifactRead, ArtifactUpdate, ArtifactType
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.room import Room
 from app.services.artifact_service import ArtifactService
 
@@ -147,8 +147,10 @@ async def delete_artifact(
     if not existing:
         raise HTTPException(status_code=404, detail="Artifact not found")
     
-    # TODO: Check delete permission (AgentCapability.ARTIFACT_DELETE)
-    
+    # Hard delete requires admin privileges
+    if hard_delete and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        raise HTTPException(status_code=403, detail="Only admins can permanently delete artifacts")
+
     success = await service.delete_artifact(artifact_id, deleted_by=current_user.id, hard_delete=hard_delete)
     
     if not success:

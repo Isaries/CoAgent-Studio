@@ -46,7 +46,10 @@ TABLE_RELATIONS = {
 }
 
 # Fields to filter out from response for security
-SENSITIVE_FIELDS = ["hashed_password", "salt", "api_key", "secret", "token"]
+SENSITIVE_FIELDS = [
+    "hashed_password", "salt", "api_key", "secret", "token",
+    "encrypted_api_key", "encrypted_key", "auth_token", "external_config",
+]
 
 
 @router.get("/tables", response_model=List[str])
@@ -108,10 +111,13 @@ async def get_table_data(
 
         return _filter_sensitive_data(data)
 
+    except HTTPException:
+        raise
     except Exception as e:
-        error_detail = f"{e!s}\n{traceback.format_exc()}"
-        print(f"Error in get_table_data: {error_detail}")
-        raise HTTPException(status_code=500, detail=error_detail) from e
+        import structlog
+        _logger = structlog.get_logger()
+        _logger.error("admin_db_query_error", error=str(e), table=table_name, exc_info=True)
+        raise HTTPException(status_code=500, detail="Database query failed") from e
 
 
 def _get_relation_config(

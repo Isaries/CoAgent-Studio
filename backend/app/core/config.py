@@ -1,4 +1,5 @@
 from typing import List
+from urllib.parse import quote_plus
 
 from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings
@@ -55,7 +56,7 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
-        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
+        return f"postgresql+asyncpg://{quote_plus(self.POSTGRES_USER)}:{quote_plus(self.POSTGRES_PASSWORD)}@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
 
     @property
     def redis_url(self) -> str:

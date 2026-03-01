@@ -1,7 +1,5 @@
-import axios from 'axios';
+import api from '../api';
 import type { ScheduleConfig } from '../types/agent';
-
-const API_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 export interface UserAPIKey {
     id: string;
@@ -25,24 +23,24 @@ export interface CreateKeyPayload {
 
 export const userKeyService = {
     async listKeys(): Promise<UserAPIKey[]> {
-        const response = await axios.get(`${API_URL}/users/keys`);
+        const response = await api.get('/users/keys');
         return response.data;
     },
 
     async addKey(payload: CreateKeyPayload): Promise<UserAPIKey> {
-        const response = await axios.post(`${API_URL}/users/keys`, payload);
+        const response = await api.post('/users/keys', payload);
         return response.data;
     },
 
     async deleteKey(keyId: string): Promise<void> {
-        await axios.delete(`${API_URL}/users/keys/${keyId}`);
+        await api.delete(`/users/keys/${keyId}`);
     },
 
     async updateKeySchedule(
         keyId: string,
         data: { is_active?: boolean; schedule_config?: ScheduleConfig | null }
     ): Promise<{ message: string; is_active: boolean; schedule_config: ScheduleConfig | null }> {
-        const response = await axios.put(`${API_URL}/users/keys/${keyId}/schedule`, data);
+        const response = await api.put(`/users/keys/${keyId}/schedule`, data);
         return response.data;
     },
 };

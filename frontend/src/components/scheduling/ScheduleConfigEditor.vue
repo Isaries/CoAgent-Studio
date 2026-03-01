@@ -2,7 +2,7 @@
 import { ScheduleMode, ScheduleRuleType } from '../../types/enums'
 import type { ScheduleConfig } from '../../types/agent'
 import { useScheduleConfig } from '../../composables/useScheduleConfig'
-import { watch } from 'vue'
+import { ref, watch } from 'vue'
 
 const props = defineProps<{
   modelValue: ScheduleConfig | null | undefined
@@ -17,11 +17,23 @@ const { scheduleConfig, addRule, removeRule, setMode, loadConfig } = useSchedule
   props.modelValue || undefined
 )
 
-// Sync from parent
-watch(() => props.modelValue, (v) => loadConfig(v), { deep: true })
+// Flag to prevent infinite watcher loop between parent sync and child emit
+const isLoadingFromParent = ref(false)
 
-// Emit on change
-watch(scheduleConfig, (v) => emit('update:modelValue', v), { deep: true })
+// Sync from parent
+watch(() => props.modelValue, (v) => {
+  isLoadingFromParent.value = true
+  loadConfig(v)
+  // Reset flag after next tick to allow the emit watcher to skip this cycle
+  setTimeout(() => { isLoadingFromParent.value = false }, 0)
+}, { deep: true })
+
+// Emit on change — skip when loading from parent
+watch(scheduleConfig, (v) => {
+  if (!isLoadingFromParent.value) {
+    emit('update:modelValue', v)
+  }
+}, { deep: true })
 
 const dayLabels = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 </script>

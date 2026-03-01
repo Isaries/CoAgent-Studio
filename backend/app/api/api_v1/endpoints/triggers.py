@@ -5,6 +5,7 @@ CRUD for ``TriggerPolicy`` – the event-driven rules that determine
 when a specific Workflow should be activated.
 """
 
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -13,7 +14,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.api import deps
 from app.core.deps import get_session
+from app.models.user import User
 from app.models.trigger import (
     TriggerPolicy,
     TriggerPolicyCreate,
@@ -32,6 +35,7 @@ router = APIRouter()
 )
 async def list_triggers(
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     stmt = select(TriggerPolicy).order_by(TriggerPolicy.created_at.desc())
     result = await session.exec(stmt)
@@ -46,6 +50,7 @@ async def list_triggers(
 async def get_trigger(
     trigger_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     trigger = await session.get(TriggerPolicy, trigger_id)
     if not trigger:
@@ -61,6 +66,7 @@ async def get_trigger(
 async def create_trigger(
     payload: TriggerPolicyCreate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     trigger = TriggerPolicy(
         name=payload.name,
@@ -86,18 +92,17 @@ async def update_trigger(
     trigger_id: UUID,
     payload: TriggerPolicyUpdate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     trigger = await session.get(TriggerPolicy, trigger_id)
     if not trigger:
         raise HTTPException(status_code=404, detail="Trigger not found")
 
-    for field in ["name", "event_type", "conditions", "target_workflow_id", "scope_session_id", "is_active"]:
-        val = getattr(payload, field, None)
-        if val is not None:
-            setattr(trigger, field, val)
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, val in update_data.items():
+        setattr(trigger, field, val)
 
-    from datetime import datetime
-    trigger.updated_at = datetime.utcnow()
+    trigger.updated_at = datetime.now(timezone.utc)
 
     session.add(trigger)
     await session.commit()
@@ -113,6 +118,7 @@ async def update_trigger(
 async def delete_trigger(
     trigger_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     trigger = await session.get(TriggerPolicy, trigger_id)
     if not trigger:

@@ -158,7 +158,7 @@ function simulateForces() {
   for (const edge of simEdges) {
     const dx = edge.target.x - edge.source.x
     const dy = edge.target.y - edge.source.y
-    const dist = Math.sqrt(dx * dx + dy * dy)
+    const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 0.1)
     const force = (dist - 120) * 0.005
     const fx = (dx / dist) * force
     const fy = (dy / dist) * force

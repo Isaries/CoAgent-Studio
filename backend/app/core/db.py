@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -9,7 +10,7 @@ from app.core.config import settings
 
 engine = create_async_engine(
     settings.async_database_url,
-    echo=True,
+    echo=os.getenv("SQL_ECHO", "false").lower() == "true",
     future=True,
     pool_size=5,
     max_overflow=10,
@@ -24,7 +25,12 @@ _async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_com
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI Depends() compatible generator."""
     async with _async_session_factory() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 @asynccontextmanager
@@ -36,4 +42,9 @@ async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
             ...
     """
     async with _async_session_factory() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

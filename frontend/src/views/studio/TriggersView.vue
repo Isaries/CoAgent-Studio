@@ -56,6 +56,15 @@ const createTrigger = async () => {
     } as any)
     toast.success('Trigger created!')
     showCreateModal.value = false
+    // Reset form state
+    newTrigger.value = {
+      name: '',
+      event_type: 'user_message',
+      conditions: '{}',
+      target_workflow_id: '',
+      scope_session_id: '',
+      is_active: true,
+    }
     await fetchData()
   } catch (e) {
     console.error(e)

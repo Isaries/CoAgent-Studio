@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { ref, watch } from 'vue'
 import { TriggerLogic, TriggerCondition, CloseStrategy, ContextStrategyType } from '../../types/enums'
 import type { TriggerConfig } from '../../types/agent'
 import { useTriggerConfig } from '../../composables/useTriggerConfig'
@@ -21,11 +21,22 @@ const {
   loadConfig,
 } = useTriggerConfig(props.modelValue || undefined)
 
-// Sync from parent
-watch(() => props.modelValue, (v) => loadConfig(v), { deep: true })
+// Flag to prevent infinite watcher loop between parent sync and child emit
+const isLoadingFromParent = ref(false)
 
-// Emit on change
-watch(triggerConfig, (v) => emit('update:modelValue', v), { deep: true })
+// Sync from parent
+watch(() => props.modelValue, (v) => {
+  isLoadingFromParent.value = true
+  loadConfig(v)
+  setTimeout(() => { isLoadingFromParent.value = false }, 0)
+}, { deep: true })
+
+// Emit on change — skip when loading from parent
+watch(triggerConfig, (v) => {
+  if (!isLoadingFromParent.value) {
+    emit('update:modelValue', v)
+  }
+}, { deep: true })
 
 const conditionLabels: Record<string, { label: string; unit: string; desc: string }> = {
   [TriggerCondition.MESSAGE_COUNT]: { label: 'Message Count', unit: 'messages', desc: 'Trigger after N user messages' },

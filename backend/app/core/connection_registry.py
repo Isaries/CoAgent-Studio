@@ -37,9 +37,17 @@ class ConnectionRegistry:
         """
         Send message to local connected websockets in the room.
         """
-        if room_id in self.active_connections:
-            for connection in self.active_connections[room_id]:
-                try:
-                    await connection.send_text(message)
-                except RuntimeError:
-                    pass
+        if room_id not in self.active_connections:
+            return
+
+        dead_connections: list[WebSocket] = []
+        # Iterate over a copy to allow safe mutation
+        for connection in list(self.active_connections.get(room_id, [])):
+            try:
+                await connection.send_text(message)
+            except Exception:
+                dead_connections.append(connection)
+
+        # Clean up dead connections
+        for conn in dead_connections:
+            self.disconnect(conn, room_id)

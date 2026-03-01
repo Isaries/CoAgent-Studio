@@ -9,15 +9,18 @@ Provides TWO sets of routes:
 Also exposes WorkflowRun read endpoints and a manual execution trigger.
 """
 
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.api import deps
 from app.core.deps import get_session
+from app.models.user import User
 from app.models.workflow import (
     Workflow,
     WorkflowCreate,
@@ -43,6 +46,7 @@ router = APIRouter()
 )
 async def list_workflows(
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     """Return all available workflow templates."""
     stmt = select(Workflow).order_by(Workflow.created_at.desc())
@@ -58,6 +62,7 @@ async def list_workflows(
 async def get_workflow(
     workflow_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     workflow = await session.get(Workflow, workflow_id)
     if not workflow:
@@ -73,6 +78,7 @@ async def get_workflow(
 async def create_workflow(
     payload: WorkflowCreate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     workflow = Workflow(
         name=payload.name,
@@ -95,6 +101,7 @@ async def update_workflow(
     workflow_id: UUID,
     payload: WorkflowUpdate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     workflow = await session.get(Workflow, workflow_id)
     if not workflow:
@@ -107,8 +114,7 @@ async def update_workflow(
     if payload.is_active is not None:
         workflow.is_active = payload.is_active
 
-    from datetime import datetime
-    workflow.updated_at = datetime.utcnow()
+    workflow.updated_at = datetime.now(timezone.utc)
 
     session.add(workflow)
     await session.commit()
@@ -124,6 +130,7 @@ async def update_workflow(
 async def delete_workflow(
     workflow_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     workflow = await session.get(Workflow, workflow_id)
     if not workflow:
@@ -140,8 +147,9 @@ async def delete_workflow(
 )
 async def execute_workflow_endpoint(
     workflow_id: UUID,
-    payload: dict = {},
+    payload: Optional[dict] = None,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     """
     Manually trigger a workflow.  The request body is passed as the
@@ -154,6 +162,8 @@ async def execute_workflow_endpoint(
     from app.services.execution.agent_execution_service import execute_workflow
     import uuid as _uuid
 
+    if payload is None:
+        payload = {}
     # Extract session_id without mutating the original payload
     session_id = payload.get("session_id", str(_uuid.uuid4()))
     trigger_payload = {k: v for k, v in payload.items() if k != "session_id"}
@@ -172,7 +182,7 @@ async def execute_workflow_endpoint(
         return {"ok": True, "session_id": session_id}
     except Exception as e:
         logger.error("workflow_execute_error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e)[:200])
+        raise HTTPException(status_code=500, detail="Workflow execution failed")
 
 
 # ===================================================================
@@ -186,8 +196,9 @@ async def execute_workflow_endpoint(
 )
 async def list_workflow_runs_global(
     workflow_id: UUID,
-    limit: int = 20,
+    limit: int = Query(20, le=200, ge=1),
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     stmt = (
         select(WorkflowRun)
@@ -208,6 +219,7 @@ async def get_workflow_run_global(
     workflow_id: UUID,
     run_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     run = await session.get(WorkflowRun, run_id)
     if not run or run.workflow_id != workflow_id:
@@ -228,6 +240,7 @@ async def get_workflow_run_global(
 async def get_room_workflow(
     room_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     """Return the workflow attached to this room, if any."""
     room = await session.get(Room, room_id)
@@ -250,6 +263,7 @@ async def upsert_room_workflow(
     room_id: UUID,
     payload: WorkflowUpdate,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     """
     Upsert the workflow graph for a room.
@@ -310,6 +324,7 @@ async def upsert_room_workflow(
 async def delete_room_workflow(
     room_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     room = await session.get(Room, room_id)
     if not room or not room.attached_workflow_id:
@@ -333,8 +348,9 @@ async def delete_room_workflow(
 )
 async def list_workflow_runs(
     room_id: UUID,
-    limit: int = 20,
+    limit: int = Query(20, le=200, ge=1),
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     """Lists runs where session_id matches the room_id."""
     stmt = (
@@ -356,6 +372,7 @@ async def get_workflow_run(
     room_id: UUID,
     run_id: UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
 ):
     run = await session.get(WorkflowRun, run_id)
     if not run or run.session_id != str(room_id):

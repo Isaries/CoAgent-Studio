@@ -96,6 +96,9 @@ async def websocket_endpoint(
             return
 
     # --- Session is now released; enter message loop ---
+    import structlog as _structlog
+    _ws_logger = _structlog.get_logger()
+
     await manager.connect(websocket, room_id)
     try:
         while True:
@@ -123,35 +126,39 @@ async def websocket_endpoint(
             if manager.broker.redis_client:
                 import time
                 await manager.broker.redis_client.set(
-                    f"room_activity:{room_id}", 
+                    f"room_activity:{room_id}",
                     str(time.time()),
-                    ex=86400 * 7 # 7 days expiry
+                    ex=86400 * 7  # 7 days expiry
                 )
 
             # --- Phase 2: Trigger Dispatch (Enqueue Event) ---
             if hasattr(websocket.app.state, "arq_pool"):
-                 payload = {
-                     "type": "user_message",
-                     "content": data,
-                     "sender_id": str(user_id)
-                 }
-                 await websocket.app.state.arq_pool.enqueue_job(
-                     "dispatch_event_task", 
-                     "user_message", 
-                     room_id, 
-                     payload
-                 )
+                trigger_payload = {
+                    "type": "user_message",
+                    "content": data,
+                    "sender_id": str(user_id)
+                }
+                await websocket.app.state.arq_pool.enqueue_job(
+                    "dispatch_event_task",
+                    "user_message",
+                    room_id,
+                    trigger_payload
+                )
             else:
-                 print("ARQ Pool not initialized")
+                _ws_logger.warning("arq_pool_not_initialized")
 
     except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        _ws_logger.error("websocket_error", error=str(e), room_id=room_id, user_id=str(user_id))
+    finally:
         manager.disconnect(websocket, room_id)
         # Broadcast System Message
         sys_msg = SocketMessage(
             type="system",
             sender="System",
             content=f"Client #{user_email} left",
-            timestamp="",  # Use current time if needed
+            timestamp="",
             room_id=room_id,
         )
         await manager.broadcast(sys_msg.model_dump(), room_id)

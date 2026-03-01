@@ -169,7 +169,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
     async function updateTask(taskId: string, updates: Partial<TaskContent & { title?: string }>) {
         const data: ArtifactUpdate = {}
-        if (updates.title) data.title = updates.title
+        if (updates.title !== undefined) data.title = updates.title
 
         const contentUpdates = { ...updates }
         delete contentUpdates.title
@@ -199,9 +199,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
             await artifactService.deleteArtifact(taskId)
             return true
         } catch (e) {
-            // Rollback
+            // Rollback: find the correct insert position (may have shifted)
             if (removed) {
-                artifacts.value.splice(taskIndex, 0, removed)
+                // Re-insert at the nearest valid position
+                const insertIndex = Math.min(taskIndex, artifacts.value.length)
+                artifacts.value.splice(insertIndex, 0, removed)
             }
             error.value = (e as Error).message
             return false
