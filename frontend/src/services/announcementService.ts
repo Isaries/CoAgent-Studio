@@ -1,14 +1,14 @@
 import api from '../api'
-import type { Announcement } from '../types/course'
+import type { Announcement } from '../types/space'
 
 export const announcementService = {
-  async getAnnouncements(courseId: string) {
+  async getAnnouncements(spaceId: string) {
     return api.get<Announcement[]>('/announcements/', {
-      params: { course_id: courseId }
+      params: { space_id: spaceId }
     })
   },
 
-  async createAnnouncement(data: { course_id: string; title: string; content: string }) {
+  async createAnnouncement(data: { space_id: string; title: string; content: string }) {
     return api.post<Announcement>('/announcements/', data)
   }
 }

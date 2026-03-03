@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from passlib.context import CryptContext
 from sqlmodel import select
@@ -7,6 +8,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import settings
 from app.core.db import engine
 from app.models.user import UserCreate, UserRole
+
+init_logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -22,15 +25,15 @@ async def init_db():
     # Import all models to ensure they are registered in metadata
     from app.models import User
 
-    print("Creating database tables...")
+    init_logger.info("Creating database tables...")
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
 
     import os
 
-    print(f"DEBUG: os.environ.get('SUPER_ADMIN') is '{os.environ.get('SUPER_ADMIN')}'")
+    init_logger.debug("os.environ.get('SUPER_ADMIN') is '%s'", os.environ.get('SUPER_ADMIN'))
     async with AsyncSession(engine) as session:
-        print(f"DEBUG: settings.SUPER_ADMIN is '{settings.SUPER_ADMIN}'")
+        init_logger.debug("settings.SUPER_ADMIN is '%s'", settings.SUPER_ADMIN)
 
         # Determine strict username
         # If SUPER_ADMIN looks like an email, default username to 'admin'.
@@ -39,7 +42,7 @@ async def init_db():
         if "@" not in settings.SUPER_ADMIN:
             target_username = settings.SUPER_ADMIN
 
-        print(f"DEBUG: Target username is '{target_username}'")
+        init_logger.debug("Target username is '%s'", target_username)
 
         # Check for username conflict (someone else has this username)
         # We need to do this BEFORE creating the new user or updating the existing one
@@ -61,15 +64,16 @@ async def init_db():
                 import uuid
 
                 backup_username = f"{target_username}_old_{str(uuid.uuid4())[:8]}"
-                print(
-                    f"WARNING: Username '{target_username}' is taken by user {conflicting_user.email} (ID: {conflicting_user.id}). Renaming that user to '{backup_username}'."
+                init_logger.warning(
+                    "Username '%s' is taken by user %s (ID: %s). Renaming that user to '%s'.",
+                    target_username, conflicting_user.email, conflicting_user.id, backup_username,
                 )
                 conflicting_user.username = backup_username
                 session.add(conflicting_user)
                 await session.commit()
 
         if not user:
-            print(f"Creating superuser {settings.SUPER_ADMIN}")
+            init_logger.info("Creating superuser %s", settings.SUPER_ADMIN)
             user_in = UserCreate(
                 email=settings.SUPER_ADMIN,
                 username=target_username,
@@ -81,15 +85,16 @@ async def init_db():
             session.add(user)
             await session.commit()
         else:
-            print(
-                f"Superuser {settings.SUPER_ADMIN} already exists. Updating password and ensuring username..."
+            init_logger.info(
+                "Superuser %s already exists. Updating password and ensuring username...",
+                settings.SUPER_ADMIN,
             )
             user.hashed_password = get_password_hash(settings.SUPER_ADMIN_PASSWORD)
             user.username = target_username
             user.role = UserRole.SUPER_ADMIN
             session.add(user)
             await session.commit()
-            print("Superuser updated.")
+            init_logger.info("Superuser updated.")
 
 
 if __name__ == "__main__":

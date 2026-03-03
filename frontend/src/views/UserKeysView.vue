@@ -151,6 +151,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { userKeyService, type UserAPIKey } from '../services/userKeyService';
+import { useToastStore } from '../stores/toast';
+
+const toast = useToastStore();
 
 const keys = ref<UserAPIKey[]>([]);
 const loading = ref(true);
@@ -199,7 +202,7 @@ async function submitKey() {
     
   } catch (e) {
     console.error("Failed to add key", e);
-    alert('Failed to add key. Alias must be unique.');
+    toast.error('Failed to add key. Alias must be unique.');
   } finally {
     submitting.value = false;
   }

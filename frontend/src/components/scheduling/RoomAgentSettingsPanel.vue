@@ -82,12 +82,12 @@ const saveSettings = async () => {
   }
 }
 
-const syncToCourse = async () => {
-  if (!confirm('Copy these settings to ALL rooms in this course? This cannot be undone.')) return
+const syncToSpace = async () => {
+  if (!confirm('Copy these settings to ALL rooms in this space? This cannot be undone.')) return
   syncing.value = true
   error.value = ''
   try {
-    const res = await roomService.syncSettingsToCourse(props.roomId, props.agentId)
+    const res = await roomService.syncSettingsToSpace(props.roomId, props.agentId)
     successMsg.value = res.data.message || 'Synced!'
     setTimeout(() => successMsg.value = '', 3000)
   } catch (e: any) {
@@ -157,10 +157,10 @@ watch([() => props.roomId, () => props.agentId], loadSettings)
             class="btn btn-outline btn-sm btn-secondary"
             :class="{ loading: syncing }"
             :disabled="syncing"
-            @click="syncToCourse"
-            title="Copy these settings to all rooms in the same course"
+            @click="syncToSpace"
+            title="Copy these settings to all rooms in the same space"
           >
-            🔄 Sync to Course
+            Sync to Space
           </button>
         </div>
       </div>

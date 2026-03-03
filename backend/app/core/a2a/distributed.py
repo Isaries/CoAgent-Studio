@@ -15,7 +15,7 @@ import asyncio
 import json
 import structlog
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from uuid import UUID, uuid4
 
@@ -470,7 +470,7 @@ class DistributedDispatcher:
             "original_stream": stream_name,
             "original_entry_id": entry_id,
             "error": error,
-            "moved_at": datetime.utcnow().isoformat(),
+            "moved_at": datetime.now(timezone.utc).isoformat(),
         })
 
         # ACK the original so it leaves the PEL
@@ -617,7 +617,7 @@ class DistributedDispatcher:
             content=d.get("content", ""),
             correlation_id=UUID(d["correlation_id"]) if d.get("correlation_id") else None,
             metadata=d.get("metadata", {}),
-            created_at=datetime.fromisoformat(d["created_at"]) if d.get("created_at") else datetime.utcnow(),
+            created_at=datetime.fromisoformat(d["created_at"]) if d.get("created_at") else datetime.now(timezone.utc),
         )
     
     # === Utility Methods ===
@@ -663,7 +663,7 @@ class DistributedDispatcher:
             return 0
         
         stream_name = self._get_stream_name(agent_id)
-        cutoff = int((datetime.utcnow().timestamp() - max_age_seconds) * 1000)
+        cutoff = int((datetime.now(timezone.utc).timestamp() - max_age_seconds) * 1000)
         
         # XTRIM with MINID removes entries older than the given ID
         deleted = await self._redis.xtrim(

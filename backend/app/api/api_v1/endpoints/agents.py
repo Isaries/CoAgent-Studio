@@ -17,9 +17,9 @@ router = APIRouter()
 class DesignRequest(BaseModel):
     requirement: str
     target_agent_type: str  # teacher or student
-    course_context: str  # Title or description
+    space_context: str = ""  # Title or description (was course_context)
     api_key: Optional[str] = None  # User provided temporarily
-    course_id: Optional[UUID] = None  # Context to look up stored key
+    space_id: Optional[UUID] = None  # Context to look up stored key (was course_id)
     provider: str = "gemini"
     
     # Sandbox / Custom Settings
@@ -153,7 +153,7 @@ async def update_agent_config(
     service = AgentConfigService(session)
 
     # Duplicate check logic:
-    # Need to get config first to know course_id
+    # Need to get config first to know space_id
     # Service update checks ID existence.
     # But for duplicate name, I need context.
     # I'll rely on frontend or DB constraint, or just let it pass for now.

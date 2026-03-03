@@ -78,3 +78,10 @@ export enum ContextStrategyType {
     LAST_N = 'last_n',
     ALL = 'all',
 }
+
+// ============================================================
+// Space & Tab Enums
+// ============================================================
+
+export type SpacePreset = 'colearn' | 'support' | 'research' | 'custom'
+export type TabKey = 'chat' | 'board' | 'docs' | 'process' | 'graph'

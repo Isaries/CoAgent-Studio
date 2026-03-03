@@ -17,6 +17,7 @@ from app.models.artifact import ArtifactCreate, ArtifactRead, ArtifactUpdate, Ar
 from app.models.user import User, UserRole
 from app.models.room import Room
 from app.services.artifact_service import ArtifactService
+from app.services.permission_service import permission_service
 
 router = APIRouter()
 
@@ -38,8 +39,9 @@ async def list_artifacts(
     if not room:
         raise HTTPException(status_code=404, detail="Workspace not found")
     
-    # TODO: Check user permission to access this room
-    
+    if not await permission_service.check(current_user, "read", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     service = ArtifactService(session, socket_manager=manager)
     artifacts = await service.list_artifacts(room_id, artifact_type=artifact_type)
     

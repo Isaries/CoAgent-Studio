@@ -15,7 +15,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
-from app.core.deps import get_session
+from app.core.db import get_session
 from app.models.user import User
 from app.models.trigger import (
     TriggerPolicy,

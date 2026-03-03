@@ -6,7 +6,8 @@ from .analytics import AnalyticsReport
 from .announcement import Announcement, AnnouncementCreate, AnnouncementRead
 from .artifact import Artifact, ArtifactCreate, ArtifactRead, ArtifactUpdate, ArtifactType, AgentCapability
 from .audit_log import AuditLog
-from .course import Course, CourseCreate, CourseRead, CourseUpdate, UserCourseLink
+from .space import Space, SpaceCreate, SpaceRead, SpaceUpdate, SpaceMember, SpaceMemberUpdate, UserSpaceLink
+from .knowledge_base import KnowledgeBase, KBCreate, KBRead, KBUpdate
 from .message import Message, MessageCreate, MessageRead
 from .organization import Organization, OrganizationCreate, OrganizationRead, OrganizationUpdate, UserOrganizationLink
 from .project import Project, ProjectCreate, ProjectRead, ProjectUpdate, UserProjectLink
@@ -24,6 +25,12 @@ from .trigger import TriggerPolicy, TriggerPolicyCreate, TriggerPolicyRead, Trig
 
 # Import A2A models to ensure table creation
 from app.core.a2a.store import A2AMessageRecord
+
+# Backward compatibility aliases (Course → Space)
+from .course import (
+    Course, CourseCreate, CourseRead, CourseUpdate,
+    CourseMember, CourseMemberUpdate, UserCourseLink,
+)
 
 __all__ = [
     "AgentConfig",
@@ -45,11 +52,27 @@ __all__ = [
     "ArtifactUpdate",
     "ArtifactType",
     "AgentCapability",
+    # New canonical names
+    "Space",
+    "SpaceCreate",
+    "SpaceRead",
+    "SpaceUpdate",
+    "SpaceMember",
+    "SpaceMemberUpdate",
+    "UserSpaceLink",
+    # Backward compat aliases
     "Course",
     "CourseCreate",
     "CourseRead",
     "CourseUpdate",
+    "CourseMember",
+    "CourseMemberUpdate",
     "UserCourseLink",
+    # Knowledge Base
+    "KnowledgeBase",
+    "KBCreate",
+    "KBRead",
+    "KBUpdate",
     "Message",
     "MessageCreate",
     "MessageRead",
@@ -83,8 +106,8 @@ __all__ = [
     "UserAPIKey",
     "UserAPIKeyCreate",
     "UserAPIKeyRead",
-    "A2AMessageRecord",  # Ensure A2A table is created
-    # Workflow Engine (new decoupled names)
+    "A2AMessageRecord",
+    # Workflow Engine
     "Workflow",
     "WorkflowCreate",
     "WorkflowRead",
@@ -92,7 +115,6 @@ __all__ = [
     "WorkflowRun",
     "WorkflowRunRead",
     "WorkflowStatus",
-    # Backward-compat aliases
     "RoomWorkflow",
     "RoomWorkflowCreate",
     "RoomWorkflowRead",
@@ -104,5 +126,3 @@ __all__ = [
     "TriggerPolicyUpdate",
     "TriggerEventType",
 ]
-
-

@@ -3,12 +3,12 @@ from typing import Any, Literal, Union
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models.course import Course, UserCourseLink
+from app.models.space import Space, UserSpaceLink
 from app.models.room import Room
 from app.models.user import User, UserRole
 
 Action = Literal["create", "read", "update", "delete", "assign", "list_users", "manage_users", "manage_config"]
-Resource = Union[Course, Room, User, None]
+Resource = Union[Space, Room, User, None]
 
 
 class PermissionService:
@@ -32,8 +32,8 @@ class PermissionService:
 
         if isinstance(resource, Room):
             return await self._check_room_permission(user, action, resource, session)
-        elif isinstance(resource, Course):
-            return await self._check_course_permission(user, action, resource, session)
+        elif isinstance(resource, Space):
+            return await self._check_space_permission(user, action, resource, session)
         elif isinstance(resource, User):
             # Managing other users
             return user.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN] or user.id == resource.id
@@ -47,18 +47,18 @@ class PermissionService:
         if user.role == UserRole.ADMIN:
             return True
 
-        course = await session.get(Course, room.course_id)  # type: ignore[func-returns-value]
-        if not course:
+        space = await session.get(Space, room.space_id)  # type: ignore[func-returns-value]
+        if not space:
             return False
 
-        # Course Owner
-        if course.owner_id == user.id:
+        # Space Owner
+        if space.owner_id == user.id:
             return True
 
         # Check User Link (TA or Student)
-        statement: Any = select(UserCourseLink).where(
-            UserCourseLink.user_id == user.id,
-            UserCourseLink.course_id == course.id,
+        statement: Any = select(UserSpaceLink).where(
+            UserSpaceLink.user_id == user.id,
+            UserSpaceLink.space_id == space.id,
         )
         result = await session.exec(statement)
         link = result.first()
@@ -75,21 +75,21 @@ class PermissionService:
 
         return False
 
-    async def _check_course_permission(
-        self, user: User, action: Action, course: Course, session: AsyncSession
+    async def _check_space_permission(
+        self, user: User, action: Action, space: Space, session: AsyncSession
     ) -> bool:
         if user.role == UserRole.ADMIN:
             return True
-        if course.owner_id == user.id:
+        if space.owner_id == user.id:
             return True
 
-        # Custom logic for "manage_config" handled via Course permission?
-        # Ideally, we call check(user, "manage_config", course)
+        # Custom logic for "manage_config" handled via Space permission?
+        # Ideally, we call check(user, "manage_config", space)
 
         # Check User Link (TA or Student)
-        statement: Any = select(UserCourseLink).where(
-            UserCourseLink.user_id == user.id,
-            UserCourseLink.course_id == course.id,
+        statement: Any = select(UserSpaceLink).where(
+            UserSpaceLink.user_id == user.id,
+            UserSpaceLink.space_id == space.id,
         )
         result = await session.exec(statement)
         link = result.first()
@@ -101,7 +101,7 @@ class PermissionService:
             return True
 
         if link.role == "student":
-            # Student can only READ course details
+            # Student can only READ space details
             # Cannot manage_config
             if action == "manage_config":
                 return False

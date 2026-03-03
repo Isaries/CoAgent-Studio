@@ -1,6 +1,6 @@
 # CoAgent Studio — Backend
 
-FastAPI-based backend powering the AI agent orchestration platform: decoupled multi-agent workflow execution, an event-driven trigger engine, real-time WebSockets, async LLM processing, and a GraphRAG knowledge graph engine.
+FastAPI-based backend powering the AI agent orchestration platform: decoupled multi-agent workflow execution, an event-driven trigger engine, a Knowledge Engine with GraphRAG, real-time WebSockets, and async LLM processing.
 
 ## Tech Stack
 
@@ -27,49 +27,55 @@ FastAPI-based backend powering the AI agent orchestration platform: decoupled mu
 
 ```
 backend/
-├── app/
-│   ├── api/api_v1/endpoints/
-│   │   ├── chat.py            # WebSocket handler + Redis activity tracking + trigger dispatch
-│   │   ├── workflows.py       # /workflows CRUD, /workflows/{id}/execute, legacy /rooms/{id}/workflow
-│   │   ├── triggers.py        # /triggers CRUD (TriggerPolicy)
-│   │   ├── agents.py          # Agent config CRUD + sandbox execution
-│   │   ├── graph.py           # GraphRAG build / query / visualize / communities / status
-│   │   └── courses.py / rooms.py / users.py / …
-│   ├── core/
-│   │   ├── config.py          # Pydantic Settings (Neo4j, Qdrant, Redis, JWT, …)
-│   │   ├── db.py              # Async engine + get_session / get_session_context
-│   │   ├── security.py        # JWT creation + Fernet encryption
-│   │   ├── socket_manager.py  # WebSocket room broadcaster (Redis Pub/Sub)
-│   │   ├── llm_service.py     # LLMFactory + unified async LLM client
-│   │   ├── neo4j_client.py    # Async Neo4j: entity MERGE, Leiden GDS, APOC multi-hop
-│   │   ├── qdrant_client.py   # Qdrant vector store: 3 collections, semantic search
-│   │   ├── embedding_service.py  # OpenAI text-embedding-3-small batch wrapper
-│   │   └── a2a/               # Agent-to-Agent protocol + workflow compiler
-│   ├── models/
-│   │   ├── workflow.py        # Workflow, WorkflowRun (decoupled — no room_id)
-│   │   ├── trigger.py         # TriggerPolicy (event_type, conditions, target_workflow_id)
-│   │   ├── room.py            # Room (+ attached_workflow_id FK → workflow.id)
-│   │   ├── graph_schemas.py   # GraphRAG Pydantic models (EntityNode, CommunityReport, …)
-│   │   └── …                 # agent_config, message, artifact, user, course, …
-│   ├── services/
-│   │   ├── trigger_service.py          # TriggerDispatcher + dispatch_event_task + run_workflow_task + cron
-│   │   ├── execution/
-│   │   │   └── agent_execution_service.py  # execute_workflow() (headless) + legacy room adapter
-│   │   ├── graphrag_service.py         # ARQ tasks: extract_entities, build_communities, full_graph_rebuild
-│   │   ├── graphrag_consumer.py        # Redis Stream consumer — incremental ingestion with per-room debounce
-│   │   ├── graph_search_service.py     # Intent router → Global | Local search
-│   │   ├── chat_service.py             # Message persistence + GraphRAG event publisher
-│   │   └── permission_service.py       # Centralized RBAC checks
-│   ├── factories/agent_factory.py      # Builds AgentCore instances from AgentConfig
-│   ├── initial_data.py                 # DB seeding (creates default super admin)
-│   ├── main.py                         # App entry point, lifespan, service lifecycle
-│   └── worker.py                       # ARQ WorkerSettings: functions + cron_jobs
-├── alembic/versions/
-│   └── e8f2a9b7c3d1_decouple_workflow_from_room.py  # Migration: workflow, trigger_policy tables
-├── tests/
-├── Dockerfile
-├── requirements.txt
-└── alembic.ini
++-- app/
+    |-- api/api_v1/endpoints/
+    |   |-- chat.py            # WebSocket handler + Redis activity tracking + trigger dispatch
+    |   |-- spaces.py          # /spaces CRUD + member management + overview
+    |   |-- knowledge.py       # /knowledge CRUD + build/status/query/merge/documents
+    |   |-- workflows.py       # /workflows CRUD, /workflows/{id}/execute, legacy /rooms/{id}/workflow
+    |   |-- triggers.py        # /triggers CRUD (TriggerPolicy)
+    |   |-- agents.py          # Agent config CRUD + sandbox execution
+    |   |-- graph.py           # GraphRAG build / query / visualize / communities / status
+    |   +-- rooms.py / users.py / analytics.py / announcements.py / …
+    |-- core/
+    |   |-- config.py          # Pydantic Settings (Neo4j, Qdrant, Redis, JWT, ...)
+    |   |-- db.py              # Async engine + get_session / get_session_context
+    |   |-- security.py        # JWT creation + Fernet encryption
+    |   |-- socket_manager.py  # WebSocket room broadcaster (Redis Pub/Sub)
+    |   |-- llm_service.py     # LLMFactory + unified async LLM client
+    |   |-- neo4j_client.py    # Async Neo4j: entity MERGE, Leiden GDS, APOC multi-hop
+    |   |-- qdrant_client.py   # Qdrant vector store: 3 collections, semantic search
+    |   |-- embedding_service.py  # OpenAI text-embedding-3-small batch wrapper
+    |   +-- a2a/               # Agent-to-Agent protocol + workflow compiler
+    |-- models/
+    |   |-- space.py           # Space + UserSpaceLink (replaces course)
+    |   |-- knowledge_base.py  # KnowledgeBase (source_type, build_status, node_count, edge_count)
+    |   |-- workflow.py        # Workflow, WorkflowRun (decoupled — no room_id)
+    |   |-- trigger.py         # TriggerPolicy (event_type, conditions, target_workflow_id)
+    |   |-- room.py            # Room (space_id FK + attached_workflow_id FK + enabled_tabs JSONB)
+    |   |-- graph_schemas.py   # GraphRAG Pydantic models (EntityNode, CommunityReport, ...)
+    |   +-- ...                # agent_config, message, artifact, user, audit_log, ...
+    |-- services/
+    |   |-- space_service.py            # Space CRUD + member management
+    |   |-- trigger_service.py          # TriggerDispatcher + dispatch_event_task + run_workflow_task + cron
+    |   |-- execution/
+    |   |   +-- agent_execution_service.py  # execute_workflow() (headless) + legacy room adapter
+    |   |-- graphrag_service.py         # ARQ tasks: extract_entities, build_communities, full_graph_rebuild
+    |   |-- graphrag_consumer.py        # Redis Stream consumer — incremental ingestion with per-room debounce
+    |   |-- graph_search_service.py     # Intent router -> Global | Local search
+    |   |-- chat_service.py             # Message persistence + GraphRAG event publisher
+    |   +-- permission_service.py       # Centralized RBAC checks
+    |-- factories/agent_factory.py      # Builds AgentCore instances from AgentConfig
+    |-- initial_data.py                 # DB seeding (creates default super admin)
+    |-- main.py                         # App entry point, lifespan, service lifecycle
+    +-- worker.py                       # ARQ WorkerSettings: functions + cron_jobs
++-- alembic/versions/
+    |-- e8f2a9b7c3d1_decouple_workflow_from_room.py  # Migration: workflow, trigger_policy tables
+    +-- a1f3g7h9k2m4_add_graphrag_room_settings.py   # Migration: space, knowledge_base, enabled_tabs
++-- tests/
++-- Dockerfile
++-- requirements.txt
++-- alembic.ini
 ```
 
 ---
@@ -117,7 +123,7 @@ QDRANT_HOST=localhost
 QDRANT_PORT=6333
 ```
 
-**4. Run migrations & seed**
+**4. Run migrations and seed**
 ```bash
 alembic upgrade head
 python -m app.initial_data       # Creates default super admin
@@ -127,7 +133,7 @@ python -m app.initial_data       # Creates default super admin
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
-→ Swagger UI: http://localhost:8000/docs
+Swagger UI: http://localhost:8000/docs
 
 **6. Start the ARQ worker**
 ```bash
@@ -137,6 +143,7 @@ python -m arq app.worker.WorkerSettings
 The worker handles:
 - **`dispatch_event_task`** — evaluates `TriggerPolicy` rules on incoming events
 - **`run_workflow_task`** — executes a compiled LangGraph multi-agent workflow
+- **`build_knowledge_base_task`** — triggers GraphRAG extraction and indexing for a KnowledgeBase
 - **`evaluate_time_triggers_cron`** — runs every minute to fire `timer` and `silence` policies
 - **GraphRAG tasks** — entity extraction, community building, full graph rebuild
 - **GraphRAG consumer** — Redis Stream listener for incremental ingestion
@@ -151,15 +158,47 @@ The worker handles:
 
 ```
 Workflow (graph topology)
-    │  ← attached_workflow_id
-    ├── Room  (collaborative chat room)
-    │
-    │  ← target_workflow_id
-    └── TriggerPolicy  (event rule → fires workflow)
+    |  <- attached_workflow_id
+    |-- Room  (collaborative chat room)
+    |
+    |  <- target_workflow_id
+    +-- TriggerPolicy  (event rule -> fires workflow)
 ```
 
 Use the global `/workflows` API to create and manage workflows.
 Use `/rooms/{id}/workflow` (legacy) to attach a workflow to a room.
+
+### Space Model
+
+`Space` is the top-level namespace for deployments:
+
+```
+Space
+  |-- UserSpaceLink  (members: teacher / ta / participant)
+  |-- Room[]         (chat sessions; each room has space_id FK)
+  +-- KnowledgeBase[]  (knowledge assets scoped to this space)
+```
+
+Spaces support four presets that pre-configure agent roles and room defaults:
+- `colearn` — education and tutoring
+- `support` — helpdesk and customer support
+- `research` — analysis and knowledge work
+- `custom` — unconstrained configuration
+
+### Knowledge Engine
+
+Each `KnowledgeBase` is an independent resource with a lifecycle:
+
+```
+POST /knowledge/              — create KB (name, space_id, source_type)
+POST /knowledge/{id}/documents — upload files (PDF, TXT, MD, CSV, DOCX; max 10 MB)
+POST /knowledge/{id}/build    — enqueue ARQ build job; sets status=building
+GET  /knowledge/{id}/status   — poll build_status, node_count, edge_count, last_built_at
+POST /knowledge/{id}/query    — natural language query -> graph_search_service
+POST /knowledge/{id}/merge    — absorb source KB into target KB
+```
+
+Build status is tracked in Redis (`kb_build:{id}`) in addition to the PostgreSQL row for low-latency polling.
 
 ### Trigger Dispatcher
 
@@ -167,21 +206,21 @@ The `TriggerDispatcher` in `services/trigger_service.py` evaluates policies and 
 
 ```
 user sends message
-    │
-    ▼  chat.py sets:  SET room_activity:{room_id} = <timestamp>  (in Redis)
-    │
-    ▼  arq_pool.enqueue_job("dispatch_event_task", "user_message", room_id, payload)
-    │
-    ▼  dispatch_event_task (ARQ worker)
-       └── TriggerDispatcher.resolve_matching_workflows()
-           ├── Checks TriggerPolicy (event_type, scope, conditions, debounce lock)
-           ├── Falls back to Room.attached_workflow_id if no explicit policy exists
-           └── Calls execute_workflow(session, redis, workflow_id, session_id, payload)
+    |
+    v  chat.py sets:  SET room_activity:{room_id} = <timestamp>  (in Redis)
+    |
+    v  arq_pool.enqueue_job("dispatch_event_task", "user_message", room_id, payload)
+    |
+    v  dispatch_event_task (ARQ worker)
+       +-- TriggerDispatcher.resolve_matching_workflows()
+           |-- Checks TriggerPolicy (event_type, scope, conditions, debounce lock)
+           |-- Falls back to Room.attached_workflow_id if no explicit policy exists
+           +-- Calls execute_workflow(session, redis, workflow_id, session_id, payload)
 
 evaluate_time_triggers_cron (every minute)
-    └── TriggerDispatcher.evaluate_time_triggers()
-        ├── silence: compares now() vs Redis room_activity:{id}
-        └── timer:   checks interval_mins condition + Redis lock
+    +-- TriggerDispatcher.evaluate_time_triggers()
+        |-- silence: compares now() vs Redis room_activity:{id}
+        +-- timer:   checks interval_mins condition + Redis lock
 ```
 
 ### Debounce / Locking
@@ -198,16 +237,16 @@ Implemented via Redis `SETNX trigger_lock:{policy_id}:{session_id}` with configu
 
 ```
 New message/artifact
-    │  (Redis Stream `graphrag:events`)
-    ▼
+    |  (Redis Stream `graphrag:events`)
+    v
 GraphRAGConsumer  (10s debounce per room)
-    └── extract_entities_task  →  Neo4j MERGE + Qdrant upsert
-        └── (on demand) build_communities_task  →  Leiden GDS + community summaries
+    +-- extract_entities_task  ->  Neo4j MERGE + Qdrant upsert
+        +-- (on demand) build_communities_task  ->  Leiden GDS + community summaries
 
 Query time:
     graph_search_service.query_graph()
-    ├── intent="global" → Qdrant community search → LLM answer
-    └── intent="local"  → Neo4j APOC multi-hop → Qdrant chunk evidence → LLM answer
+    |-- intent="global" -> Qdrant community search -> LLM answer
+    +-- intent="local"  -> Neo4j APOC multi-hop -> Qdrant chunk evidence -> LLM answer
 ```
 
 ### `get_session` vs `get_session_context`
@@ -227,7 +266,9 @@ alembic revision --autogenerate -m "Description of change"
 alembic upgrade head
 ```
 
-Key migration: `e8f2a9b7c3d1` — creates `workflow`, `trigger_policy` tables; migrates `room_workflow` data; adds `attached_workflow_id` to `room`.
+Key migrations:
+- `e8f2a9b7c3d1` — creates `workflow`, `trigger_policy` tables; migrates `room_workflow` data; adds `attached_workflow_id` to `room`
+- `a1f3g7h9k2m4` — creates `space`, `knowledge_base`, `userspacelink` tables; renames `course` references; adds `enabled_tabs` JSONB to `room`
 
 ---
 
@@ -255,4 +296,4 @@ mypy app/           # Type checking
 
 ## License
 
-> ⚠️ **License not yet specified.** Please consult the project owner before use, redistribution, or contribution.
+> License not yet specified. Please consult the project owner before use, redistribution, or contribution.

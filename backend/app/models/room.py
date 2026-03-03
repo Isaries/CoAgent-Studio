@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID, uuid4
 
@@ -7,8 +7,17 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from .course import Course
+    from .space import Space
     from .agent_config import AgentConfig
+
+# Default tab configuration for new rooms
+DEFAULT_ENABLED_TABS = {
+    "chat": True,
+    "board": False,
+    "docs": True,
+    "process": True,
+    "graph": False,
+}
 
 
 class RoomBase(SQLModel):
@@ -23,11 +32,16 @@ class RoomBase(SQLModel):
     # Workflow engine version: "v2_graph" (LangGraph)
     workflow_engine_version: str = Field(default="v2_graph")
 
+    # GraphRAG settings (kept for backward compat; new KB system via room_kb_id)
+    graphrag_enabled: bool = Field(default=False)
+    graphrag_extraction_model: str = Field(default="gpt-4o-mini")
+    graphrag_summarization_model: str = Field(default="gpt-4o-mini")
+
 
 class UserRoomLink(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="user.id", primary_key=True)
     room_id: UUID = Field(foreign_key="room.id", primary_key=True)
-    role: str = Field(default="student")
+    role: str = Field(default="participant")
 
 
 class RoomAgentLink(SQLModel, table=True):
@@ -44,31 +58,46 @@ class RoomAgentLink(SQLModel, table=True):
     )
 
     # Audit trail
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
 
 class Room(RoomBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
-    course_id: UUID = Field(foreign_key="course.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    space_id: UUID = Field(foreign_key="space.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Decoupled workflow binding: which Workflow powers this Room's AI
     attached_workflow_id: Optional[UUID] = Field(default=None, foreign_key="workflow.id")
 
-    course: "Course" = Relationship(back_populates="rooms")
+    # Dynamic tab configuration
+    enabled_tabs: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSONB)
+    )
+
+    # Knowledge Base reference
+    room_kb_id: Optional[UUID] = Field(default=None, foreign_key="knowledge_base.id")
+
+    space: "Space" = Relationship(back_populates="rooms")
+
+    # Backward compat property
+    @property
+    def course_id(self) -> UUID:
+        return self.space_id
 
 
 class RoomCreate(RoomBase):
-    course_id: UUID
+    space_id: UUID
 
 
 class RoomRead(RoomBase):
     id: UUID
-    course_id: UUID
+    space_id: UUID
     created_at: datetime
     attached_workflow_id: Optional[UUID] = None
+    enabled_tabs: Optional[Dict[str, Any]] = None
+    room_kb_id: Optional[UUID] = None
 
 
 class RoomUpdate(SQLModel):
@@ -80,3 +109,8 @@ class RoomUpdate(SQLModel):
     ai_mode: Optional[str] = None
     workflow_engine_version: Optional[str] = None
     attached_workflow_id: Optional[UUID] = None
+    graphrag_enabled: Optional[bool] = None
+    graphrag_extraction_model: Optional[str] = None
+    graphrag_summarization_model: Optional[str] = None
+    enabled_tabs: Optional[Dict[str, Any]] = None
+    room_kb_id: Optional[UUID] = None

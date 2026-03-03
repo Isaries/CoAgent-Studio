@@ -57,8 +57,9 @@ class ThreadService:
                     dk = await key_service.get_decrypted_key(k_id, agent_config.created_by)
                     if dk:
                         decrypted_keys.append(dk)
-                except Exception:
-                    pass
+                except Exception as e:
+                    import structlog
+                    structlog.get_logger().warning("key_decryption_failed", key_id=str(k_id), error=str(e))
 
         agent = AgentFactory.create_agent(agent_config, api_keys=decrypted_keys)
         if not agent:

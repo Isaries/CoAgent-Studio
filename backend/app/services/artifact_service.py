@@ -7,7 +7,7 @@ Supports:
 - Soft delete for data recovery
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -132,7 +132,7 @@ class ArtifactService:
         artifact.version += 1
         artifact.last_modified_by = modified_by
         
-        artifact.updated_at = datetime.utcnow()
+        artifact.updated_at = datetime.now(timezone.utc)
         
         await self.session.commit()
         await self.session.refresh(artifact)
@@ -193,7 +193,7 @@ class ArtifactService:
             payload = {
                 "type": "artifact_update",
                 "artifact": artifact.model_dump(mode='json'),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             await self.socket_manager.broadcast(payload, str(room_id))
         except Exception as e:
@@ -205,7 +205,7 @@ class ArtifactService:
             payload = {
                 "type": "artifact_delete",
                 "artifact_id": str(artifact_id),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             await self.socket_manager.broadcast(payload, str(room_id))
         except Exception as e:

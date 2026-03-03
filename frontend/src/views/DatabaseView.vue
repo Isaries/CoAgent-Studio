@@ -19,13 +19,13 @@ const startDate = ref('')
 const endDate = ref('')
 const isSidebarOpen = ref(true)
 
-const supportedRelationsTables = ['message', 'course', 'room', 'usercourselink', 'userroomlink']
+const supportedRelationsTables = ['message', 'space', 'room', 'userspacelink', 'userroomlink']
 import { computed } from 'vue'
 const isResolveSupported = computed(() => {
   return selectedTable.value && supportedRelationsTables.includes(selectedTable.value)
 })
 
-const hiddenColumns = ['sender_id', 'room_id', 'owner_id', 'course_id', 'user_id']
+const hiddenColumns = ['sender_id', 'room_id', 'owner_id', 'space_id', 'user_id']
 const visibleColumns = computed(() => {
   if (tableData.value.length === 0) return []
   const keys = Object.keys(tableData.value[0])

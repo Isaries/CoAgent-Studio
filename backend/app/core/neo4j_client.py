@@ -118,9 +118,23 @@ class Neo4jClient:
         """
         Run Leiden community detection on entities for a specific room.
         Returns the number of communities found.
-        
+
         Requires Neo4j GDS plugin.
         """
+        # Pre-flight: check GDS plugin availability
+        try:
+            async with self.driver.session() as neo_session:
+                result = await neo_session.run("RETURN gds.version() AS version")
+                record = await result.single()
+                logger.info("neo4j_gds_available", version=record["version"])
+        except Exception:
+            logger.error(
+                "neo4j_gds_plugin_missing",
+                detail="Neo4j GDS plugin is required for Leiden clustering. "
+                       "Install it from https://neo4j.com/docs/graph-data-science/",
+            )
+            return 0  # Return 0 communities with clear error
+
         # 1. Create or replace an in-memory graph projection for this room
         project_query = """
         CALL gds.graph.project.cypher(
@@ -136,8 +150,8 @@ class Neo4jClient:
             # Drop existing projection if any
             try:
                 await session.run("CALL gds.graph.drop($name, false)", name=graph_name)
-            except Exception:
-                pass  # Graph doesn't exist yet
+            except Exception as e:
+                logger.debug("gds_graph_drop_skipped", graph_name=graph_name, error=str(e))
 
             try:
                 await session.run(project_query, graph_name=graph_name, room_id=room_id)
@@ -165,8 +179,8 @@ class Neo4jClient:
                 # 3. Always cleanup projection even if Leiden fails
                 try:
                     await session.run("CALL gds.graph.drop($name, false)", name=graph_name)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("gds_graph_cleanup_failed", graph_name=graph_name, error=str(e))
 
     async def get_community_members(self, room_id: str, community_id: int) -> Dict[str, Any]:
         """Retrieve all entities and their relationships within a community."""
@@ -206,6 +220,18 @@ class Neo4jClient:
         Multi-hop traversal: start from named entities, expand `depth` hops.
         Returns nodes + edges for the subgraph.
         """
+        # Pre-flight: check APOC plugin availability
+        try:
+            async with self.driver.session() as neo_session:
+                check = await neo_session.run("RETURN apoc.version() AS version")
+                await check.single()
+        except Exception:
+            logger.error(
+                "neo4j_apoc_plugin_missing",
+                detail="APOC plugin required for subgraph traversal",
+            )
+            return {"nodes": [], "edges": []}
+
         query = """
         MATCH (start:Entity {room_id: $room_id})
         WHERE toLower(start.name) IN $names

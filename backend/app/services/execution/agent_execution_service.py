@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, cast
 from uuid import UUID
 
@@ -88,9 +88,8 @@ async def publish_a2a_trace(
       for the frontend canvas to highlight active nodes.
     """
     import json
-    from datetime import datetime
 
-    ts = datetime.utcnow().isoformat() + "Z"
+    ts = datetime.now(timezone.utc).isoformat() + "Z"
 
     # v1 legacy format (backward compat)
     payload_v1 = json.dumps({
@@ -199,10 +198,14 @@ async def execute_workflow(
             )
 
     try:
+        from langgraph.checkpoint.memory import MemorySaver
+
+        checkpointer = MemorySaver()
         compiled_graph = compiler.compile(
             graph_data=workflow.graph_data,
             agent_registry=agent_registry,
             action_registry={"broadcast": broadcast_action},
+            checkpointer=checkpointer,
         )
 
         # Build initial state from the trigger payload
@@ -220,10 +223,25 @@ async def execute_workflow(
 
         result = await compiled_graph.ainvoke(initial_state)
 
+        # Build execution log from the result state
+        execution_log = []
+        if isinstance(result, dict):
+            messages = result.get("messages", [])
+            for i, msg in enumerate(messages):
+                entry = {
+                    "step": i,
+                    "node_id": getattr(msg, "name", None) or result.get("_active_node_id", "unknown"),
+                    "type": getattr(msg, "type", "unknown"),
+                    "content_preview": str(getattr(msg, "content", ""))[:200],
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+                execution_log.append(entry)
+
+        run.execution_log = execution_log
+
         # Update run status
         run.status = WorkflowStatus.COMPLETED.value
-        from datetime import datetime as dt
-        run.completed_at = dt.utcnow()
+        run.completed_at = datetime.now(timezone.utc)
         session.add(run)
         await session.commit()
 

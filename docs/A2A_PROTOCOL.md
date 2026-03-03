@@ -15,7 +15,7 @@
 
 ## Overview
 
-CoAgent-Studio implements a comprehensive **Agent-to-Agent (A2A) Protocol** for managing structured communication between multiple AI agents. This protocol is based on the [A2A Protocol Specification](https://a2a-protocol.org) and optimized for educational scenarios involving Teacher-Student interactions.
+CoAgent-Studio implements a comprehensive **Agent-to-Agent (A2A) Protocol** for managing structured communication between multiple AI agents. This protocol is based on the [A2A Protocol Specification](https://a2a-protocol.org) and designed for general-purpose multi-agent orchestration across any deployment context (spaces, rooms, workflows, and headless API invocations).
 
 ### Key Features
 

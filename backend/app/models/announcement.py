@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -8,23 +8,24 @@ from sqlmodel import Field, SQLModel
 class AnnouncementBase(SQLModel):
     title: str
     content: str
-    course_id: UUID = Field(foreign_key="course.id")
+    space_id: UUID = Field(foreign_key="space.id")
 
 
 class Announcement(AnnouncementBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     author_id: UUID = Field(foreign_key="user.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Relationships
-    # course is defined in Course model (update needed there if we want back_populates)
-    # author needs back_populates in User if desired, or just foreign key
+    # Backward compat property
+    @property
+    def course_id(self) -> UUID:
+        return self.space_id
 
 
 class AnnouncementCreate(SQLModel):
     title: str
     content: str
-    course_id: UUID
+    space_id: UUID
 
 
 class AnnouncementRead(AnnouncementBase):

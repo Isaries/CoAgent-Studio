@@ -7,7 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models.agent_config import AgentConfig
 from app.models.room import Room, RoomCreate, RoomUpdate
 from app.models.user import User
-from app.repositories.course_repo import course_repo
+from app.repositories.space_repo import space_repo
 from app.repositories.room_repo import room_repo
 from app.services.permission_service import permission_service
 
@@ -16,20 +16,20 @@ class RoomService:
     def __init__(self, session: AsyncSession):
         self.session = session
         self.repo = room_repo
-        self.course_repo = course_repo
+        self.space_repo = space_repo
 
     async def create_room(self, room_in: RoomCreate, user: User) -> Room:
-        course = await self.course_repo.get(self.session, id=room_in.course_id)
-        if not course:
-            raise HTTPException(status_code=404, detail="Course not found")
+        space = await self.space_repo.get(self.session, id=room_in.space_id)
+        if not space:
+            raise HTTPException(status_code=404, detail="Space not found")
 
-        if not await permission_service.check(user, "create", course, self.session):
+        if not await permission_service.check(user, "create", space, self.session):
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
         return await self.repo.create(self.session, obj_in=room_in)
 
-    async def get_rooms_by_course(self, course_id: UUID) -> List[Room]:
-        return await self.repo.get_multi_by_course(self.session, course_id=course_id)
+    async def get_rooms_by_space(self, space_id: UUID) -> List[Room]:
+        return await self.repo.get_multi_by_space(self.session, space_id=space_id)
 
     async def get_room(self, room_id: UUID) -> Room:
         room = await self.repo.get(self.session, id=room_id)
@@ -63,7 +63,7 @@ class RoomService:
         if user_id:
             user_to_assign = await self.session.get(User, user_id)
         elif user_email:
-            user_to_assign = await self.course_repo.get_user_by_email(self.session, email=user_email)
+            user_to_assign = await self.space_repo.get_user_by_email(self.session, email=user_email)
 
         if not user_to_assign:
             raise HTTPException(status_code=404, detail="User not found")

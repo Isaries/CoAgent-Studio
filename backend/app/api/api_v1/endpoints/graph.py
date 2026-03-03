@@ -10,13 +10,16 @@ Provides:
 """
 
 import os
+from datetime import datetime, timezone
 from uuid import UUID
 
+import redis.asyncio as aioredis
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.core.db import get_session
 from app.core.neo4j_client import neo4j_client
 from app.core.qdrant_client import COMMUNITY_COLLECTION, vector_store
@@ -73,14 +76,39 @@ async def build_room_graph(
 ) -> dict:
     """
     Trigger a full GraphRAG build for a room.
-    Enqueues an ARQ background task.
+    Requires GraphRAG to be enabled on the room.
+    Enqueues an ARQ background task with room's configured models.
     """
-    await _verify_room_access(room_id, current_user, session)
+    room = await _verify_room_access(room_id, current_user, session)
+
+    if not room.graphrag_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="GraphRAG is not enabled for this room. Enable it in Room Settings first.",
+        )
 
     from app.main import app
 
     arq_pool = app.state.arq_pool
-    job = await arq_pool.enqueue_job("full_graph_rebuild_task", str(room_id))
+    job = await arq_pool.enqueue_job(
+        "full_graph_rebuild_task",
+        str(room_id),
+        room.graphrag_extraction_model,
+        room.graphrag_summarization_model,
+    )
+
+    # Store build status in Redis
+    try:
+        redis_client = aioredis.from_url(settings.redis_url)
+        await redis_client.set(f"graphrag:build_status:{room_id}", "building", ex=3600)
+        await redis_client.set(
+            f"graphrag:build_started:{room_id}",
+            datetime.now(timezone.utc).isoformat(),
+            ex=3600,
+        )
+        await redis_client.close()
+    except Exception as e:
+        logger.warning("graphrag_redis_status_write_failed", error=str(e))
 
     logger.info("graphrag_build_enqueued", room_id=str(room_id), job_id=job.job_id)
     return {
@@ -143,12 +171,20 @@ async def query_room_graph(
 ) -> GraphQueryResponse:
     """
     Query the Analytics Agent with a natural language question.
-    Uses intent routing → global or local search.
+    Uses intent routing -> global or local search with room's configured model.
     """
-    await _verify_room_access(room_id, current_user, session)
+    room = await _verify_room_access(room_id, current_user, session)
+
+    if not room.graphrag_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="GraphRAG is not enabled for this room.",
+        )
 
     api_key = _get_api_key()
-    result = await query_graph(str(room_id), body.question, api_key)
+    result = await query_graph(
+        str(room_id), body.question, api_key, model=room.graphrag_summarization_model
+    )
 
     return GraphQueryResponse(
         answer=result["answer"],
@@ -166,7 +202,12 @@ async def get_room_communities(
     """
     Get all community summaries for a room.
     """
-    await _verify_room_access(room_id, current_user, session)
+    room = await _verify_room_access(room_id, current_user, session)
+
+    if not room.graphrag_enabled:
+        raise HTTPException(
+            status_code=400, detail="GraphRAG is not enabled for this room"
+        )
 
     results = []
     try:
@@ -202,14 +243,38 @@ async def get_graph_status(
 ) -> GraphStatusResponse:
     """
     Get the current graph indexing status for a room.
+    Includes whether GraphRAG is enabled.
     """
-    await _verify_room_access(room_id, current_user, session)
+    room = await _verify_room_access(room_id, current_user, session)
 
     stats = await neo4j_client.get_graph_stats(str(room_id))
+
+    # Read build status from Redis
+    is_building = False
+    last_updated_str = None
+    try:
+        redis_client = aioredis.from_url(settings.redis_url)
+        is_building_raw = await redis_client.get(f"graphrag:build_status:{room_id}")
+        last_started = await redis_client.get(f"graphrag:build_started:{room_id}")
+        # Also check completed timestamp for last_updated
+        last_completed = await redis_client.get(f"graphrag:build_completed:{room_id}")
+        await redis_client.close()
+
+        is_building = is_building_raw == b"building" if is_building_raw else False
+        last_updated_str = (
+            last_completed.decode() if last_completed
+            else last_started.decode() if last_started
+            else None
+        )
+    except Exception as e:
+        logger.warning("graphrag_redis_status_read_failed", error=str(e))
 
     return GraphStatusResponse(
         room_id=str(room_id),
         node_count=stats.get("node_count", 0),
         edge_count=stats.get("edge_count", 0),
         community_count=stats.get("community_count", 0),
+        graphrag_enabled=room.graphrag_enabled,
+        is_building=is_building,
+        last_updated=last_updated_str,
     )

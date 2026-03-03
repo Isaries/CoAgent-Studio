@@ -2,11 +2,13 @@
 import { ref, computed } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
 import DocEditor from '../workspace/DocEditor.vue'
 import { formatTime, isAgent } from '@/utils/roomHelpers'
 
 const workspaceStore = useWorkspaceStore()
 const authStore = useAuthStore()
+const toast = useToastStore()
 
 const selectedDocId = ref<string | null>(null)
 
@@ -24,6 +26,23 @@ async function createNewDoc() {
 
 function handleArtifactUpdate(id: string, content: any) {
   workspaceStore.updateArtifact(id, { content })
+}
+
+async function deleteDoc(docId: string) {
+  if (!confirm('Are you sure you want to delete this document?')) return
+  try {
+    const success = await workspaceStore.deleteTask(docId)
+    if (success) {
+      if (selectedDocId.value === docId) {
+        selectedDocId.value = null
+      }
+      toast.success('Document deleted')
+    } else {
+      toast.error('Failed to delete document')
+    }
+  } catch {
+    toast.error('Failed to delete document')
+  }
 }
 </script>
 
@@ -70,6 +89,11 @@ function handleArtifactUpdate(id: string, content: any) {
                   <span>{{ formatTime(doc.updated_at) }}</span>
                </div>
              </div>
+             <button class="btn btn-ghost btn-xs text-error opacity-0 group-hover:opacity-100 transition-opacity" @click.stop="deleteDoc(doc.id)" title="Delete">
+               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+               </svg>
+             </button>
            </div>
          </div>
          <div v-if="workspaceStore.documents.length === 0" class="flex flex-col items-center justify-center h-40 text-base-content/40">

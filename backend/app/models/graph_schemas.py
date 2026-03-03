@@ -90,6 +90,7 @@ class GraphStatusResponse(BaseModel):
     community_count: int = 0
     last_updated: Optional[str] = None
     is_building: bool = False
+    graphrag_enabled: bool = False
 
 
 class GraphQueryRequest(BaseModel):

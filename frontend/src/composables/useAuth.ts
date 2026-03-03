@@ -25,7 +25,7 @@ export function useAuth() {
             if (isAdmin.value) {
                 router.push('/dashboard')
             } else {
-                router.push('/courses')
+                router.push('/spaces')
             }
             return true
         }
@@ -40,7 +40,7 @@ export function useAuth() {
     const impersonate = async (userId: string) => {
         const success = await authStore.impersonateUser(userId)
         if (success) {
-            router.push('/courses')
+            router.push('/spaces')
         }
     }
 

@@ -10,21 +10,17 @@ const router = createRouter({
       component: () => import('../layouts/BaseLayout.vue'),
       meta: { requiresAuth: true },
       children: [
+        // ─── HOME (Dashboard) ────────────────────────────────
         {
-          path: 'dashboard',
-          name: 'dashboard',
-          component: () => import('../views/DashboardView.vue'),
-          meta: { requiresAdmin: true }
+          path: '',
+          name: 'home',
+          component: () => import('../views/HomeView.vue')
         },
+
+        // ─── PLATFORM ─────────────────────────────────────────
         {
-          path: 'analytics',
-          name: 'analytics',
-          component: () => import('../views/AnalyticsView.vue'),
-          meta: { requiresNonStudent: true }
-        },
-        {
-          path: 'workspace',
-          name: 'workspace',
+          path: 'agents',
+          name: 'agents',
           component: () => import('../views/WorkspaceView.vue'),
           meta: { requiresNonStudent: true }
         },
@@ -35,37 +31,60 @@ const router = createRouter({
           meta: { requiresNonStudent: true }
         },
         {
-          path: 'courses',
-          name: 'courses',
-          component: () => import('../views/CourseListView.vue')
-        },
-        {
           path: 'my-agents',
           name: 'my-agents',
           component: () => import('../views/MyAgentsView.vue'),
           meta: { requiresNonStudent: true }
         },
         {
-          path: 'my-keys',
-          name: 'my-keys',
-          component: () => import('../views/UserKeysView.vue')
-        },
-        {
-          path: 'courses/:id/settings',
-          name: 'course-settings',
-          component: () => import('../views/CourseSettingsView.vue')
-        },
-        {
-          path: 'courses/:id/analytics',
-          name: 'course-analytics',
-          component: () => import('../views/AnalyticsView.vue'),
+          path: 'platform/workflows',
+          name: 'platform-workflows',
+          component: () => import('../views/studio/WorkflowsView.vue'),
           meta: { requiresNonStudent: true }
         },
         {
-          path: 'courses/:id',
-          name: 'course-detail',
-          component: () => import('../views/CourseDetailView.vue')
+          path: 'platform/workflows/:workflowId',
+          name: 'platform-workflow-editor',
+          component: () => import('../views/WorkflowEditorView.vue'),
+          meta: { requiresNonStudent: true }
         },
+        {
+          path: 'platform/triggers',
+          name: 'platform-triggers',
+          component: () => import('../views/studio/TriggersView.vue'),
+          meta: { requiresNonStudent: true }
+        },
+        {
+          path: 'platform/knowledge',
+          name: 'platform-knowledge',
+          component: () => import('../views/KnowledgeView.vue'),
+          meta: { requiresNonStudent: true }
+        },
+
+        // ─── SPACES (renamed from COURSES) ────────────────────
+        {
+          path: 'spaces',
+          name: 'spaces',
+          component: () => import('../views/SpaceListView.vue')
+        },
+        {
+          path: 'spaces/:id',
+          name: 'space-hub',
+          component: () => import('../views/SpaceHubView.vue')
+        },
+        {
+          path: 'spaces/:id/settings',
+          name: 'space-settings',
+          component: () => import('../views/SpaceSettingsView.vue')
+        },
+        {
+          path: 'spaces/:id/analytics',
+          name: 'space-analytics',
+          component: () => import('../views/AnalyticsView.vue'),
+          meta: { requiresNonStudent: true }
+        },
+
+        // ─── ROOMS ────────────────────────────────────────────
         {
           path: 'rooms/:id',
           name: 'room',
@@ -81,6 +100,25 @@ const router = createRouter({
           name: 'room-workflow',
           component: () => import('../views/WorkflowEditorView.vue'),
           meta: { requiresNonStudent: true }
+        },
+
+        // ─── SYSTEM ───────────────────────────────────────────
+        {
+          path: 'my-keys',
+          name: 'my-keys',
+          component: () => import('../views/UserKeysView.vue')
+        },
+        {
+          path: 'analytics',
+          name: 'analytics',
+          component: () => import('../views/AnalyticsView.vue'),
+          meta: { requiresAdmin: true }
+        },
+        {
+          path: 'dashboard',
+          name: 'dashboard',
+          component: () => import('../views/DashboardView.vue'),
+          meta: { requiresAdmin: true }
         },
         {
           path: 'admin/users',
@@ -101,31 +139,27 @@ const router = createRouter({
           meta: { requiresAdmin: true }
         },
 
-        // ─── AI Studio (Decoupled Orchestration Center) ────────
-        {
-          path: 'studio/workflows',
-          name: 'studio-workflows',
-          component: () => import('../views/studio/WorkflowsView.vue'),
-          meta: { requiresNonStudent: true }
-        },
-        {
-          path: 'studio/workflows/:workflowId',
-          name: 'studio-workflow-editor',
-          component: () => import('../views/WorkflowEditorView.vue'),
-          meta: { requiresNonStudent: true }
-        },
-        {
-          path: 'studio/triggers',
-          name: 'studio-triggers',
-          component: () => import('../views/studio/TriggersView.vue'),
-          meta: { requiresNonStudent: true }
-        },
+        // ─── BACKWARD COMPAT REDIRECTS ────────────────────────
+        { path: 'courses', redirect: '/spaces' },
+        { path: 'courses/:id', redirect: (to: any) => `/spaces/${to.params.id}` },
+        { path: 'courses/:id/settings', redirect: (to: any) => `/spaces/${to.params.id}/settings` },
+        { path: 'courses/:id/analytics', redirect: (to: any) => `/spaces/${to.params.id}/analytics` },
+        { path: 'workspace', redirect: '/agents' },
+        { path: 'studio/workflows', redirect: '/platform/workflows' },
+        { path: 'studio/workflows/:workflowId', redirect: (to: any) => `/platform/workflows/${to.params.workflowId}` },
+        { path: 'studio/triggers', redirect: '/platform/triggers' },
       ]
     },
     {
       path: '/login',
       name: 'login',
       component: LoginView
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('../views/HomeView.vue'),
+      meta: { title: 'Page Not Found' }
     }
   ]
 })
@@ -152,13 +186,13 @@ router.beforeEach(async (to, _from, next) => {
 
   // Check admin role
   if (requiresAdmin && !authStore.isAdmin) {
-    next('/courses') // Redirect non-admins to courses
+    next('/spaces') // Redirect non-admins to spaces
     return
   }
 
   const requiresNonStudent = to.matched.some((record) => record.meta.requiresNonStudent)
   if (requiresNonStudent && authStore.isStudent) {
-    next('/courses')
+    next('/spaces')
     return
   }
 

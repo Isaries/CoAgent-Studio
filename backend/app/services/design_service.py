@@ -35,7 +35,7 @@ class DesignAgentService:
         if not api_key:
              raise HTTPException(
                 status_code=400,
-                detail="API Key is required. Please set it in the Design Agent settings for this course.",
+                detail="API Key is required. Please set it in the Design Agent settings.",
             )
 
         # 3. Initialize Agent and Generate
@@ -49,7 +49,7 @@ class DesignAgentService:
         try:
             return await agent.generate_system_prompt(
                 target_agent_type=request.target_agent_type,
-                context=request.course_context,
+                context=request.space_context,
                 requirement=request.requirement,
             )
         except Exception as e:

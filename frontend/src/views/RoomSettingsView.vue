@@ -16,13 +16,49 @@ const route = useRoute()
 const router = useRouter()
 const roomId = route.params.id as string
 const toast = useToastStore()
-const courseId = ref('')
+const spaceId = ref('')
 
 // Config State
 const aiFrequency = ref(0.2)
 const isAnalyticsActive = ref(false)
 const attachedWorkflowId = ref<string | null>(null)
 const allWorkflows = ref<Workflow[]>([])
+
+// GraphRAG State
+const graphragEnabled = ref(false)
+const graphragExtractionModel = ref('gpt-4o-mini')
+const graphragSummarizationModel = ref('gpt-4o-mini')
+
+const availableModels = [
+  { label: 'GPT-4o Mini (Fast, Low Cost)', value: 'gpt-4o-mini' },
+  { label: 'GPT-4o (Balanced)', value: 'gpt-4o' },
+  { label: 'GPT-4 Turbo (High Quality)', value: 'gpt-4-turbo' },
+  { label: 'Claude Sonnet 4 (Balanced)', value: 'claude-sonnet-4-20250514' },
+  { label: 'Claude Haiku 4.5 (Fast)', value: 'claude-haiku-4-5-20251001' },
+  { label: 'Gemini 2.0 Flash (Fast)', value: 'gemini-2.0-flash' },
+  { label: 'Gemini 1.5 Pro (High Quality)', value: 'gemini-1.5-pro' },
+]
+
+// GraphRAG build status
+const isBuilding = ref(false)
+const lastUpdated = ref<string | null>(null)
+
+// Tab Display Settings
+const enabledTabs = ref<Record<string, boolean>>({
+  chat: true,
+  board: false,
+  docs: true,
+  process: true,
+  graph: false
+})
+
+const tabDefinitions = [
+  { key: 'chat', label: 'Chat', description: 'Always enabled -- core communication', alwaysOn: true },
+  { key: 'board', label: 'Board', description: 'Kanban board for task management', alwaysOn: false },
+  { key: 'docs', label: 'Docs', description: 'Shared documents and notes', alwaysOn: false },
+  { key: 'process', label: 'Process', description: 'Workflow process visualization', alwaysOn: false },
+  { key: 'graph', label: 'Knowledge Graph', description: 'GraphRAG knowledge explorer', alwaysOn: false },
+]
 
 // Agent Assignment State
 const roomAgents = ref<any[]>([])
@@ -35,10 +71,14 @@ const fetchSettings = async () => {
   try {
     const roomRes = await api.get(`/rooms/${roomId}`)
     const room = roomRes.data
-    courseId.value = room.course_id
+    spaceId.value = room.space_id
     aiFrequency.value = room.ai_frequency || 0.2
     isAnalyticsActive.value = !!room.is_analytics_active
     attachedWorkflowId.value = room.attached_workflow_id || null
+    graphragEnabled.value = !!room.graphrag_enabled
+    graphragExtractionModel.value = room.graphrag_extraction_model || 'gpt-4o-mini'
+    graphragSummarizationModel.value = room.graphrag_summarization_model || 'gpt-4o-mini'
+    enabledTabs.value = room.enabled_tabs || { chat: true, board: false, docs: true, process: true, graph: false }
 
     await fetchRoomAgents()
     await fetchAvailableProjects()
@@ -47,7 +87,7 @@ const fetchSettings = async () => {
     console.error('Failed to fetch settings', e)
     if (e.response?.status === 403 || e.response?.status === 404) {
       toast.error('You do not have access to this room.')
-      router.push('/courses')
+      router.push('/spaces')
       return
     }
   }
@@ -130,7 +170,11 @@ const saveSettings = async () => {
     await api.put(`/rooms/${roomId}`, {
       ai_frequency: aiFrequency.value,
       is_analytics_active: isAnalyticsActive.value,
-      attached_workflow_id: attachedWorkflowId.value
+      attached_workflow_id: attachedWorkflowId.value,
+      graphrag_enabled: graphragEnabled.value,
+      graphrag_extraction_model: graphragExtractionModel.value,
+      graphrag_summarization_model: graphragSummarizationModel.value,
+      enabled_tabs: enabledTabs.value
     })
 
     toast.success('Settings saved!')
@@ -156,6 +200,84 @@ onMounted(() => {
         </router-link>
         <router-link :to="`/rooms/${roomId}`" class="btn btn-ghost">Back to Room</router-link>
         <button @click="saveSettings" class="btn btn-primary">Save Configuration</button>
+      </div>
+    </div>
+
+    <!-- Tab Display Settings Card -->
+    <div class="card bg-base-100 shadow p-6">
+      <h2 class="text-xl font-bold mb-4">Tab Display Settings</h2>
+      <p class="text-sm opacity-70 mb-4">Choose which tabs are visible in this room.</p>
+      <div class="space-y-3">
+        <div v-for="tab in tabDefinitions" :key="tab.key" class="form-control">
+          <label class="label cursor-pointer justify-start gap-4">
+            <input
+              type="checkbox"
+              class="toggle toggle-primary"
+              :checked="tab.alwaysOn || enabledTabs[tab.key]"
+              :disabled="tab.alwaysOn"
+              @change="enabledTabs[tab.key] = ($event.target as HTMLInputElement).checked"
+            />
+            <div>
+              <span class="label-text font-bold">{{ tab.label }}</span>
+              <div class="text-xs opacity-70">{{ tab.description }}</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- GraphRAG Settings Card -->
+    <div class="card bg-base-100 shadow p-6">
+      <h2 class="text-xl font-bold mb-4">Knowledge Graph (GraphRAG)</h2>
+
+      <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-4">
+          <span class="label-text font-bold text-lg">Enable GraphRAG</span>
+          <input type="checkbox" class="toggle toggle-primary" v-model="graphragEnabled" />
+        </label>
+        <div class="text-xs opacity-70 mt-1">
+          When enabled, the system builds a knowledge graph from room conversations using a 3-tier extraction pipeline (Structural, NLP, LLM).
+        </div>
+      </div>
+
+      <div v-if="graphragEnabled" class="mt-2">
+        <span v-if="isBuilding" class="badge badge-warning gap-1">
+          <span class="loading loading-spinner loading-xs"></span>
+          Building graph...
+        </span>
+        <span v-else-if="lastUpdated" class="badge badge-info gap-1">
+          Last updated: {{ lastUpdated }}
+        </span>
+      </div>
+
+      <div v-if="graphragEnabled" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 pt-4 border-t">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-bold">Extraction Model</span>
+          </label>
+          <select v-model="graphragExtractionModel" class="select select-bordered w-full">
+            <option v-for="m in availableModels" :key="m.value" :value="m.value">
+              {{ m.label }}
+            </option>
+          </select>
+          <div class="text-xs opacity-70 mt-1">
+            Used by the LLM tier to extract concepts and relationships from conversations.
+          </div>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-bold">Summarization Model</span>
+          </label>
+          <select v-model="graphragSummarizationModel" class="select select-bordered w-full">
+            <option v-for="m in availableModels" :key="m.value" :value="m.value">
+              {{ m.label }}
+            </option>
+          </select>
+          <div class="text-xs opacity-70 mt-1">
+            Used for community summaries and answering graph queries.
+          </div>
+        </div>
       </div>
     </div>
 
@@ -248,7 +370,7 @@ onMounted(() => {
         <div class="border-t pt-4">
           <div v-if="availableProjects.length === 0" class="text-center py-6 bg-base-200 rounded-lg">
              <p class="text-sm opacity-70 mb-3">You don't have any Projects to assign agents from.</p>
-             <router-link to="/workspace" class="btn btn-outline btn-sm">Create a Project</router-link>
+             <router-link to="/agents" class="btn btn-outline btn-sm">Create a Project</router-link>
           </div>
           <div v-else>
             <div class="flex justify-between items-center mb-3">
@@ -265,7 +387,7 @@ onMounted(() => {
             </div>
             <div v-else-if="projectAgents.length === 0" class="text-sm text-center py-6 bg-base-200 rounded-lg mt-2">
               <p class="opacity-70 mb-3">No agents found in this project.</p>
-              <router-link :to="`/workspace`" class="btn btn-primary btn-sm">Design New Agent</router-link>
+              <router-link to="/agents" class="btn btn-primary btn-sm">Design New Agent</router-link>
             </div>
             <div v-else class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-2">
                <div v-for="agent in projectAgents" :key="agent.id" class="flex items-center justify-between p-3 border rounded-lg hover:border-base-300">

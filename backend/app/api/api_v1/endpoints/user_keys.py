@@ -117,12 +117,12 @@ async def update_key_schedule(
         "schedule_config": key.schedule_config,
     }
 
-    from datetime import datetime
+    from datetime import datetime, timezone
     if data.is_active is not None:
         key.is_active = data.is_active
     if data.schedule_config is not None:
         key.schedule_config = data.schedule_config
-    key.updated_at = datetime.utcnow()
+    key.updated_at = datetime.now(timezone.utc)
 
     session.add(key)
 

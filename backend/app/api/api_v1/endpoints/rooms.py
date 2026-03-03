@@ -24,8 +24,8 @@ async def create_room(
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Create a room in a course.
-    Allowed: Admin, or Owner of the course.
+    Create a room in a space.
+    Allowed: Admin, or Owner of the space.
     """
     service = RoomService(session)
     return await service.create_room(room_in, current_user)
@@ -33,15 +33,15 @@ async def create_room(
 
 @router.get("/", response_model=List[RoomRead])
 async def read_rooms(
-    course_id: UUID,
+    space_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Retrieve rooms for a specific course.
+    Retrieve rooms for a specific space.
     """
     service = RoomService(session)
-    return await service.get_rooms_by_course(course_id)
+    return await service.get_rooms_by_space(space_id)
 
 
 @router.get("/{room_id}", response_model=RoomRead)
@@ -67,7 +67,7 @@ async def update_room(
 ) -> Any:
     """
     Update room (including AI settings).
-    Allowed: Admin, or Owner of the course.
+    Allowed: Admin, or Owner of the space.
     """
     service = RoomService(session)
     return await service.update_room(room_id, room_in, current_user)
@@ -216,14 +216,14 @@ async def update_room_agent_settings(
     }
 
     # Apply updates
-    from datetime import datetime
+    from datetime import datetime, timezone
     if data.is_active is not None:
         link.is_active = data.is_active
     if data.schedule_config is not None:
         link.schedule_config = data.schedule_config
     if data.trigger_config is not None:
         link.trigger_config = data.trigger_config
-    link.updated_at = datetime.utcnow()
+    link.updated_at = datetime.now(timezone.utc)
     link.updated_by = current_user.id
 
     session.add(link)
@@ -248,15 +248,15 @@ async def update_room_agent_settings(
     return {"message": "Settings updated", **new_values}
 
 
-@router.post("/{room_id}/agents/{agent_id}/sync-to-course")
-async def sync_agent_settings_to_course(
+@router.post("/{room_id}/agents/{agent_id}/sync-to-space")
+async def sync_agent_settings_to_space(
     room_id: UUID,
     agent_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """
-    Copy this RoomAgentLink's settings to all rooms in the same course.
+    Copy this RoomAgentLink's settings to all rooms in the same space.
     One-time copy operation. Only admin/teacher can perform.
     """
     if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.TEACHER]:
@@ -273,20 +273,20 @@ async def sync_agent_settings_to_course(
     if not source:
         raise HTTPException(404, "RoomAgentLink not found")
 
-    # 2. Get course_id from Room
+    # 2. Get space_id from Room
     room = await session.get(Room, room_id)
     if not room:
         raise HTTPException(404, "Room not found")
-    course_id = room.course_id
+    space_id = room.space_id
 
-    # 3. Get all rooms in the same course
+    # 3. Get all rooms in the same space
     sibling_result = await session.exec(
-        select(Room.id).where(Room.course_id == course_id, Room.id != room_id)
+        select(Room.id).where(Room.space_id == space_id, Room.id != room_id)
     )
     sibling_ids = sibling_result.all()
 
     # 4. Upsert RoomAgentLink for each sibling
-    from datetime import datetime
+    from datetime import datetime, timezone
     synced_count = 0
     for sib_room_id in sibling_ids:
         existing_result = await session.exec(
@@ -300,7 +300,7 @@ async def sync_agent_settings_to_course(
             link.is_active = source.is_active
             link.schedule_config = source.schedule_config
             link.trigger_config = source.trigger_config
-            link.updated_at = datetime.utcnow()
+            link.updated_at = datetime.now(timezone.utc)
             link.updated_by = current_user.id
         else:
             link = RoomAgentLink(
@@ -319,14 +319,14 @@ async def sync_agent_settings_to_course(
         session,
         entity_type="room_agent_link",
         entity_id=f"{room_id}:{agent_id}",
-        action="sync_to_course",
+        action="sync_to_space",
         actor_id=current_user.id,
         new_value={
             "is_active": source.is_active,
             "schedule_config": source.schedule_config,
             "trigger_config": source.trigger_config,
         },
-        metadata={"course_id": str(course_id), "synced_rooms": synced_count},
+        metadata={"space_id": str(space_id), "synced_rooms": synced_count},
     )
 
     await session.commit()

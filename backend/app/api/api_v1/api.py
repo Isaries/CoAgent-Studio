@@ -11,8 +11,10 @@ from app.api.api_v1.endpoints import (
     chat,
     courses,
     graph,
+    knowledge,
     login,
     rooms,
+    spaces,
     users,
     user_keys,
     organizations,
@@ -33,7 +35,8 @@ api_router.include_router(organizations.router, prefix="/organizations", tags=["
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 api_router.include_router(threads.router, prefix="/threads", tags=["threads"])
 
-api_router.include_router(courses.router, prefix="/courses", tags=["courses"])
+api_router.include_router(spaces.router, prefix="/spaces", tags=["spaces"])
+api_router.include_router(courses.router, prefix="/courses", tags=["courses"])  # backward compat
 api_router.include_router(rooms.router, prefix="/rooms", tags=["rooms"])
 api_router.include_router(announcements.router, prefix="/announcements", tags=["announcements"])
 api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
@@ -50,11 +53,12 @@ api_router.include_router(artifacts.router, prefix="/workspaces", tags=["workspa
 # GraphRAG Knowledge Graph
 api_router.include_router(graph.router, prefix="/graph", tags=["graph"])
 
+# Knowledge Base CRUD
+api_router.include_router(knowledge.router, prefix="/knowledge", tags=["knowledge"])
+# Knowledge endpoints will be added in Phase 2C
+
 # Workflow Engine
 api_router.include_router(workflows.router, tags=["workflows"])
 
 # Trigger Policies
 api_router.include_router(triggers.router, tags=["triggers"])
-
-
-

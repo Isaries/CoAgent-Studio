@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional, Tuple
 from uuid import UUID
 
@@ -154,11 +154,11 @@ class AgentConfigRepository:
         silence_duration = 999999.0
         if last_msg and last_msg.created_at:
             try:
-                silence_duration = (datetime.utcnow() - last_msg.created_at).total_seconds()
-            except Exception:
-                # Fallback for TZ mixup
+                silence_duration = (datetime.now(timezone.utc) - last_msg.created_at).total_seconds()
+            except TypeError:
+                # Fallback for TZ-naive created_at
                 silence_duration = (
-                    datetime.utcnow() - last_msg.created_at.replace(tzinfo=None)
+                    datetime.now(timezone.utc) - last_msg.created_at.replace(tzinfo=timezone.utc)
                 ).total_seconds()
 
         # Last Teacher
@@ -170,7 +170,7 @@ class AgentConfigRepository:
                 .limit(1)
             )
         ).first()
-        t_since = (datetime.utcnow() - t_last.created_at).total_seconds() if t_last else 999999.0
+        t_since = (datetime.now(timezone.utc) - t_last.created_at).total_seconds() if t_last else 999999.0
 
         # Last Student
         s_last = (
@@ -181,7 +181,7 @@ class AgentConfigRepository:
                 .limit(1)
             )
         ).first()
-        s_since = (datetime.utcnow() - s_last.created_at).total_seconds() if s_last else 999999.0
+        s_since = (datetime.now(timezone.utc) - s_last.created_at).total_seconds() if s_last else 999999.0
 
         # Store in Cache
         await cache.set_json(

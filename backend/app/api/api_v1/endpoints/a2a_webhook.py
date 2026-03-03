@@ -6,7 +6,7 @@ Receives messages from external agents and injects them into the A2A system.
 
 import json
 import structlog
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -103,7 +103,7 @@ async def receive_external_agent_message(
             **(payload.metadata or {}),
             "external_agent_id": str(agent_uuid),
             "external_agent_name": agent_config.name,
-            "received_at": datetime.utcnow().isoformat(),
+            "received_at": datetime.now(timezone.utc).isoformat(),
         },
     )
     
@@ -112,7 +112,13 @@ async def receive_external_agent_message(
         store = A2AMessageStore(session)
         await store.save(a2a_message, room_id=room_id)
     except Exception as e:
-        logger.warning("a2a_message_persist_failed", error=str(e), message_id=str(a2a_message.id))
+        logger.error(
+            "a2a_message_persist_failed",
+            error=str(e),
+            room_id=room_id,
+            message_id=str(a2a_message.id),
+        )
+        # Don't raise - message was already processed, just log the persistence failure
     
     # Dispatch message
     dispatched = False
@@ -130,7 +136,7 @@ async def receive_external_agent_message(
                 "content": payload.content,
                 "message_id": str(a2a_message.id),
                 "correlation_id": payload.correlation_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             await manager.broadcast(broadcast_payload, room_id)
             dispatched = True
@@ -185,7 +191,7 @@ async def receive_external_agent_message(
                         "content": response.content,
                         "message_id": str(response.id),
                         "correlation_id": str(a2a_message.id),
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     }
                     await manager.broadcast(response_payload, room_id)
             else:
@@ -225,6 +231,6 @@ async def receive_external_agent_message(
 @router.get("/health")
 async def a2a_health():
     """Health check endpoint for external agents to verify connectivity."""
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 

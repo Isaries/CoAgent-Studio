@@ -4,10 +4,11 @@ Agent Types API Endpoints.
 Provides CRUD operations for agent type metadata.
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlmodel import SQLModel
 
 from app.api.deps import get_current_user, require_role
 from app.core.db import get_session
@@ -18,6 +19,20 @@ from app.models.agent_type_metadata import (
     AgentTypeMetadataRead,
 )
 from app.services.agent_registry import AgentRegistry
+
+
+class AgentTypeMetadataUpdate(SQLModel):
+    """Update schema for AgentTypeMetadata."""
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    default_system_prompt: Optional[str] = None
+    default_model_provider: Optional[str] = None
+    default_model: Optional[str] = None
+    default_settings: Optional[Dict[str, Any]] = None
+    default_capabilities: Optional[List[str]] = None
 
 router = APIRouter(prefix="/agent-types", tags=["Agent Types"])
 
@@ -75,6 +90,42 @@ async def create_agent_type(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.put("/{type_name}", response_model=AgentTypeMetadataRead)
+async def update_agent_type(
+    type_name: str,
+    data: AgentTypeMetadataUpdate,
+    session=Depends(get_session),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
+):
+    """
+    Update an existing agent type's metadata.
+
+    Only admins can update agent types. System types can be updated
+    but their type_name and is_system flag remain immutable.
+    """
+    registry = AgentRegistry(session)
+    type_meta = await registry.get_agent_type(type_name)
+
+    if not type_meta:
+        raise HTTPException(status_code=404, detail=f"Agent type '{type_name}' not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(type_meta, field, value)
+
+    from datetime import datetime, timezone
+    type_meta.updated_at = datetime.now(timezone.utc)
+
+    session.add(type_meta)
+    await session.commit()
+    await session.refresh(type_meta)
+
+    # Invalidate cache for this type
+    registry.invalidate_cache(type_name)
+
+    return AgentTypeMetadataRead.model_validate(type_meta)
+
+
 @router.delete("/{type_name}", status_code=204)
 async def delete_agent_type(
     type_name: str,
@@ -83,7 +134,7 @@ async def delete_agent_type(
 ):
     """
     Delete a custom agent type.
-    
+
     System types cannot be deleted.
     """
     registry = AgentRegistry(session)

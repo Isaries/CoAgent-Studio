@@ -10,7 +10,7 @@ from app.core.security import decrypt_api_key
 from app.services.agents.system_agents import AnalyticsAgent
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.analytics import AnalyticsReport
-from app.models.course import Course
+from app.models.space import Space
 from app.models.message import Message
 from app.models.room import Room
 from app.models.user import User, UserRole
@@ -18,26 +18,26 @@ from app.models.user import User, UserRole
 router = APIRouter()
 
 
-@router.post("/{course_id}/generate", response_model=AnalyticsReport)
-async def generate_course_analytics(
-    course_id: UUID,
+@router.post("/{space_id}/generate", response_model=AnalyticsReport)
+async def generate_space_analytics(
+    space_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> AnalyticsReport:  # type: ignore[func-returns-value]
     """
-    Trigger analysis for the entire course (all rooms).
+    Trigger analysis for the entire space (all rooms).
     For MVP, we also just pick the first room to demonstrate specific room analysis.
     """
-    course = await session.get(Course, course_id)  # type: ignore[func-returns-value]
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    space = await session.get(Space, space_id)  # type: ignore[func-returns-value]
+    if not space:
+        raise HTTPException(status_code=404, detail="Space not found")
 
     # Check permissions (Teacher or Admin)
     # Allow TA to view
     if current_user.role not in [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER]:
-        from app.models.course import UserCourseLink
+        from app.models.space import UserSpaceLink
 
-        link = await session.get(UserCourseLink, (current_user.id, course_id))
+        link = await session.get(UserSpaceLink, (current_user.id, space_id))
         if not link or link.role != "ta":
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -66,13 +66,13 @@ async def generate_course_analytics(
     # 2. Initialize Agent
     agent = AnalyticsAgent(provider="gemini", api_key=key, system_prompt=prompt)
 
-    # 3. Gather Data (All messages from all rooms in course)
+    # 3. Gather Data (All messages from all rooms in space)
     # For MVP, let's limit to the "most active" room or just fetch all
-    rooms_query = select(Room).where(Room.course_id == course_id)
+    rooms_query = select(Room).where(Room.space_id == space_id)
     rooms_res = await session.exec(rooms_query)
     rooms = rooms_res.all()
 
-    combined_report = f"# Course Analytics Report: {course.title}\n\n"
+    combined_report = f"# Space Analytics Report: {space.title}\n\n"
 
     for room in rooms:
         msgs_query = (
@@ -92,7 +92,7 @@ async def generate_course_analytics(
 
     # 4. Save Report
     report = AnalyticsReport(
-        course_id=course_id, content=combined_report, report_type="course_summary"
+        space_id=space_id, content=combined_report, report_type="space_summary"
     )
     session.add(report)
     await session.commit()
@@ -101,16 +101,43 @@ async def generate_course_analytics(
     return report
 
 
-@router.get("/{course_id}", response_model=List[AnalyticsReport])
+@router.get("/{space_id}", response_model=List[AnalyticsReport])
 async def read_analytics_reports(
-    course_id: UUID,
+    space_id: UUID,
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     query: Any = (
         select(AnalyticsReport)
-        .where(AnalyticsReport.course_id == course_id)
+        .where(AnalyticsReport.space_id == space_id)
         .order_by(col(AnalyticsReport.created_at).desc())
     )
     result = await session.exec(query)
     return result.all()
+
+
+@router.delete("/reports/{report_id}", status_code=204)
+async def delete_analytics_report(
+    report_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> None:
+    """
+    Delete an analytics report by ID.
+    Only accessible by Teacher, Admin, or Super Admin roles.
+    """
+    report = await session.get(AnalyticsReport, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Analytics report not found")
+
+    # Check permissions (same as generate endpoint)
+    if current_user.role not in [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER]:
+        from app.models.space import UserSpaceLink
+
+        link = await session.get(UserSpaceLink, (current_user.id, report.space_id))
+        if not link or link.role != "ta":
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    await session.delete(report)
+    await session.commit()
+    return None

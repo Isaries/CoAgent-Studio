@@ -65,7 +65,9 @@ class RedisMessageBroker:
 
                         if self.callback:
                             try:
-                                await self.callback(data, room_id)
+                                await asyncio.wait_for(self.callback(data, room_id), timeout=5.0)
+                            except asyncio.TimeoutError:
+                                logger.warning("redis_broker_callback_timeout", room_id=room_id)
                             except Exception as e:
                                 logger.error("redis_broker_callback_error", error=str(e), room_id=room_id)
             except asyncio.CancelledError:

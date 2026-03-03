@@ -1,10 +1,10 @@
 import api from '../api'
-import type { Room } from '../types/course'
+import type { Room } from '../types/space'
 import type { RoomAgentLinkSettings, ScheduleConfig, TriggerConfig } from '../types/agent'
 
 export const roomService = {
-  async getRooms(courseId: string) {
-    return api.get<Room[]>('/rooms/', { params: { course_id: courseId } })
+  async getRooms(spaceId: string) {
+    return api.get<Room[]>('/rooms/', { params: { space_id: spaceId } })
   },
 
   async createRoom(payload: Partial<Room>) {
@@ -45,7 +45,11 @@ export const roomService = {
     return api.put(`/rooms/${roomId}/agents/${agentId}/settings`, data)
   },
 
-  async syncSettingsToCourse(roomId: string, agentId: string) {
-    return api.post(`/rooms/${roomId}/agents/${agentId}/sync-to-course`)
+  async syncSettingsToSpace(roomId: string, agentId: string) {
+    return api.post(`/rooms/${roomId}/agents/${agentId}/sync-to-space`)
+  },
+
+  async updateEnabledTabs(roomId: string, tabs: Record<string, boolean>) {
+    return api.put(`/rooms/${roomId}`, { enabled_tabs: tabs })
   },
 }

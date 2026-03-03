@@ -1,7 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
+import structlog
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -11,6 +12,8 @@ from app.core.trigger_resolver import resolve_effective_trigger
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.agent_room_state import AgentRoomState
 from app.models.room import RoomAgentLink
+
+logger = structlog.get_logger()
 
 UPDATE_TRIGGER_TOOL_DEF = {
     "type": "function",
@@ -219,9 +222,9 @@ async def _handle_manage_artifact(
                 return f"Appended to artifact: {artifact_id} (v{updated_artifact.version})"
             else:
                 # Conflict occurred
-                print(f"[Agent Tool] Version conflict for {artifact_id}, retrying ({attempt + 1}/{max_retries})...")
+                logger.warning("artifact_version_conflict", artifact_id=str(artifact_id), attempt=attempt + 1, max_retries=max_retries, action="append")
                 continue
-        
+
         return f"Error: Failed to append to artifact {artifact_id} after {max_retries} retries due to concurrent updates."
 
     elif action == "add_step":
@@ -271,7 +274,7 @@ async def _handle_manage_artifact(
             if updated_artifact:
                 return f"Added steps to artifact: {artifact_id} (v{updated_artifact.version})"
             else:
-                 print(f"[Agent Tool] Version conflict for {artifact_id}, retrying ({attempt + 1}/{max_retries})...")
+                 logger.warning("artifact_version_conflict", artifact_id=str(artifact_id), attempt=attempt + 1, max_retries=max_retries, action="add_step")
                  continue
                  
         return f"Error: Failed to add steps to artifact {artifact_id} after {max_retries} retries."
@@ -289,8 +292,6 @@ async def _update_agent_trigger(
     Write trigger overrides to AgentRoomState (temporary) or
     RoomAgentLink/AgentConfig (permanent), respecting self_modification settings.
     """
-    import structlog
-    logger = structlog.get_logger()
     logger.info("agent_self_modify", room_id=str(room_id), params=new_params)
 
     # 1. Resolve current effective config
@@ -360,8 +361,8 @@ async def _update_agent_trigger(
             state = AgentRoomState(room_id=room_id, agent_id=agent_config_id)
 
         state.active_overrides = override_payload
-        state.overrides_expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
-        state.updated_at = datetime.utcnow()
+        state.overrides_expires_at = datetime.now(timezone.utc) + timedelta(hours=duration_hours)
+        state.updated_at = datetime.now(timezone.utc)
         session.add(state)
 
         entity_type = "agent_room_state"

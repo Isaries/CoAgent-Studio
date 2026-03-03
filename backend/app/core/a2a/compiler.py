@@ -198,6 +198,28 @@ class WorkflowCompiler:
                     for e in src_edges:
                         builder.add_edge(src, e["target"])
 
+        # Validate graph connectivity
+        all_node_ids = {n["id"] for n in nodes}
+        nodes_with_incoming: set = set()
+        nodes_with_outgoing: set = set()
+        for edge in edges:
+            nodes_with_outgoing.add(edge["source"])
+            nodes_with_incoming.add(edge["target"])
+
+        # Check for orphaned nodes (no incoming edges except START)
+        orphaned = all_node_ids - nodes_with_incoming - {"__start__", "START"}
+        if start_node_id:
+            orphaned.discard(start_node_id)
+        if orphaned:
+            logger.warning("workflow_orphaned_nodes", nodes=list(orphaned))
+
+        # Check for dead-end nodes (no outgoing edges except END)
+        dead_ends = all_node_ids - nodes_with_outgoing - {"__end__", "END"}
+        for eid in end_node_ids:
+            dead_ends.discard(eid)
+        if dead_ends:
+            logger.warning("workflow_dead_end_nodes", nodes=list(dead_ends))
+
         # Set entry point
         if start_node_id:
             builder.set_entry_point(start_node_id)
@@ -275,8 +297,13 @@ class WorkflowCompiler:
                 return updates
 
             if agent is None:
-                logger.warning("workflow_agent_node_no_agent", node_id=node_id)
-                return updates
+                agent_id = node_config.get("config", {}).get("agent_id", "unknown")
+                logger.warning("workflow_agent_node_no_agent", node_id=node_id, agent_id=agent_id)
+                from langchain_core.messages import SystemMessage
+                return {
+                    "messages": [SystemMessage(content=f"[Agent '{agent_id}' not found in registry. Skipping node '{node_id}'.]")],
+                    "_active_node_id": node_id,
+                }
 
             # Build prompt from message history (read-only access to state)
             messages = state.get("messages", [])
@@ -334,16 +361,18 @@ class WorkflowCompiler:
             updates: dict = {"_active_node_id": node_id}
 
             # Global cycle guard — override any condition
-            cycle_count = state.get("_cycle_count", 0)
-            if cycle_count >= max_cycles:
+            cycle_count = state.get("_cycle_count", 0) + 1
+            if cycle_count > max_cycles:
                 logger.warning(
-                    "workflow_router_cycle_limit_forced",
+                    "workflow_router_max_cycles",
                     node_id=node_id,
-                    cycle_count=cycle_count,
-                    max_cycles=max_cycles,
+                    cycles=cycle_count,
                 )
                 updates["_route_result"] = "exceeded"
+                updates["_cycle_count"] = cycle_count
                 return updates
+
+            updates["_cycle_count"] = cycle_count
 
             condition_type = node_config.get("config", {}).get("condition", "is_approved")
 
@@ -385,12 +414,29 @@ class WorkflowCompiler:
 
     @staticmethod
     def _make_tool_node(node_id: str, node_config: dict):
-        """Tool node – invokes an external tool."""
+        """Tool node – invokes an external tool via action_registry lookup."""
         async def _tool(state: dict) -> dict:
             tool_name = node_config.get("config", {}).get("tool_name", "unknown")
-            logger.info("workflow_tool_node", node_id=node_id, tool=tool_name)
-            # Tool execution will be implemented when tool registry is ready
-            return {"_active_node_id": node_id}
+            tool_params = node_config.get("config", {}).get("params", {})
+            logger.info("workflow_tool_node_execute", node_id=node_id, tool=tool_name)
+
+            # Look up tool from action_registry stored in state
+            action_registry = state.get("_action_registry", {})
+            tool_fn = action_registry.get(tool_name)
+
+            result_content = f"[Tool '{tool_name}' not found in registry]"
+            if tool_fn:
+                try:
+                    result_content = await tool_fn(state, **tool_params)
+                except Exception as e:
+                    logger.error("workflow_tool_node_error", node_id=node_id, tool=tool_name, error=str(e))
+                    result_content = f"[Tool '{tool_name}' error: {str(e)}]"
+
+            from langchain_core.messages import ToolMessage
+            return {
+                "messages": [ToolMessage(content=str(result_content), tool_call_id=node_id, name=tool_name)],
+                "_active_node_id": node_id,
+            }
         return _tool
 
     # ------------------------------------------------------------------

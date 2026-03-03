@@ -12,7 +12,7 @@ These patterns are especially important for LLM API calls which can be unreliabl
 import asyncio
 import structlog
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
 from typing import Any, Callable, Optional, TypeVar, ParamSpec
@@ -90,7 +90,7 @@ class CircuitBreaker:
     _failure_count: int = field(default=0, init=False)
     _success_count: int = field(default=0, init=False)
     _last_failure_time: Optional[datetime] = field(default=None, init=False)
-    _last_state_change: datetime = field(default_factory=datetime.utcnow, init=False)
+    _last_state_change: datetime = field(default_factory=lambda: datetime.now(timezone.utc), init=False)
     
     @property
     def state(self) -> CircuitState:
@@ -101,7 +101,7 @@ class CircuitBreaker:
     def _check_state_timeout(self) -> None:
         """Check if we should transition from OPEN to HALF_OPEN."""
         if self._state == CircuitState.OPEN and self._last_failure_time:
-            elapsed = (datetime.utcnow() - self._last_failure_time).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - self._last_failure_time).total_seconds()
             if elapsed >= self.recovery_timeout:
                 self._transition_to(CircuitState.HALF_OPEN)
     
@@ -109,7 +109,7 @@ class CircuitBreaker:
         """Transition to a new state with logging."""
         old_state = self._state
         self._state = new_state
-        self._last_state_change = datetime.utcnow()
+        self._last_state_change = datetime.now(timezone.utc)
         
         if new_state == CircuitState.HALF_OPEN:
             self._success_count = 0
@@ -156,7 +156,7 @@ class CircuitBreaker:
         """Record a failed operation."""
         state = self.state
         self._failure_count += 1
-        self._last_failure_time = datetime.utcnow()
+        self._last_failure_time = datetime.now(timezone.utc)
         
         logger.warning(
             "circuit_breaker_failure",
@@ -177,7 +177,7 @@ class CircuitBreaker:
         if self._state != CircuitState.OPEN or not self._last_failure_time:
             return None
         
-        elapsed = (datetime.utcnow() - self._last_failure_time).total_seconds()
+        elapsed = (datetime.now(timezone.utc) - self._last_failure_time).total_seconds()
         remaining = self.recovery_timeout - elapsed
         return max(0, remaining)
     

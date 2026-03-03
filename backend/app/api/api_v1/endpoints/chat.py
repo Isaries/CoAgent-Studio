@@ -1,3 +1,5 @@
+import time
+from collections import deque
 from typing import Any, List, Optional
 from uuid import UUID
 
@@ -17,6 +19,10 @@ from app.services.permission_service import permission_service
 from app.models.room import Room
 
 router = APIRouter()
+
+# WebSocket rate limiting constants
+RATE_WINDOW = 10.0  # seconds
+MAX_MESSAGES = 30
 
 
 @router.get("/messages/{room_id}", response_model=List[Any])
@@ -100,9 +106,18 @@ async def websocket_endpoint(
     _ws_logger = _structlog.get_logger()
 
     await manager.connect(websocket, room_id)
+    message_timestamps: deque = deque(maxlen=MAX_MESSAGES)
+
     try:
         while True:
             data = await websocket.receive_text()
+
+            # Rate limiting: max 30 messages per 10 seconds per connection
+            now = time.monotonic()
+            if len(message_timestamps) >= MAX_MESSAGES and (now - message_timestamps[0]) < RATE_WINDOW:
+                await websocket.send_json({"type": "error", "content": "Rate limit exceeded. Please slow down."})
+                continue
+            message_timestamps.append(now)
 
             # Each message gets its own short-lived session
             async with get_session_context() as msg_session:
@@ -124,7 +139,6 @@ async def websocket_endpoint(
 
             # --- Phase 1: State Tracking (Update last activity) ---
             if manager.broker.redis_client:
-                import time
                 await manager.broker.redis_client.set(
                     f"room_activity:{room_id}",
                     str(time.time()),
@@ -148,7 +162,7 @@ async def websocket_endpoint(
                 _ws_logger.warning("arq_pool_not_initialized")
 
     except WebSocketDisconnect:
-        pass
+        _ws_logger.info("websocket_disconnected", room_id=room_id, user_id=str(user_id))
     except Exception as e:
         _ws_logger.error("websocket_error", error=str(e), room_id=room_id, user_id=str(user_id))
     finally:

@@ -61,6 +61,10 @@ class TriggerDispatcher:
                         matched_workflow_ids.append(room.attached_workflow_id)
                 except (ValueError, AttributeError):
                     pass
+            elif event_type == "webhook":
+                # Webhook triggers match by endpoint path or custom payload conditions
+                # No legacy fallback for webhooks; they require explicit policies
+                logger.debug("webhook_trigger_no_policies", session_id=session_id)
             return matched_workflow_ids
 
         for policy in policies:
@@ -167,11 +171,39 @@ class TriggerDispatcher:
     # -----------------------------------------------------------------
 
     def _evaluate_conditions(self, conditions: dict, payload: dict) -> bool:
-        """Simple condition matching (extensible for future use)."""
+        """Condition matching with keyword, regex, and field comparison support."""
         keyword = conditions.get("keyword")
         if keyword and "content" in payload:
             if keyword.lower() not in payload["content"].lower():
                 return False
+
+        # Regex pattern matching
+        pattern = conditions.get("pattern")
+        if pattern and "content" in payload:
+            import re
+            if not re.search(pattern, payload["content"], re.IGNORECASE):
+                return False
+
+        # Field value comparison
+        field_checks = conditions.get("field_checks", [])
+        for check in field_checks:
+            field_name = check.get("field")
+            op = check.get("operator", "eq")
+            value = check.get("value")
+            actual = payload.get(field_name)
+            if actual is None:
+                return False
+            if op == "eq" and actual != value:
+                return False
+            elif op == "neq" and actual == value:
+                return False
+            elif op == "contains" and str(value) not in str(actual):
+                return False
+            elif op == "gt" and not (actual > value):
+                return False
+            elif op == "lt" and not (actual < value):
+                return False
+
         return True
 
     async def _is_locked(self, policy_id: UUID, session_id: str, lock_time: int = 10) -> bool:

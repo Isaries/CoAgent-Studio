@@ -19,23 +19,23 @@ TABLE_RELATIONS = {
         "joins": 'LEFT JOIN "user" u ON m.sender_id = u.id LEFT JOIN "room" r ON m.room_id = r.id',
         "search_fields": ["u.full_name", "r.name"],
     },
-    "course": {
-        "alias": "c",
+    "space": {
+        "alias": "s",
         "select_extras": ", u.full_name as owner_name",
-        "joins": 'LEFT JOIN "user" u ON c.owner_id = u.id',
+        "joins": 'LEFT JOIN "user" u ON s.owner_id = u.id',
         "search_fields": ["u.full_name"],
     },
     "room": {
         "alias": "r",
-        "select_extras": ", c.title as course_title",
-        "joins": 'LEFT JOIN "course" c ON r.course_id = c.id',
-        "search_fields": ["c.title"],
+        "select_extras": ", s.title as space_title",
+        "joins": 'LEFT JOIN "space" s ON r.space_id = s.id',
+        "search_fields": ["s.title"],
     },
-    "usercourselink": {
+    "user_space_link": {
         "alias": "l",
-        "select_extras": ", u.email as user_email, c.title as course_title",
-        "joins": 'LEFT JOIN "user" u ON l.user_id = u.id LEFT JOIN "course" c ON l.course_id = c.id',
-        "search_fields": ["u.email", "c.title"],
+        "select_extras": ", u.email as user_email, s.title as space_title",
+        "joins": 'LEFT JOIN "user" u ON l.user_id = u.id LEFT JOIN "space" s ON l.space_id = s.id',
+        "search_fields": ["u.email", "s.title"],
     },
     "userroomlink": {
         "alias": "l",

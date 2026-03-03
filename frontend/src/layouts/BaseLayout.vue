@@ -259,39 +259,62 @@ export default {
             </div>
           </li>
 
-          <li v-if="isAdmin">
-            <router-link to="/dashboard" active-class="active">Dashboard</router-link>
+          <!-- Home -->
+          <li>
+            <router-link to="/spaces" active-class="active">Home</router-link>
           </li>
-          <li v-if="isAdmin">
-            <router-link to="/admin/users" active-class="active">User Management</router-link>
+
+          <!-- PLATFORM section (non-students only) -->
+          <template v-if="!isStudent">
+            <div class="divider text-xs opacity-50 uppercase tracking-widest">Platform</div>
+            <li>
+              <router-link to="/agents" active-class="active">Agent Lab</router-link>
+            </li>
+            <li>
+              <router-link to="/my-agents" active-class="active">My Agents</router-link>
+            </li>
+            <li>
+              <router-link to="/platform/workflows" active-class="active">Workflows</router-link>
+            </li>
+            <li>
+              <router-link to="/platform/triggers" active-class="active">Triggers</router-link>
+            </li>
+            <li>
+              <router-link to="/platform/knowledge" active-class="active">Knowledge Engine</router-link>
+            </li>
+          </template>
+
+          <!-- SPACES section (visible to all) -->
+          <div class="divider text-xs opacity-50 uppercase tracking-widest">Spaces</div>
+          <li>
+            <router-link to="/spaces" active-class="active">My Spaces</router-link>
           </li>
-          <li><router-link to="/courses" active-class="active">My Courses</router-link></li>
-          <li v-if="!isStudent">
-            <router-link to="/workspace" active-class="active">Workspace (Agents)</router-link>
-          </li>
-          <li v-if="!isStudent">
-            <router-link to="/studio/workflows" active-class="active">🔀 Workflow Studio</router-link>
-          </li>
-          <li v-if="!isStudent">
-            <router-link to="/studio/triggers" active-class="active">⚡ Triggers</router-link>
-          </li>
-          <li v-if="!isStudent">
-            <router-link to="/analytics" active-class="active">Analytics</router-link>
-          </li>
+
+          <!-- SYSTEM section -->
+          <div class="divider text-xs opacity-50 uppercase tracking-widest">System</div>
           <li v-if="!isStudent">
             <router-link to="/my-keys" active-class="active">My API Keys</router-link>
           </li>
+          <li v-if="isAdmin">
+            <router-link to="/analytics" active-class="active">Analytics</router-link>
+          </li>
 
+          <!-- ADMIN section (admin only) -->
           <template v-if="isAdmin">
-            <div class="divider text-xs opacity-50 uppercase tracking-widest">Admin Tools</div>
+            <div class="divider text-xs opacity-50 uppercase tracking-widest">Admin</div>
             <li>
-              <router-link to="/admin/system-agents" active-class="active"
-                >System Agents</router-link
-              >
+              <router-link to="/dashboard" active-class="active">Dashboard</router-link>
             </li>
-            <li><router-link to="/admin/database" active-class="active">Database</router-link></li>
+            <li>
+              <router-link to="/admin/users" active-class="active">Users</router-link>
+            </li>
+            <li>
+              <router-link to="/admin/system-agents" active-class="active">System Agents</router-link>
+            </li>
+            <li>
+              <router-link to="/admin/database" active-class="active">Database</router-link>
+            </li>
           </template>
-
 
           <div class="divider"></div>
 

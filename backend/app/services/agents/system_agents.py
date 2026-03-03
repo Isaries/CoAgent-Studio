@@ -26,7 +26,7 @@ class DesignAgent(AgentCore):
     ) -> str:
         input_text = f"""
         Target Agent Role: {target_agent_type}
-        Course Context: {context}
+        Space Context: {context}
         User Requirement: {requirement}
 
         Generate a system prompt for this {target_agent_type} agent.

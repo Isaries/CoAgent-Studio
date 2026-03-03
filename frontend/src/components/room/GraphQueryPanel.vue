@@ -9,7 +9,10 @@
  */
 import { ref, onMounted } from 'vue'
 import { graphService } from '../../services/graphService'
+import { useToastStore } from '../../stores/toast'
 import type { GraphStatus, GraphQueryResponse, CommunityReport } from '../../types/graph'
+
+const toast = useToastStore()
 
 const props = defineProps<{
   roomId: string
@@ -36,18 +39,41 @@ async function loadStatus() {
   }
 }
 
+// Build polling
+const MAX_POLL_ATTEMPTS = 20
+const POLL_INTERVAL = 3000  // 3 seconds
+
+let pollCount = 0
+const pollBuildStatus = async () => {
+  if (pollCount >= MAX_POLL_ATTEMPTS) {
+    isBuilding.value = false
+    toast.warning('Build status check timed out. Refresh to check status.')
+    return
+  }
+  pollCount++
+  try {
+    await loadStatus()
+    if (isBuilding.value) {
+      setTimeout(pollBuildStatus, POLL_INTERVAL)
+    } else {
+      pollCount = 0
+    }
+  } catch {
+    isBuilding.value = false
+    pollCount = 0
+  }
+}
+
 // Build
 async function buildGraph() {
   isBuilding.value = true
   buildMessage.value = ''
+  pollCount = 0
   try {
     const res = await graphService.buildGraph(props.roomId)
     buildMessage.value = res.message
-    // Poll status after a delay
-    setTimeout(async () => {
-      await loadStatus()
-      isBuilding.value = false
-    }, 5000)
+    // Start polling for build completion
+    setTimeout(pollBuildStatus, POLL_INTERVAL)
   } catch (e: any) {
     buildMessage.value = e?.response?.data?.detail || 'Build failed'
     isBuilding.value = false

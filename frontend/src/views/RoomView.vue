@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useWorkspaceStore } from '../stores/workspace'
+import api from '../api'
 import KanbanBoard from '../components/workspace/KanbanBoard.vue'
 import RoomChat from '../components/room/RoomChat.vue'
 import RoomDocs from '../components/room/RoomDocs.vue'
@@ -10,12 +11,34 @@ import RoomProcess from '../components/room/RoomProcess.vue'
 import RoomGraphView from '../components/room/RoomGraphView.vue'
 import GraphQueryPanel from '../components/room/GraphQueryPanel.vue'
 import { useRoomChat } from '../composables/useRoomChat'
+import type { TabKey } from '../types/enums'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const workspaceStore = useWorkspaceStore()
 const roomId = route.params.id as string
-const activeTab = ref<'chat' | 'board' | 'docs' | 'process' | 'graph'>('chat')
+const activeTab = ref<TabKey>('chat')
+
+// Room data
+const room = ref<{ id: string; name: string; enabled_tabs?: Record<string, boolean> } | null>(null)
+
+// Tab definitions
+const ALL_TABS: readonly { key: TabKey; label: string; alwaysVisible: boolean }[] = [
+  { key: 'chat', label: 'Chat', alwaysVisible: true },
+  { key: 'board', label: 'Board', alwaysVisible: false },
+  { key: 'docs', label: 'Docs', alwaysVisible: false },
+  { key: 'process', label: 'Process', alwaysVisible: false },
+  { key: 'graph', label: 'Knowledge Graph', alwaysVisible: false },
+] as const
+
+const visibleTabs = computed(() => {
+  return ALL_TABS.filter(tab =>
+    tab.alwaysVisible || room.value?.enabled_tabs?.[tab.key] !== false
+  )
+})
+
+// Room display name
+const roomName = computed(() => room.value?.name || `Room ${roomId}`)
 
 // Use the Chat Composable
 const {
@@ -32,6 +55,14 @@ const handleSend = (text: string) => {
 }
 
 onMounted(async () => {
+  // Fetch room data for name and enabled_tabs
+  try {
+    const res = await api.get(`/rooms/${roomId}`)
+    room.value = res.data
+  } catch (e) {
+    console.error('Failed to fetch room data', e)
+  }
+
   await fetchHistory()
   connect()
   // Load artifacts for Kanban/Docs/Process views
@@ -48,44 +79,21 @@ onUnmounted(() => {
     <!-- Header -->
     <div class="flex-none navbar bg-base-100 border-b border-base-300 px-4 h-16 shadow-sm z-10">
       <div class="flex-1 flex items-center gap-4">
-        <h1 class="font-bold text-lg truncate">Room: {{ roomId }}</h1>
+        <h1 class="font-bold text-lg truncate">{{ roomName }}</h1>
 
-        <!-- View Tabs -->
+        <!-- View Tabs (dynamically filtered by enabled_tabs) -->
         <div class="join">
           <button
+            v-for="tab in visibleTabs"
+            :key="tab.key"
             class="join-item btn btn-sm"
-            :class="{ 'btn-active btn-primary': activeTab === 'chat' }"
-            @click="activeTab = 'chat'"
+            :class="{
+              'btn-active btn-primary': activeTab === tab.key && tab.key !== 'graph',
+              'btn-active btn-accent': activeTab === tab.key && tab.key === 'graph',
+            }"
+            @click="activeTab = tab.key"
           >
-            Chat
-          </button>
-          <button
-            class="join-item btn btn-sm"
-            :class="{ 'btn-active btn-primary': activeTab === 'board' }"
-            @click="activeTab = 'board'"
-          >
-            Board
-          </button>
-          <button
-            class="join-item btn btn-sm"
-            :class="{ 'btn-active btn-primary': activeTab === 'docs' }"
-            @click="activeTab = 'docs'"
-          >
-            Docs
-          </button>
-          <button
-            class="join-item btn btn-sm"
-            :class="{ 'btn-active btn-primary': activeTab === 'process' }"
-            @click="activeTab = 'process'"
-          >
-            Process
-          </button>
-          <button
-            class="join-item btn btn-sm"
-            :class="{ 'btn-active btn-accent': activeTab === 'graph' }"
-            @click="activeTab = 'graph'"
-          >
-            🧠 Knowledge Graph
+            {{ tab.label }}
           </button>
         </div>
       </div>
@@ -114,7 +122,7 @@ onUnmounted(() => {
             ></path>
           </svg>
         </router-link>
-        <router-link to="/courses" class="btn btn-sm btn-ghost btn-circle">
+        <router-link to="/spaces" class="btn btn-sm btn-ghost btn-circle">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="20"

@@ -26,7 +26,7 @@ const typesStore = useAgentTypesStore()
 // Computed tabs from store, falling back to hardcoded if not loaded
 const tabs = computed(() => {
   if (typesStore.types.length > 0) {
-    // Filter to non-external types for course settings (instructor, participant, utility)
+    // Filter to non-external types for space settings (instructor, participant, utility)
     return typesStore.types
       .filter(t => t.category !== 'external')
       .map(t => ({
@@ -51,9 +51,9 @@ onMounted(() => {
       <div>
         <h1 class="text-2xl font-bold flex items-center gap-2">
           <IconCode class="w-6 h-6 text-primary" />
-          Course Brain
+          Space Brain
         </h1>
-        <p class="text-sm opacity-60">Configure the AI agents that power this course.</p>
+        <p class="text-sm opacity-60">Configure the AI agents that power this space.</p>
       </div>
 
       <div class="flex items-center gap-2">

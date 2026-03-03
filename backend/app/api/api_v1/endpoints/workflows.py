@@ -18,8 +18,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+import uuid
+
 from app.api import deps
-from app.core.deps import get_session
+from app.core.db import get_session
 from app.models.user import User
 from app.models.workflow import (
     Workflow,
@@ -227,6 +229,68 @@ async def get_workflow_run_global(
     return run
 
 
+@router.delete(
+    "/workflows/{workflow_id}/runs/{run_id}",
+    status_code=204,
+    summary="Delete a specific workflow run",
+)
+async def delete_workflow_run(
+    workflow_id: UUID,
+    run_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
+):
+    run = await session.get(WorkflowRun, run_id)
+    if not run or run.workflow_id != workflow_id:
+        raise HTTPException(status_code=404, detail="Workflow run not found")
+    await session.delete(run)
+    await session.commit()
+    return None
+
+
+@router.post(
+    "/workflows/{workflow_id}/runs/{run_id}/pause",
+    summary="Pause a running workflow run",
+)
+async def pause_workflow_run(
+    workflow_id: UUID,
+    run_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
+):
+    run = await session.get(WorkflowRun, run_id)
+    if not run or run.workflow_id != workflow_id:
+        raise HTTPException(status_code=404, detail="Workflow run not found")
+    if run.status != "running":
+        raise HTTPException(status_code=400, detail="Can only pause running workflows")
+    run.status = "paused"
+    session.add(run)
+    await session.commit()
+    return {"status": "paused", "run_id": str(run_id)}
+
+
+@router.post(
+    "/workflows/{workflow_id}/runs/{run_id}/resume",
+    summary="Resume a paused workflow run",
+)
+async def resume_workflow_run(
+    workflow_id: UUID,
+    run_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(deps.get_current_user),
+):
+    run = await session.get(WorkflowRun, run_id)
+    if not run or run.workflow_id != workflow_id:
+        raise HTTPException(status_code=404, detail="Workflow run not found")
+    if run.status != "paused":
+        raise HTTPException(status_code=400, detail="Can only resume paused workflows")
+    run.status = "running"
+    session.add(run)
+    await session.commit()
+    # TODO: Re-enqueue the workflow execution from state_snapshot
+    return {"status": "resumed", "run_id": str(run_id)}
+
+
 # ===================================================================
 # Legacy Room-scoped endpoints  (/rooms/{room_id}/workflow)
 # These resolve the Room's attached_workflow_id transparently.
@@ -285,8 +349,7 @@ async def upsert_room_workflow(
                 workflow.name = payload.name
             if payload.is_active is not None:
                 workflow.is_active = payload.is_active
-            from datetime import datetime
-            workflow.updated_at = datetime.utcnow()
+            workflow.updated_at = datetime.now(timezone.utc)
         else:
             # Workflow was deleted; re-create
             workflow = Workflow(

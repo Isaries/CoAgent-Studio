@@ -12,6 +12,7 @@ from app.models.thread import (
     ThreadMessageRead,
 )
 from app.models.user import User
+from app.repositories.thread_repo import thread_repo
 from app.services.thread_service import ThreadService
 
 router = APIRouter()
@@ -46,6 +47,21 @@ async def generate_stateless_response(
 
 
 # --- Thread Management ---
+
+@router.get("/", response_model=List[AgentThreadRead])
+async def list_threads(
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+    skip: int = 0,
+    limit: int = 100,
+) -> Any:
+    """
+    List all threads belonging to the current user, with pagination.
+    """
+    return await thread_repo.get_multi_by_user(
+        session, user_id=current_user.id, skip=skip, limit=limit
+    )
+
 
 @router.post("/", response_model=AgentThreadRead)
 async def create_thread(
@@ -95,3 +111,19 @@ async def get_thread_messages(
 ) -> Any:
     service = ThreadService(session)
     return await service.get_thread_messages(thread_id, current_user)
+
+
+@router.delete("/{thread_id}", status_code=204)
+async def delete_thread(
+    thread_id: UUID,
+    session: AsyncSession = Depends(deps.get_session),
+    current_user: User = Depends(deps.get_current_user),
+) -> None:
+    """
+    Delete a thread and all its messages. Only the thread owner can delete.
+    """
+    service = ThreadService(session)
+    thread = await service.get_thread(thread_id, current_user)
+    await session.delete(thread)
+    await session.commit()
+    return None

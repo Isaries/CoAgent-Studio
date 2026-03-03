@@ -2,6 +2,7 @@
 Graph Search Service — Intent routing + Global/Local search strategies.
 
 Powers the Analytics Agent's ability to answer questions about room knowledge.
+All functions accept a configurable `model` parameter (no hardcoded model names).
 """
 
 from typing import Any, Dict, List
@@ -26,27 +27,75 @@ INTENT_SYSTEM_PROMPT = """You classify user questions about a collaborative lear
 
 - "global": Questions about overall themes, summaries, trends, patterns across the whole room.
   Examples: "What are the main topics discussed?", "Summarize the learning progress", "What were the biggest challenges?"
-  
+
 - "local": Questions about specific people, concepts, events, or artifacts.
   Examples: "What did Alice say about JWT?", "How was the database issue resolved?", "Which tasks are related to Docker?"
 
 Also extract any specific entity names mentioned in the question."""
 
 
-async def classify_intent(question: str, api_key: str) -> QueryIntent:
-    """Classify a question as global or local using a lightweight LLM call."""
-    client = instructor.from_openai(AsyncOpenAI(api_key=api_key))
+async def classify_intent(
+    question: str, api_key: str, model: str = "gpt-4o-mini"
+) -> dict:
+    """
+    Classify a question as global or local using a lightweight LLM call.
 
-    result = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        response_model=QueryIntent,
-        messages=[
-            {"role": "system", "content": INTENT_SYSTEM_PROMPT},
-            {"role": "user", "content": question},
-        ],
-        max_retries=1,
-    )
-    return result
+    Returns a dict with 'intent', 'entities', 'reasoning', and 'confidence' keys.
+    Falls back to keyword heuristics if the LLM call fails.
+    """
+    try:
+        client = instructor.from_openai(AsyncOpenAI(api_key=api_key))
+
+        result = await client.chat.completions.create(
+            model=model,
+            response_model=QueryIntent,
+            messages=[
+                {"role": "system", "content": INTENT_SYSTEM_PROMPT},
+                {"role": "user", "content": question},
+            ],
+            max_retries=1,
+        )
+        # LLM classification has high confidence
+        return {
+            "intent": result.intent,
+            "entities": result.entities,
+            "reasoning": result.reasoning,
+            "confidence": 0.9,
+        }
+    except Exception as e:
+        logger.warning("classify_intent_llm_failed", error=str(e))
+
+    # ── Keyword-based fallback with confidence scoring ──
+    question_lower = question.lower()
+    global_keywords = {"summary", "summarize", "overview", "themes", "trends", "patterns", "main topics", "overall"}
+    local_keywords = {"who", "what did", "how was", "which", "specific", "tell me about"}
+
+    global_matches = sum(1 for kw in global_keywords if kw in question_lower)
+    local_matches = sum(1 for kw in local_keywords if kw in question_lower)
+
+    if global_matches > local_matches:
+        confidence = 0.9 if global_matches >= 2 else 0.6
+        return {
+            "intent": "global",
+            "entities": [],
+            "reasoning": "Keyword-based fallback classification",
+            "confidence": confidence,
+        }
+    elif local_matches > 0:
+        confidence = 0.9 if local_matches >= 2 else 0.6
+        return {
+            "intent": "local",
+            "entities": [],
+            "reasoning": "Keyword-based fallback classification",
+            "confidence": confidence,
+        }
+    else:
+        return {
+            "intent": "global",
+            "entities": [],
+            "reasoning": "Default fallback — no clear keyword signals",
+            "confidence": 0.3,
+        }
 
 
 GLOBAL_ANSWER_PROMPT = """You are an expert Analytics Agent for an educational collaboration platform.
@@ -62,10 +111,12 @@ COMMUNITY SUMMARIES:
 USER QUESTION: {question}"""
 
 
-async def global_search(room_id: str, question: str, api_key: str) -> Dict[str, Any]:
+async def global_search(
+    room_id: str, question: str, api_key: str, model: str = "gpt-4o-mini"
+) -> Dict[str, Any]:
     """
     Global Search: Answer macro-level questions using community summaries.
-    
+
     1. Embed the question
     2. Search Qdrant community_summaries collection
     3. Feed top K summaries as context to LLM
@@ -104,7 +155,7 @@ async def global_search(room_id: str, question: str, api_key: str) -> Dict[str, 
     # Generate answer
     async with AsyncOpenAI(api_key=api_key) as client:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[
                 {"role": "user", "content": GLOBAL_ANSWER_PROMPT.format(context=context, question=question)},
             ],
@@ -130,11 +181,15 @@ USER QUESTION: {question}"""
 
 
 async def local_search(
-    room_id: str, question: str, entity_names: List[str], api_key: str
+    room_id: str,
+    question: str,
+    entity_names: List[str],
+    api_key: str,
+    model: str = "gpt-4o-mini",
 ) -> Dict[str, Any]:
     """
     Local Search: Answer specific questions by traversing the knowledge graph.
-    
+
     1. Find named entities in Neo4j
     2. Expand 2-hop subgraph
     3. Also search Qdrant chunks for supporting evidence
@@ -171,7 +226,7 @@ async def local_search(
     # 4. Generate answer
     async with AsyncOpenAI(api_key=api_key) as client:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[
                 {
                     "role": "user",
@@ -189,20 +244,31 @@ async def local_search(
     return {"answer": answer, "sources": list(set(sources))}
 
 
-async def query_graph(room_id: str, question: str, api_key: str) -> Dict[str, Any]:
+async def query_graph(
+    room_id: str, question: str, api_key: str, model: str = "gpt-4o-mini"
+) -> Dict[str, Any]:
     """
-    Main entry point: classify intent → route to global or local search.
+    Main entry point: classify intent -> route to global or local search.
     """
-    intent = await classify_intent(question, api_key)
-    logger.info("graphrag_query", room_id=room_id, intent=intent.intent, entities=intent.entities)
+    intent = await classify_intent(question, api_key, model=model)
+    logger.info(
+        "graphrag_query",
+        room_id=room_id,
+        intent=intent["intent"],
+        entities=intent.get("entities", []),
+        confidence=intent.get("confidence"),
+    )
 
-    if intent.intent == "global":
-        result = await global_search(room_id, question, api_key)
+    if intent["intent"] == "global":
+        result = await global_search(room_id, question, api_key, model=model)
     else:
-        result = await local_search(room_id, question, intent.entities, api_key)
+        result = await local_search(
+            room_id, question, intent.get("entities", []), api_key, model=model
+        )
 
     return {
         "answer": result["answer"],
-        "intent": intent.intent,
+        "intent": intent["intent"],
+        "confidence": intent.get("confidence"),
         "sources": result.get("sources", []),
     }

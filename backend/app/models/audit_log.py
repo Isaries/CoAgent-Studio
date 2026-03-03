@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
@@ -25,7 +25,7 @@ class AuditLog(SQLModel, table=True):
 
     # What action was performed
     action: str  # "update_schedule", "update_trigger", "toggle_active",
-    # "sync_to_course", "agent_self_modify", "reset_state"
+    # "sync_to_space", "agent_self_modify", "reset_state"
 
     # Who performed it
     actor_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
@@ -44,4 +44,4 @@ class AuditLog(SQLModel, table=True):
         default=None, sa_column=Column(JSONB)
     )
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)

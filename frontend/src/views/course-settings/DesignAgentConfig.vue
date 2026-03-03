@@ -22,11 +22,11 @@ interface Props {
   
   sandbox: SandboxState
   versions: AgentConfigVersion[]
-  scope?: 'course' | 'system'
+  scope?: 'space' | 'system'
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  scope: 'course'
+  scope: 'space'
 })
 const emit = defineEmits([
   'update:designApiKey',
@@ -82,7 +82,7 @@ const toggleVersions = () => {
     <div class="collapse-title font-medium flex items-center justify-between pr-10">
       <div class="flex items-center gap-2">
         <span>✨ AI Prompt Designer</span>
-        <span v-if="scope==='course'" class="badge badge-sm badge-ghost">Course</span>
+        <span v-if="scope==='space'" class="badge badge-sm badge-ghost">Space</span>
       </div>
       <!-- Mode Toggle -->
       <div class="flex items-center gap-2 z-10" @click.stop v-if="canEdit">
@@ -114,7 +114,7 @@ const toggleVersions = () => {
         <!-- Standard Mode Key Manager -->
         <div v-if="!sandbox.enabled" class="flex items-center gap-2 p-2 bg-base-200/50 rounded-lg">
            <IconKey class="text-gray-500 ml-2 w-4 h-4" />
-           <span class="text-xs font-bold text-gray-500 whitespace-nowrap">API Key ({{ scope === 'system' ? 'System' : 'Course' }})</span>
+           <span class="text-xs font-bold text-gray-500 whitespace-nowrap">API Key ({{ scope === 'system' ? 'System' : 'Space' }})</span>
            <input
              type="password"
              v-model="designApiKeyModel"

@@ -9,7 +9,7 @@ import asyncio
 import httpx
 import structlog
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
 from uuid import UUID
@@ -36,7 +36,7 @@ class CircuitBreakerState:
     
     def record_failure(self):
         self.failures += 1
-        self.last_failure = datetime.utcnow()
+        self.last_failure = datetime.now(timezone.utc)
     
     def record_success(self):
         self.failures = 0
@@ -51,7 +51,7 @@ class CircuitBreakerState:
         if self.last_failure is None:
             return True
         # Half-open: try again after recovery_timeout seconds
-        return datetime.utcnow() > self.last_failure + timedelta(seconds=recovery_timeout)
+        return datetime.now(timezone.utc) > self.last_failure + timedelta(seconds=recovery_timeout)
 
 
 @dataclass
@@ -63,7 +63,7 @@ class OAuthToken:
     
     @property
     def is_expired(self) -> bool:
-        return datetime.utcnow() >= self.expires_at - timedelta(seconds=30)
+        return datetime.now(timezone.utc) >= self.expires_at - timedelta(seconds=30)
 
 
 class ExternalAgentAdapter:
@@ -192,14 +192,23 @@ class ExternalAgentAdapter:
             
             if attempt < max_retries - 1:
                 wait_time = (2 ** attempt) + 0.5  # 1.5s, 2.5s, 4.5s
-                logger.info(
+                logger.warning(
                     "external_agent_retry",
                     agent_id=str(self.agent_id),
+                    url=self._webhook_url,
                     attempt=attempt + 1,
-                    wait_seconds=wait_time,
+                    delay=wait_time,
+                    error=str(last_exception),
                 )
                 await asyncio.sleep(wait_time)
-        
+
+        logger.error(
+            "external_agent_failed",
+            agent_id=str(self.agent_id),
+            url=self._webhook_url,
+            attempts=max_retries,
+            error=str(last_exception),
+        )
         raise last_exception or Exception("Max retries exceeded")
     
     async def _send_message(self, msg: A2AMessage) -> Optional[A2AMessage]:
@@ -265,7 +274,7 @@ class ExternalAgentAdapter:
         expires_in = data.get("expires_in", 3600)
         self._oauth_token = OAuthToken(
             access_token=data["access_token"],
-            expires_at=datetime.utcnow() + timedelta(seconds=expires_in),
+            expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in),
             refresh_token=data.get("refresh_token"),
         )
         

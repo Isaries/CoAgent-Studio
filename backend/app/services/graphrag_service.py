@@ -1,21 +1,20 @@
 """
-GraphRAG Service — Core orchestrator for knowledge graph construction.
+GraphRAG Service — 3-tier hybrid orchestrator for knowledge graph construction.
 
+Pipeline: Structural (DB) → NLP (spaCy) → LLM (configurable model)
 Contains ARQ-callable tasks for:
-1. Entity/relationship extraction from messages
+1. Entity/relationship extraction via 3-tier pipeline
 2. Community detection (Leiden clustering)
 3. Community summarization
 """
 
 import hashlib
-import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-import instructor
+import redis.asyncio as aioredis
 import structlog
 import tiktoken
-from openai import AsyncOpenAI
-from sqlalchemy.orm import sessionmaker
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -29,12 +28,17 @@ from app.core.qdrant_client import (
     vector_store,
 )
 from app.models.graph_schemas import (
-    CommunityReport,
     EntityNode,
     EntityRelationship,
     GraphChunk,
 )
 from app.models.message import Message
+from app.services.extractors import (
+    extract_concepts_from_chunk,
+    extract_nlp_facts,
+    extract_structural_facts,
+    generate_community_report,
+)
 
 logger = structlog.get_logger()
 
@@ -69,97 +73,52 @@ def chunk_messages(messages: List[Dict[str, str]], max_tokens: int = 600) -> Lis
     return chunks
 
 
-# ── LLM Extraction ────────────────────────────────────────────────────
+# ── Merge Logic ────────────────────────────────────────────────────────
 
-EXTRACTION_SYSTEM_PROMPT = """You are an expert knowledge graph extractor for an educational collaboration platform.
+def _merge_graph_chunks(*chunks: GraphChunk) -> GraphChunk:
+    """
+    Merge multiple GraphChunks, deduplicating nodes and edges.
 
-Given a conversation chunk between students, teachers, and AI agents, extract:
-1. ENTITIES: People (students, teachers), AI Agents, Concepts/Topics discussed, Technologies mentioned, Artifacts created, Issues/Problems encountered.
-2. RELATIONSHIPS: How entities relate to each other (DISCUSSES, CREATES, RESOLVES, STRUGGLES_WITH, MENTIONS, COLLABORATES_WITH, DEPENDS_ON).
+    - Nodes are deduped by lowercase name; later tiers override earlier descriptions.
+    - Edges are deduped by (source_lower, target_lower, relation_lower) tuple.
+    """
+    merged_nodes: Dict[str, EntityNode] = {}
+    merged_edges: Dict[tuple, EntityRelationship] = {}
 
-Rules:
-- Use canonical names (e.g., "Alice" not "alice" or "A")
-- Merge similar concepts (e.g., "PostgreSQL" and "Postgres" → "PostgreSQL")
-- Focus on substantive relationships, skip trivial greetings
-- Each evidence field should be a direct quote or close paraphrase"""
+    for chunk in chunks:
+        for node in chunk.nodes:
+            key = node.name.lower()
+            merged_nodes[key] = node  # Later tier overrides
 
+        for edge in chunk.edges:
+            key = (edge.source.lower(), edge.target.lower(), edge.relation.lower())
+            if key not in merged_edges:
+                merged_edges[key] = edge
 
-async def extract_graph_from_chunk(
-    chunk_text: str, api_key: str
-) -> GraphChunk:
-    """Use instructor + OpenAI to extract structured entities & relationships."""
-    client = instructor.from_openai(AsyncOpenAI(api_key=api_key))
-
-    result = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        response_model=GraphChunk,
-        messages=[
-            {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
-            {"role": "user", "content": f"Extract entities and relationships from this conversation:\n\n{chunk_text}"},
-        ],
-        max_retries=2,
+    return GraphChunk(
+        nodes=list(merged_nodes.values()),
+        edges=list(merged_edges.values()),
     )
-    return result
-
-
-COMMUNITY_SUMMARY_PROMPT = """You are an expert educational analyst. Given a cluster of related entities and their relationships from a collaborative learning environment, write a comprehensive summary.
-
-Include:
-1. A descriptive title for this topic cluster
-2. A multi-paragraph summary explaining what happened, who was involved, and what was discussed
-3. 3-5 key findings as bullet points
-4. List the most important entity names
-
-Write in a professional analytical tone."""
-
-
-async def generate_community_report(
-    community_id: int,
-    nodes_text: str,
-    edges_text: str,
-    api_key: str,
-    level: int = 0,
-) -> CommunityReport:
-    """Generate a structured community report using instructor."""
-    client = instructor.from_openai(AsyncOpenAI(api_key=api_key))
-
-    prompt = f"""Community #{community_id} contains these entities and relationships:
-
-ENTITIES:
-{nodes_text}
-
-RELATIONSHIPS:
-{edges_text}
-
-Generate a comprehensive analytical report for this community."""
-
-    result = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        response_model=CommunityReport,
-        messages=[
-            {"role": "system", "content": COMMUNITY_SUMMARY_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-        max_retries=2,
-    )
-    result.community_id = community_id
-    result.level = level
-    return result
 
 
 # ── ARQ Tasks ──────────────────────────────────────────────────────────
 
-async def extract_entities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str, int]:
+async def extract_entities_task(
+    ctx: Dict[str, Any],
+    room_id: str,
+    extraction_model: str = "gpt-4o-mini",
+) -> Dict[str, int]:
     """
-    ARQ task: Extract entities & relationships from recent room messages.
-    
-    1. Fetch messages from PostgreSQL
-    2. Chunk them
-    3. Call LLM for structured extraction
-    4. Upsert into Neo4j
-    5. Embed descriptions into Qdrant
+    ARQ task: 3-tier entity extraction pipeline.
+
+    1. Tier 1: Structural facts from DB (zero cost)
+    2. Tier 2: NLP extraction via spaCy (zero cost)
+    3. Merge T1+T2 → known_nodes
+    4. Tier 3: LLM concept extraction (configurable model)
+    5. Final merge of all 3 tiers
+    6. Upsert into Neo4j + embed into Qdrant
     """
-    logger.info("graphrag_extract_start", room_id=room_id)
+    logger.info("graphrag_extract_start", room_id=room_id, model=extraction_model)
 
     session_factory = ctx["session_factory"]
     api_key = ctx.get("embedding_api_key", "")
@@ -168,7 +127,7 @@ async def extract_entities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str, 
         logger.error("graphrag_no_api_key")
         return {"error": "No API key configured"}
 
-    # 1. Fetch messages
+    # ── Fetch messages ──
     async with session_factory() as session:
         query = (
             select(Message)
@@ -187,35 +146,55 @@ async def extract_entities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str, 
         sender = msg.agent_type or str(msg.sender_id) if msg.sender_id else "System"
         formatted.append({"sender": sender, "content": msg.content})
 
-    # 2. Chunk
+    # ── Tier 1: Structural extraction (DB-derived) ──
+    async with session_factory() as session:
+        tier1_chunk = await extract_structural_facts(session, room_id)
+    logger.info("graphrag_tier1_complete", nodes=len(tier1_chunk.nodes), edges=len(tier1_chunk.edges))
+
+    # ── Tier 2: NLP extraction (spaCy) ──
+    tier2_chunk = extract_nlp_facts(formatted)
+    logger.info("graphrag_tier2_complete", nodes=len(tier2_chunk.nodes), edges=len(tier2_chunk.edges))
+
+    # ── Merge T1+T2 to build known_nodes for LLM prompt ──
+    pre_llm = _merge_graph_chunks(tier1_chunk, tier2_chunk)
+    known_nodes = pre_llm.nodes
+
+    # ── Tier 3: LLM concept extraction ──
     chunks = chunk_messages(formatted, max_tokens=settings.GRAPHRAG_CHUNK_TOKENS)
     logger.info("graphrag_chunked", room_id=room_id, chunks=len(chunks))
 
-    # 3. Extract entities from each chunk
-    all_nodes: List[EntityNode] = []
-    all_edges: List[EntityRelationship] = []
+    tier3_nodes: List[EntityNode] = []
+    tier3_edges: List[EntityRelationship] = []
 
     for chunk_text in chunks:
         try:
-            graph_chunk = await extract_graph_from_chunk(chunk_text, api_key)
-            all_nodes.extend(graph_chunk.nodes)
-            all_edges.extend(graph_chunk.edges)
+            graph_chunk = await extract_concepts_from_chunk(
+                chunk_text, known_nodes, api_key, model=extraction_model
+            )
+            tier3_nodes.extend(graph_chunk.nodes)
+            tier3_edges.extend(graph_chunk.edges)
         except Exception as e:
-            logger.warning("graphrag_extraction_failed", error=str(e))
+            logger.warning("graphrag_tier3_extraction_failed", error=str(e))
             continue
 
-    # 4. Upsert into Neo4j
-    node_dicts = [n.model_dump() for n in all_nodes]
-    edge_dicts = [e.model_dump() for e in all_edges]
+    tier3_chunk = GraphChunk(nodes=tier3_nodes, edges=tier3_edges)
+    logger.info("graphrag_tier3_complete", nodes=len(tier3_nodes), edges=len(tier3_edges))
+
+    # ── Final merge of all 3 tiers ──
+    final = _merge_graph_chunks(tier1_chunk, tier2_chunk, tier3_chunk)
+
+    # ── Upsert into Neo4j ──
+    node_dicts = [n.model_dump() for n in final.nodes]
+    edge_dicts = [e.model_dump() for e in final.edges]
 
     node_count = await neo4j_client.upsert_entities(room_id, node_dicts)
     edge_count = await neo4j_client.upsert_relationships(room_id, edge_dicts)
+    logger.info("graphrag_neo4j_upsert_complete", room_id=room_id, entity_count=len(final.nodes), edge_count=edge_count)
 
-    # 5. Embed entity descriptions → Qdrant
+    # ── Embed entity descriptions → Qdrant ──
     embedding_service = EmbeddingService(api_key=api_key)
 
-    # Deduplicate nodes by name
-    unique_nodes = {n.name: n for n in all_nodes}
+    unique_nodes = {n.name: n for n in final.nodes}
     if unique_nodes:
         descriptions = [f"{n.name} ({n.type}): {n.description}" for n in unique_nodes.values()]
         vectors = await embedding_service.get_embeddings_batch(descriptions)
@@ -233,9 +212,20 @@ async def extract_entities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str, 
                     "description": node.description,
                 },
             })
-        await vector_store.upsert_embeddings(ENTITY_COLLECTION, points)
+        try:
+            await vector_store.upsert_embeddings(ENTITY_COLLECTION, points)
+            logger.info("graphrag_qdrant_upsert_complete", room_id=room_id, point_count=len(points))
+        except Exception as e:
+            logger.error(
+                "graphrag_qdrant_upsert_failed_after_neo4j",
+                room_id=room_id,
+                error=str(e),
+                detail="Neo4j entities were written but Qdrant embeddings failed. "
+                       "Re-run extraction to fix inconsistency.",
+            )
+            raise
 
-    # 6. Embed message chunks → Qdrant
+    # ── Embed message chunks → Qdrant ──
     if chunks:
         chunk_vectors = await embedding_service.get_embeddings_batch(chunks)
         chunk_points = []
@@ -246,11 +236,22 @@ async def extract_entities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str, 
                 "vector": vector,
                 "payload": {
                     "room_id": room_id,
-                    "text": chunk_text[:2000],  # Truncate for storage
+                    "text": chunk_text[:2000],
                     "chunk_index": i,
                 },
             })
-        await vector_store.upsert_embeddings(CHUNK_COLLECTION, chunk_points)
+        try:
+            await vector_store.upsert_embeddings(CHUNK_COLLECTION, chunk_points)
+            logger.info("graphrag_qdrant_chunks_complete", room_id=room_id, chunk_count=len(chunk_points))
+        except Exception as e:
+            logger.error(
+                "graphrag_qdrant_chunk_upsert_failed",
+                room_id=room_id,
+                error=str(e),
+                detail="Neo4j entities were written but Qdrant chunk embeddings failed. "
+                       "Re-run extraction to fix inconsistency.",
+            )
+            raise
 
     logger.info(
         "graphrag_extract_complete",
@@ -258,20 +259,41 @@ async def extract_entities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str, 
         nodes=node_count,
         edges=edge_count,
         chunks=len(chunks),
+        tier1_nodes=len(tier1_chunk.nodes),
+        tier2_nodes=len(tier2_chunk.nodes),
+        tier3_nodes=len(tier3_nodes),
     )
+
+    # Clear build status when done
+    try:
+        redis_client = aioredis.from_url(settings.redis_url)
+        await redis_client.set(f"graphrag:build_status:{room_id}", "idle", ex=3600)
+        await redis_client.set(
+            f"graphrag:build_completed:{room_id}",
+            datetime.now(timezone.utc).isoformat(),
+            ex=86400,
+        )
+        await redis_client.close()
+    except Exception as e:
+        logger.debug("graphrag_timestamp_update_failed", room_id=room_id, error=str(e))
+
     return {"nodes": node_count, "edges": edge_count, "chunks": len(chunks)}
 
 
-async def build_communities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str, int]:
+async def build_communities_task(
+    ctx: Dict[str, Any],
+    room_id: str,
+    summarization_model: str = "gpt-4o-mini",
+) -> Dict[str, int]:
     """
     ARQ task: Run Leiden clustering + generate community summaries.
-    
+
     1. Run Leiden algorithm on Neo4j
     2. For each community, gather members
-    3. Generate summary via LLM
+    3. Generate summary via LLM (configurable model)
     4. Embed summaries into Qdrant
     """
-    logger.info("graphrag_communities_start", room_id=room_id)
+    logger.info("graphrag_communities_start", room_id=room_id, model=summarization_model)
 
     api_key = ctx.get("embedding_api_key", "")
     if not api_key:
@@ -299,7 +321,6 @@ async def build_communities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str,
             if not nodes:
                 continue
 
-            # Format for LLM
             nodes_text = "\n".join(
                 [f"- {n['name']} ({n['type']}): {n.get('description', 'N/A')}" for n in nodes if n]
             )
@@ -307,9 +328,10 @@ async def build_communities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str,
                 [f"- {e['source']} --[{e['relation']}]--> {e['target']}: {e.get('evidence', 'N/A')}" for e in edges if e]
             ) or "No explicit relationships found."
 
-            report = await generate_community_report(cid, nodes_text, edges_text, api_key)
+            report = await generate_community_report(
+                cid, nodes_text, edges_text, api_key, model=summarization_model
+            )
 
-            # Embed summary
             summary_text = f"{report.title}\n{report.summary}"
             vector = await embedding_service.get_embedding(summary_text)
 
@@ -333,7 +355,6 @@ async def build_communities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str,
 
     # 4. Upsert summaries into Qdrant
     if summary_points:
-        # Clear old summaries for this room first
         await vector_store.delete_by_room(COMMUNITY_COLLECTION, room_id)
         await vector_store.upsert_embeddings(COMMUNITY_COLLECTION, summary_points)
 
@@ -346,11 +367,22 @@ async def build_communities_task(ctx: Dict[str, Any], room_id: str) -> Dict[str,
     return {"communities": len(community_ids), "summaries": len(summary_points)}
 
 
-async def full_graph_rebuild_task(ctx: Dict[str, Any], room_id: str) -> Dict[str, Any]:
+async def full_graph_rebuild_task(
+    ctx: Dict[str, Any],
+    room_id: str,
+    extraction_model: str = "gpt-4o-mini",
+    summarization_model: str = "gpt-4o-mini",
+) -> Dict[str, Any]:
     """
     ARQ task: Full pipeline — wipe old data, extract entities, build communities.
+    Passes per-room model configuration through to sub-tasks.
     """
-    logger.info("graphrag_full_rebuild_start", room_id=room_id)
+    logger.info(
+        "graphrag_full_rebuild_start",
+        room_id=room_id,
+        extraction_model=extraction_model,
+        summarization_model=summarization_model,
+    )
 
     # ── Step 0: Wipe old graph data for idempotent rebuilds ──
     deleted = await neo4j_client.delete_room_graph(room_id)
@@ -359,8 +391,8 @@ async def full_graph_rebuild_task(ctx: Dict[str, Any], room_id: str) -> Dict[str
     await vector_store.delete_by_room(COMMUNITY_COLLECTION, room_id)
     logger.info("graphrag_old_data_wiped", room_id=room_id, neo4j_deleted=deleted)
 
-    extract_result = await extract_entities_task(ctx, room_id)
-    community_result = await build_communities_task(ctx, room_id)
+    extract_result = await extract_entities_task(ctx, room_id, extraction_model=extraction_model)
+    community_result = await build_communities_task(ctx, room_id, summarization_model=summarization_model)
 
     return {
         "extraction": extract_result,
