@@ -66,6 +66,7 @@ const availableProjects = ref<Project[]>([])
 const selectedProjectId = ref<string>('')
 const projectAgents = ref<AgentConfig[]>([])
 const isLoading = ref(false)
+const a2aTraceEnabled = ref(false)
 
 const fetchSettings = async () => {
   try {
@@ -278,6 +279,20 @@ onMounted(() => {
             Used for community summaries and answering graph queries.
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Debug Settings Card -->
+    <div class="card bg-base-100 shadow p-6">
+      <h2 class="text-xl font-bold mb-4">Debug</h2>
+      <div class="form-control">
+        <label class="label cursor-pointer justify-start gap-4">
+          <input type="checkbox" class="checkbox checkbox-primary" v-model="a2aTraceEnabled" />
+          <div>
+            <span class="label-text font-bold">A2A Debug Trace</span>
+            <div class="text-xs opacity-70 mt-1">Show agent-to-agent communication traces in chat</div>
+          </div>
+        </label>
       </div>
     </div>
 

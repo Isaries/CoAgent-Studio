@@ -30,19 +30,19 @@ async def test_agent_append_doc(db_session: AsyncSession):
     await db_session.flush()
 
     # Create Course
-    from app.models.course import Course
-    course = Course(title="Test Course", description="Test Course Desc", owner_id=mock_user_id)
-    db_session.add(course)
+    from app.models.space import Space
+    space = Space(title="Test Course", description="Test Course Desc", owner_id=mock_user_id)
+    db_session.add(space)
     await db_session.flush()
-    await db_session.refresh(course)
-    course_id = course.id
+    await db_session.refresh(space)
+    space_id = space.id
 
     # Create Room
     from app.models.room import Room
     room = Room(
         name="Test Room Append", 
         description="Test Desc", 
-        course_id=course_id
+        space_id=space_id
     )
     db_session.add(room)
     await db_session.flush()
@@ -122,19 +122,19 @@ async def test_agent_add_step_process(db_session: AsyncSession):
     await db_session.flush()
 
     # Create Course
-    from app.models.course import Course
-    course = Course(title="Test Course Step", description="Test Course Desc", owner_id=mock_user_id)
-    db_session.add(course)
+    from app.models.space import Space
+    space = Space(title="Test Course Step", description="Test Course Desc", owner_id=mock_user_id)
+    db_session.add(space)
     await db_session.flush()
-    await db_session.refresh(course)
-    course_id = course.id
+    await db_session.refresh(space)
+    space_id = space.id
 
     # Create Room
     from app.models.room import Room
     room = Room(
         name="Test Room Step", 
         description="Test Desc", 
-        course_id=course_id
+        space_id=space_id
     )
     db_session.add(room)
     await db_session.flush()

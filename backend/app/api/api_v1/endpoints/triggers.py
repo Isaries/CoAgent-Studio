@@ -75,6 +75,7 @@ async def create_trigger(
         target_workflow_id=payload.target_workflow_id,
         scope_session_id=payload.scope_session_id,
         is_active=payload.is_active,
+        created_by=current_user.id,
     )
     session.add(trigger)
     await session.commit()

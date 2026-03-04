@@ -86,6 +86,7 @@ async def create_workflow(
         name=payload.name,
         is_active=payload.is_active,
         graph_data=payload.graph_data,
+        created_by=current_user.id,
     )
     session.add(workflow)
     await session.commit()

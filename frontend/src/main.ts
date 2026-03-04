@@ -4,19 +4,20 @@ import { createI18n } from 'vue-i18n'
 import './style.css'
 import App from './App.vue'
 import router from './router'
+import en from './locales/en'
+import zhTW from './locales/zh-TW'
 
 const pinia = createPinia()
+
+const savedLocale = localStorage.getItem('locale') || 'en'
+
 const i18n = createI18n({
   legacy: false, // Composition API
-  locale: 'en',
+  locale: savedLocale,
   fallbackLocale: 'en',
   messages: {
-    en: {
-      hello: 'hello world'
-    },
-    zh: {
-      hello: '你好'
-    }
+    en,
+    'zh-TW': zhTW,
   }
 })
 

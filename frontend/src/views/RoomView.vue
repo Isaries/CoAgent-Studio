@@ -82,7 +82,7 @@ onUnmounted(() => {
         <h1 class="font-bold text-lg truncate">{{ roomName }}</h1>
 
         <!-- View Tabs (dynamically filtered by enabled_tabs) -->
-        <div class="join">
+        <div class="join overflow-x-auto">
           <button
             v-for="tab in visibleTabs"
             :key="tab.key"
@@ -98,12 +98,6 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="flex-none gap-2 flex items-center">
-        <!-- A2A Trace Toggle -->
-        <label class="swap swap-rotate btn btn-sm btn-ghost" title="Toggle A2A Debug Trace">
-          <input type="checkbox" v-model="showA2ATrace" />
-          <span class="swap-off text-xs opacity-50">A2A</span>
-          <span class="swap-on text-xs text-primary font-bold">A2A</span>
-        </label>
         <router-link v-if="!authStore.isStudent" :to="`/rooms/${roomId}/settings`" class="btn btn-sm btn-ghost btn-circle">
           <svg
             xmlns="http://www.w3.org/2000/svg"

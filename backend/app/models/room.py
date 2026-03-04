@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -58,15 +58,15 @@ class RoomAgentLink(SQLModel, table=True):
     )
 
     # Audit trail
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
     updated_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
 
 class Room(RoomBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     space_id: UUID = Field(foreign_key="space.id")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
 
     # Decoupled workflow binding: which Workflow powers this Room's AI
     attached_workflow_id: Optional[UUID] = Field(default=None, foreign_key="workflow.id")

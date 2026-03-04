@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -25,7 +26,7 @@ class Space(SpaceBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     owner_id: UUID = Field(foreign_key="user.id")
     preset: str = Field(default="custom")  # colearn, support, research, custom
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
 
     # Relationships
     rooms: List["Room"] = Relationship(

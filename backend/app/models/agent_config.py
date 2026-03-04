@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -71,7 +71,7 @@ class AgentConfig(AgentConfigBase, table=True):
 
     is_active: bool = Field(default=False)
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
 
     @property
     def has_api_key(self) -> bool:
@@ -100,7 +100,7 @@ class AgentConfigVersion(SQLModel, table=True):
     # Snapshot of settings at that time
     settings: Optional[Dict[str, Any]] = Field(default={}, sa_column=Column(JSONB))
     
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
     agent_config: "AgentConfig" = Relationship(back_populates="versions")

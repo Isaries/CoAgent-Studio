@@ -75,11 +75,12 @@ async def test_websocket_connect():
             assert "sender" in msg_obj
             assert "timestamp" in msg_obj
 
-            # Verify agent trigger (ARQ job enqueued)
+            # Verify trigger dispatch (ARQ job enqueued via TriggerDispatcher)
             assert mock_arq_pool.enqueue_job.called
             args = mock_arq_pool.enqueue_job.call_args
-            assert args[0][0] == "run_agent_cycle_task"
-            assert args[0][1] == room_id
+            assert args[0][0] == "dispatch_event_task"
+            assert args[0][1] == "user_message"
+            assert args[0][2] == room_id
     finally:
         # Cleanup
         chat_module.get_session_context = original_get_session_context

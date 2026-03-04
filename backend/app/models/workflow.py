@@ -9,12 +9,12 @@ first-class, top-level resource that can be attached to any surface
 (Room, API endpoint, Webhook, batch job, etc.) via its UUID.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -95,8 +95,8 @@ class Workflow(WorkflowBase, table=True):
         sa_column=Column(JSONB, nullable=False),
     )
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
 
@@ -157,7 +157,7 @@ class WorkflowRun(SQLModel, table=True):
         default_factory=list, sa_column=Column(JSONB)
     )
 
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
     completed_at: Optional[datetime] = None
 
     # Error details if status == FAILED

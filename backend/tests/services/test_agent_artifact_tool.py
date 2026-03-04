@@ -21,14 +21,14 @@ async def test_agent_create_task_artifact(
     """Test creating a task artifact via agent tool."""
     
     # Create Course and Room
-    from app.models.course import Course
+    from app.models.space import Space
     from app.models.room import Room
-    course = Course(title="Test Course", description="Test", owner_id=mock_superuser.id)
-    db_session.add(course)
+    space = Space(title="Test Course", description="Test", owner_id=mock_superuser.id)
+    db_session.add(space)
     await db_session.commit()
-    await db_session.refresh(course)
+    await db_session.refresh(space)
     
-    room = Room(name="Test Room", description="Test Desc", course_id=course.id, created_by=mock_superuser.id)
+    room = Room(name="Test Room", description="Test Desc", space_id=space.id)
     db_session.add(room)
     await db_session.commit()
     await db_session.refresh(room)
@@ -79,14 +79,14 @@ async def test_agent_update_artifact(
     """Test updating an artifact via agent tool."""
     
     # Create Course and Room
-    from app.models.course import Course
+    from app.models.space import Space
     from app.models.room import Room
-    course = Course(title="Test Course", description="Test", owner_id=mock_superuser.id)
-    db_session.add(course)
+    space = Space(title="Test Course", description="Test", owner_id=mock_superuser.id)
+    db_session.add(space)
     await db_session.commit()
-    await db_session.refresh(course)
+    await db_session.refresh(space)
     
-    room = Room(name="Test Room", description="Test Desc", course_id=course.id, created_by=mock_superuser.id)
+    room = Room(name="Test Room", description="Test Desc", space_id=space.id)
     db_session.add(room)
     await db_session.commit()
     await db_session.refresh(room)
@@ -143,14 +143,14 @@ async def test_agent_delete_artifact(
     """Test deleting an artifact via agent tool."""
     
     # Create Course and Room
-    from app.models.course import Course
+    from app.models.space import Space
     from app.models.room import Room
-    course = Course(title="Test Course", description="Test", owner_id=mock_superuser.id)
-    db_session.add(course)
+    space = Space(title="Test Course", description="Test", owner_id=mock_superuser.id)
+    db_session.add(space)
     await db_session.commit()
-    await db_session.refresh(course)
+    await db_session.refresh(space)
     
-    room = Room(name="Test Room", description="Test Desc", course_id=course.id, created_by=mock_superuser.id)
+    room = Room(name="Test Room", description="Test Desc", space_id=space.id)
     db_session.add(room)
     await db_session.commit()
     await db_session.refresh(room)

@@ -8,13 +8,14 @@ const router = createRouter({
     {
       path: '/',
       component: () => import('../layouts/BaseLayout.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, breadcrumb: 'Home' },
       children: [
         // ─── HOME (Dashboard) ────────────────────────────────
         {
           path: '',
           name: 'home',
-          component: () => import('../views/HomeView.vue')
+          component: () => import('../views/HomeView.vue'),
+          meta: { breadcrumb: 'Home' }
         },
 
         // ─── PLATFORM ─────────────────────────────────────────
@@ -22,121 +23,127 @@ const router = createRouter({
           path: 'agents',
           name: 'agents',
           component: () => import('../views/WorkspaceView.vue'),
-          meta: { requiresNonStudent: true }
+          meta: { requiresNonStudent: true, breadcrumb: 'Agent Lab' }
         },
         {
           path: 'projects/:projectId/agents/:agentId',
           name: 'agent-detail',
           component: () => import('../views/AgentView.vue'),
-          meta: { requiresNonStudent: true }
+          meta: { requiresNonStudent: true, breadcrumb: 'Agent Detail' }
         },
         {
           path: 'my-agents',
           name: 'my-agents',
           component: () => import('../views/MyAgentsView.vue'),
-          meta: { requiresNonStudent: true }
+          meta: { requiresNonStudent: true, breadcrumb: 'My Agents' }
         },
         {
           path: 'platform/workflows',
           name: 'platform-workflows',
           component: () => import('../views/studio/WorkflowsView.vue'),
-          meta: { requiresNonStudent: true }
+          meta: { requiresNonStudent: true, breadcrumb: 'Workflows' }
         },
         {
           path: 'platform/workflows/:workflowId',
           name: 'platform-workflow-editor',
           component: () => import('../views/WorkflowEditorView.vue'),
-          meta: { requiresNonStudent: true }
+          meta: { requiresNonStudent: true, breadcrumb: 'Workflow Editor' }
         },
         {
           path: 'platform/triggers',
           name: 'platform-triggers',
           component: () => import('../views/studio/TriggersView.vue'),
-          meta: { requiresNonStudent: true }
+          meta: { requiresNonStudent: true, breadcrumb: 'Triggers' }
         },
         {
           path: 'platform/knowledge',
           name: 'platform-knowledge',
           component: () => import('../views/KnowledgeView.vue'),
-          meta: { requiresNonStudent: true }
+          meta: { requiresNonStudent: true, breadcrumb: 'Knowledge Engine' }
         },
 
         // ─── SPACES (renamed from COURSES) ────────────────────
         {
           path: 'spaces',
           name: 'spaces',
-          component: () => import('../views/SpaceListView.vue')
+          component: () => import('../views/SpaceListView.vue'),
+          meta: { breadcrumb: 'My Spaces' }
         },
         {
           path: 'spaces/:id',
           name: 'space-hub',
-          component: () => import('../views/SpaceHubView.vue')
+          component: () => import('../views/SpaceHubView.vue'),
+          meta: { breadcrumb: 'Space' }
         },
         {
           path: 'spaces/:id/settings',
           name: 'space-settings',
-          component: () => import('../views/SpaceSettingsView.vue')
+          component: () => import('../views/SpaceSettingsView.vue'),
+          meta: { breadcrumb: 'Space Settings' }
         },
         {
           path: 'spaces/:id/analytics',
           name: 'space-analytics',
           component: () => import('../views/AnalyticsView.vue'),
-          meta: { requiresNonStudent: true }
+          meta: { requiresNonStudent: true, breadcrumb: 'Space Analytics' }
         },
 
         // ─── ROOMS ────────────────────────────────────────────
         {
           path: 'rooms/:id',
           name: 'room',
-          component: () => import('../views/RoomView.vue')
+          component: () => import('../views/RoomView.vue'),
+          meta: { breadcrumb: 'Room' }
         },
         {
           path: 'rooms/:id/settings',
           name: 'room-settings',
-          component: () => import('../views/RoomSettingsView.vue')
+          component: () => import('../views/RoomSettingsView.vue'),
+          meta: { breadcrumb: 'Room Settings' }
         },
         {
           path: 'rooms/:id/workflow',
           name: 'room-workflow',
           component: () => import('../views/WorkflowEditorView.vue'),
-          meta: { requiresNonStudent: true }
+          meta: { requiresNonStudent: true, breadcrumb: 'Workflow Editor' }
         },
 
         // ─── SYSTEM ───────────────────────────────────────────
         {
           path: 'my-keys',
           name: 'my-keys',
-          component: () => import('../views/UserKeysView.vue')
+          component: () => import('../views/UserKeysView.vue'),
+          meta: { breadcrumb: 'My API Keys' }
         },
         {
           path: 'analytics',
           name: 'analytics',
           component: () => import('../views/AnalyticsView.vue'),
-          meta: { requiresAdmin: true }
+          meta: { requiresAdmin: true, breadcrumb: 'Analytics' }
         },
         {
           path: 'dashboard',
           name: 'dashboard',
           component: () => import('../views/DashboardView.vue'),
-          meta: { requiresAdmin: true }
+          meta: { requiresAdmin: true, breadcrumb: 'Dashboard' }
         },
         {
           path: 'admin/users',
           name: 'user-list',
           component: () => import('../views/UserListView.vue'),
-          meta: { requiresAdmin: true }
+          meta: { requiresAdmin: true, breadcrumb: 'Users' }
         },
         {
           path: 'admin/database',
           name: 'database-view',
           component: () => import('../views/DatabaseView.vue'),
-          meta: { requiresAdmin: true }
+          meta: { requiresAdmin: true, breadcrumb: 'Database' }
         },
         {
           path: 'admin/system-agents',
           name: 'system-agent-settings',
           component: () => import('../views/SystemSettingsView.vue'),
-          meta: { requiresAdmin: true }
+          meta: { requiresAdmin: true, breadcrumb: 'System Agents' }
         },
 
         // ─── BACKWARD COMPAT REDIRECTS ────────────────────────
@@ -157,9 +164,7 @@ const router = createRouter({
     },
     {
       path: '/:pathMatch(.*)*',
-      name: 'NotFound',
-      component: () => import('../views/HomeView.vue'),
-      meta: { title: 'Page Not Found' }
+      redirect: '/'
     }
   ]
 })
@@ -169,10 +174,15 @@ router.beforeEach(async (to, _from, next) => {
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
   const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin)
 
-  // Sync auth state if user is not loaded
+  // Sync auth state if user is not loaded (guard against parallel in-flight calls)
   if (!authStore.user) {
+    if (!fetchingUserPromise) {
+      fetchingUserPromise = authStore.fetchUser().finally(() => {
+        fetchingUserPromise = null
+      })
+    }
     try {
-      await authStore.fetchUser()
+      await fetchingUserPromise
     } catch (e) {
       // Token might be invalid
     }
@@ -198,5 +208,7 @@ router.beforeEach(async (to, _from, next) => {
 
   next()
 })
+
+let fetchingUserPromise: Promise<void> | null = null
 
 export default router

@@ -105,6 +105,7 @@ class AgentConfigService:
         agent_config = AgentConfig(
             project_id=project_id,
             type=config_in.type,
+            name=config_in.name or "Default Profile",
             system_prompt=config_in.system_prompt,
             model_provider=config_in.model_provider,
             model=config_in.model,
@@ -198,6 +199,8 @@ class AgentConfigService:
     def _apply_config_updates(
         self, agent_config: AgentConfig, config_in: AgentConfigCreate
     ) -> None:
+        if config_in.name is not None:
+            agent_config.name = config_in.name
         if config_in.system_prompt is not None:
             agent_config.system_prompt = config_in.system_prompt
         if config_in.model_provider is not None:

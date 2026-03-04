@@ -8,7 +8,7 @@ Covers:
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -69,8 +69,8 @@ class TestCircuitBreakerState:
         """Should allow attempts after recovery timeout."""
         cb = CircuitBreakerState()
         cb.is_open = True
-        cb.last_failure = datetime.utcnow() - timedelta(seconds=120)
-        
+        cb.last_failure = datetime.now(timezone.utc) - timedelta(seconds=120)
+
         # With 60 second recovery, should allow attempt after 120 seconds
         assert cb.should_attempt(recovery_timeout=60) is True
 
@@ -78,8 +78,8 @@ class TestCircuitBreakerState:
         """Should not allow attempts during cooldown period."""
         cb = CircuitBreakerState()
         cb.is_open = True
-        cb.last_failure = datetime.utcnow()
-        
+        cb.last_failure = datetime.now(timezone.utc)
+
         # With 60 second recovery, should not allow immediate attempt
         assert cb.should_attempt(recovery_timeout=60) is False
 
@@ -96,7 +96,7 @@ class TestOAuthToken:
         """Token should not be expired before expiration time."""
         token = OAuthToken(
             access_token="test_token",
-            expires_at=datetime.utcnow() + timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
         )
         # is_expired is a property, not a method
         assert token.is_expired is False
@@ -105,7 +105,7 @@ class TestOAuthToken:
         """Token should be expired after expiration time."""
         token = OAuthToken(
             access_token="test_token",
-            expires_at=datetime.utcnow() - timedelta(hours=1),
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
         )
         assert token.is_expired is True
 
@@ -127,7 +127,7 @@ class TestAgentFactoryExternalAgent:
             system_prompt="You are a helpful assistant.",
             model_provider="external",
             model="gpt-4",
-            course_id=None,
+            project_id=None,
             is_external=True,
             external_config={
                 "webhook_url": "https://external-agent.example.com/webhook",
@@ -135,7 +135,7 @@ class TestAgentFactoryExternalAgent:
                 "auth_token": "secret_token",
             },
             created_by=uuid4(),
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(timezone.utc),
         )
         
         agent = AgentFactory.create_agent(config)
@@ -153,7 +153,7 @@ class TestAgentFactoryExternalAgent:
             system_prompt="You are Claude.",
             model_provider="external",
             model="claude-3",
-            course_id=None,
+            project_id=None,
             is_external=True,
             external_config={
                 "webhook_url": "https://claude.example.com/a2a",
@@ -161,7 +161,7 @@ class TestAgentFactoryExternalAgent:
             },
             # No encrypted_api_key
             created_by=uuid4(),
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(timezone.utc),
         )
         
         agent = AgentFactory.create_agent(config)
@@ -178,11 +178,11 @@ class TestAgentFactoryExternalAgent:
             system_prompt="You are a teacher.",
             model_provider="gemini",
             model="gemini-2.0-pro",
-            course_id=None,
+            project_id=None,
             is_external=False,
             # No API keys
             created_by=uuid4(),
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(timezone.utc),
         )
         
         agent = AgentFactory.create_agent(config)
@@ -208,7 +208,7 @@ class TestExternalAgentAdapter:
             system_prompt="Test prompt",
             model_provider="external",
             model="test-model",
-            course_id=None,
+            project_id=None,
             is_external=True,
             external_config={
                 "webhook_url": "https://test-agent.example.com/webhook",
@@ -216,7 +216,7 @@ class TestExternalAgentAdapter:
                 "auth_token": "test_bearer_token",
             },
             created_by=uuid4(),
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(timezone.utc),
         )
 
     def test_adapter_initialization(self, external_config):
@@ -356,7 +356,7 @@ class TestWebhookEndpoint:
             system_prompt="Test",
             model_provider="external",
             model="test",
-            course_id=None,
+            project_id=None,
             is_external=True,
             external_config={
                 "webhook_url": "https://example.com/webhook",
@@ -364,7 +364,7 @@ class TestWebhookEndpoint:
                 "callback_token": "secret_callback_token",
             },
             created_by=mock_teacher.id,
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(timezone.utc),
         )
         db_session.add(config)
         await db_session.flush()
@@ -397,18 +397,19 @@ class TestWebhookEndpoint:
             system_prompt="Test",
             model_provider="external",
             model="test",
-            course_id=None,
+            project_id=None,
             is_external=True,
             external_config={
                 "webhook_url": "https://example.com/webhook",
                 "auth_type": "none",
+                "callback_token": "test-callback-secret",
             },
             created_by=mock_teacher.id,
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(timezone.utc),
         )
         db_session.add(config)
         await db_session.flush()
-        
+
         # Mock socket manager and store
         with patch("app.api.api_v1.endpoints.a2a_webhook.manager") as mock_manager, \
              patch("app.api.api_v1.endpoints.a2a_webhook.A2AMessageStore") as mock_store:
@@ -416,10 +417,13 @@ class TestWebhookEndpoint:
             mock_store_instance = MagicMock()
             mock_store_instance.save = AsyncMock()
             mock_store.return_value = mock_store_instance
-            
+
             response = await client.post(
                 "/api/v1/a2a/webhook",
-                headers={"X-Agent-ID": str(agent_id)},
+                headers={
+                    "X-Agent-ID": str(agent_id),
+                    "X-Agent-Token": "test-callback-secret",
+                },
                 json={
                     "sender_id": "external_agent",
                     "recipient_id": "broadcast",
@@ -446,9 +450,13 @@ class TestWebhookEndpoint:
             system_prompt="Sender",
             model_provider="external",
             model="sender",
-            course_id=None,
+            project_id=None,
             is_external=True,
-            external_config={"webhook_url": "http://sender.com", "auth_type": "none"},
+            external_config={
+                "webhook_url": "http://sender.com",
+                "auth_type": "none",
+                "callback_token": "sender-callback-secret",
+            },
             created_by=mock_teacher.id,
         )
         db_session.add(sender_config)
@@ -462,7 +470,7 @@ class TestWebhookEndpoint:
             system_prompt="Recipient",
             model_provider="external",
             model="recipient",
-            course_id=None,
+            project_id=None,
             is_external=True,
             external_config={"webhook_url": "http://recipient.com", "auth_type": "none"},
             created_by=mock_teacher.id,
@@ -492,7 +500,10 @@ class TestWebhookEndpoint:
             # 4. Send P2P Message
             response = await client.post(
                 "/api/v1/a2a/webhook",
-                headers={"X-Agent-ID": str(sender_id)},
+                headers={
+                    "X-Agent-ID": str(sender_id),
+                    "X-Agent-Token": "sender-callback-secret",
+                },
                 json={
                     "sender_id": "sender_agent",
                     "recipient_id": str(recipient_id),  # Target UUID

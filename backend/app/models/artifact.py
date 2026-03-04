@@ -7,12 +7,12 @@ This model supports:
 - ProcessArtifact: Workflow state machines
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -65,8 +65,8 @@ class Artifact(ArtifactBase, table=True):
     created_by: UUID = Field(foreign_key="user.id")
     last_modified_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
     
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
     
     # Soft delete support
     is_deleted: bool = Field(default=False)

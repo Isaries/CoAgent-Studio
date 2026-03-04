@@ -25,18 +25,18 @@ async def test_agent_append_concurrency_lost_update(db_session: AsyncSession):
 
     # Setup Check: Create User/Course/Room (Standard setup)
     from app.models.user import User
-    from app.models.course import Course
+    from app.models.space import Space
     from app.models.room import Room
     
     user = User(id=mock_user_id, email="test@example.com", full_name="Test User")
     db_session.add(user)
     await db_session.flush()
     
-    course = Course(title="Test Course", description="Desc", owner_id=mock_user_id)
-    db_session.add(course)
+    space = Space(title="Test Course", description="Desc", owner_id=mock_user_id)
+    db_session.add(space)
     await db_session.flush()
     
-    room = Room(name="Test Room", description="Desc", course_id=course.id)
+    room = Room(name="Test Room", description="Desc", space_id=space.id)
     db_session.add(room)
     await db_session.flush()
     

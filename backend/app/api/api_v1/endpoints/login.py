@@ -39,9 +39,9 @@ async def login_access_token(
         or not user.hashed_password
         or not security.verify_password(form_data.password, user.hashed_password)
     ):
-        raise HTTPException(status_code=400, detail="Incorrect username/email or password")
+        raise HTTPException(status_code=401, detail="Incorrect username/email or password")
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=403, detail="Inactive user")
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(user.id, expires_delta=access_token_expires)

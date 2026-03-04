@@ -40,16 +40,16 @@ class TestArtifactService:
         """Test creating a new artifact."""
         # Arrange
         from app.models.room import Room
-        from app.models.course import Course
+        from app.models.space import Space
         
         room_id = uuid4()
         
         # Create prerequisite room with valid user FK
-        course = Course(id=uuid4(), title="Test Course", owner_id=mock_superuser.id)
-        db_session.add(course)
+        space = Space(id=uuid4(), title="Test Course", owner_id=mock_superuser.id)
+        db_session.add(space)
         await db_session.flush()
         
-        room = Room(id=room_id, name="Test Room", course_id=course.id)
+        room = Room(id=room_id, name="Test Room", space_id=space.id)
         db_session.add(room)
         await db_session.flush()
         
@@ -72,15 +72,15 @@ class TestArtifactService:
         """Test filtering artifacts by type."""
         # Arrange
         from app.models.room import Room
-        from app.models.course import Course
+        from app.models.space import Space
         
         room_id = uuid4()
         
-        course = Course(id=uuid4(), title="Test Course", owner_id=mock_superuser.id)
-        db_session.add(course)
+        space = Space(id=uuid4(), title="Test Course", owner_id=mock_superuser.id)
+        db_session.add(space)
         await db_session.flush()
         
-        room = Room(id=room_id, name="Test Room", course_id=course.id)
+        room = Room(id=room_id, name="Test Room", space_id=space.id)
         db_session.add(room)
         await db_session.flush()
         
@@ -104,15 +104,15 @@ class TestArtifactService:
         """Test that update increments version."""
         # Arrange
         from app.models.room import Room
-        from app.models.course import Course
+        from app.models.space import Space
         
         room_id = uuid4()
         
-        course = Course(id=uuid4(), title="Test Course", owner_id=mock_superuser.id)
-        db_session.add(course)
+        space = Space(id=uuid4(), title="Test Course", owner_id=mock_superuser.id)
+        db_session.add(space)
         await db_session.flush()
         
-        room = Room(id=room_id, name="Test Room", course_id=course.id)
+        room = Room(id=room_id, name="Test Room", space_id=space.id)
         db_session.add(room)
         await db_session.flush()
         
@@ -137,15 +137,15 @@ class TestArtifactService:
         """Test that stale version update is rejected."""
         # Arrange
         from app.models.room import Room
-        from app.models.course import Course
+        from app.models.space import Space
         
         room_id = uuid4()
         
-        course = Course(id=uuid4(), title="Test Course", owner_id=mock_superuser.id)
-        db_session.add(course)
+        space = Space(id=uuid4(), title="Test Course", owner_id=mock_superuser.id)
+        db_session.add(space)
         await db_session.flush()
         
-        room = Room(id=room_id, name="Test Room", course_id=course.id)
+        room = Room(id=room_id, name="Test Room", space_id=space.id)
         db_session.add(room)
         await db_session.flush()
         
@@ -174,15 +174,15 @@ class TestArtifactService:
         """Test soft delete excludes from listing."""
         # Arrange
         from app.models.room import Room
-        from app.models.course import Course
+        from app.models.space import Space
         
         room_id = uuid4()
         
-        course = Course(id=uuid4(), title="Test Course", owner_id=mock_superuser.id)
-        db_session.add(course)
+        space = Space(id=uuid4(), title="Test Course", owner_id=mock_superuser.id)
+        db_session.add(space)
         await db_session.flush()
         
-        room = Room(id=room_id, name="Test Room", course_id=course.id)
+        room = Room(id=room_id, name="Test Room", space_id=space.id)
         db_session.add(room)
         await db_session.flush()
         

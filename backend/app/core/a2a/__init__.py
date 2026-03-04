@@ -21,6 +21,17 @@ from .payloads import (
 
 
 
+# P1: Declarative Workflow Graph DSL
+from .workflow_graph import (
+    WorkflowGraph,
+    WorkflowNode,
+    WorkflowEdge,
+    WorkflowContext,
+    NodeType,
+    GraphExecutor,
+    create_student_teacher_workflow,
+)
+
 # P1.5: Dynamic Workflow Compiler (LangGraph)
 from .compiler import WorkflowCompiler, MultiAgentState
 
@@ -66,6 +77,9 @@ __all__ = [
     "validate_payload", "create_evaluation_request", "create_evaluation_result",
     "PAYLOAD_SCHEMA_REGISTRY",
 
+    # P1: Declarative DSL
+    "WorkflowGraph", "WorkflowNode", "WorkflowEdge", "WorkflowContext",
+    "NodeType", "GraphExecutor", "create_student_teacher_workflow",
     # Compiler
     "WorkflowCompiler", "MultiAgentState",
     # Resilience

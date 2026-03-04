@@ -63,11 +63,14 @@ async def create_artifact(
     - doc: Rich text documents
     - process: Workflow state machines
     """
-    # Verify room exists
+    # Verify room exists and user has write access
     room = await session.get(Room, room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    
+
+    if not await permission_service.check(current_user, "write", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     # Validate artifact type
     valid_types = [t.value for t in ArtifactType]
     if data.type not in valid_types:

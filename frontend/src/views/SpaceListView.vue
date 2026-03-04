@@ -2,6 +2,8 @@
 import { ref, onMounted } from 'vue'
 import { useToastStore } from '../stores/toast'
 import { spaceService } from '../services/spaceService'
+import { useFormValidation } from '../composables/useFormValidation'
+import { required } from '../utils/validators'
 import type { Space } from '../types/space'
 import type { SpacePreset } from '../types/enums'
 
@@ -17,6 +19,10 @@ const newSpace = ref({
   description: '',
   preset: 'custom' as SpacePreset,
   loading: false
+})
+
+const spaceValidation = useFormValidation({
+  title: { rules: [required('Space title is required')] },
 })
 
 const presets: { key: SpacePreset; label: string; icon: string; description: string }[] = [
@@ -69,6 +75,7 @@ const fetchSpaces = async () => {
 
 const openCreateModal = () => {
   newSpace.value = { title: '', description: '', preset: 'custom', loading: false }
+  spaceValidation.reset()
   createModal.value?.showModal()
 }
 
@@ -77,7 +84,8 @@ const selectPreset = (key: SpacePreset) => {
 }
 
 const createSpace = async () => {
-  if (!newSpace.value.title) return
+  const valid = spaceValidation.validateAll({ title: newSpace.value.title })
+  if (!valid) return
   newSpace.value.loading = true
 
   try {
@@ -181,7 +189,12 @@ onMounted(() => {
             v-model="newSpace.title"
             placeholder="e.g. CS 101 Study Group"
             class="input input-bordered w-full"
+            :class="{ 'input-error': spaceValidation.touched.title && spaceValidation.errors.title }"
+            @blur="spaceValidation.touchField('title', newSpace.title)"
           />
+          <label v-if="spaceValidation.touched.title && spaceValidation.errors.title" class="label">
+            <span class="label-text-alt text-error">{{ spaceValidation.errors.title }}</span>
+          </label>
         </div>
 
         <div class="form-control w-full mb-4">
