@@ -18,14 +18,14 @@ Routes tested:
 Auth: all endpoints require authentication via get_current_user dependency.
 """
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models.workflow import Workflow, WorkflowRun, WorkflowStatus
-
+from app.models.workflow import WorkflowRun, WorkflowStatus
 
 # ---------------------------------------------------------------------------
 # Shared test data
@@ -37,7 +37,12 @@ WORKFLOW_PAYLOAD = {
     "graph_data": {
         "nodes": [
             {"id": "start-1", "type": "start", "config": {}, "position": {"x": 0, "y": 0}},
-            {"id": "agent-1", "type": "agent", "config": {"agent_id": "some-agent"}, "position": {"x": 200, "y": 0}},
+            {
+                "id": "agent-1",
+                "type": "agent",
+                "config": {"agent_id": "some-agent"},
+                "position": {"x": 200, "y": 0},
+            },
             {"id": "end-1", "type": "end", "config": {}, "position": {"x": 400, "y": 0}},
         ],
         "edges": [
@@ -51,6 +56,7 @@ WORKFLOW_PAYLOAD = {
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_create_workflow(superuser_client: AsyncClient):
@@ -103,9 +109,7 @@ async def test_get_workflow(superuser_client: AsyncClient):
     assert create_resp.status_code == 200
     workflow_id = create_resp.json()["id"]
 
-    response = await superuser_client.get(
-        f"{settings.API_V1_STR}/workflows/{workflow_id}"
-    )
+    response = await superuser_client.get(f"{settings.API_V1_STR}/workflows/{workflow_id}")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == workflow_id
@@ -179,15 +183,11 @@ async def test_delete_workflow(superuser_client: AsyncClient):
     assert create_resp.status_code == 200
     workflow_id = create_resp.json()["id"]
 
-    delete_resp = await superuser_client.delete(
-        f"{settings.API_V1_STR}/workflows/{workflow_id}"
-    )
+    delete_resp = await superuser_client.delete(f"{settings.API_V1_STR}/workflows/{workflow_id}")
     assert delete_resp.status_code == 200
     assert delete_resp.json()["ok"] is True
 
-    get_resp = await superuser_client.get(
-        f"{settings.API_V1_STR}/workflows/{workflow_id}"
-    )
+    get_resp = await superuser_client.get(f"{settings.API_V1_STR}/workflows/{workflow_id}")
     assert get_resp.status_code == 404
 
 
@@ -207,9 +207,7 @@ async def test_list_workflow_runs_empty(superuser_client: AsyncClient):
     )
     workflow_id = create_resp.json()["id"]
 
-    response = await superuser_client.get(
-        f"{settings.API_V1_STR}/workflows/{workflow_id}/runs"
-    )
+    response = await superuser_client.get(f"{settings.API_V1_STR}/workflows/{workflow_id}/runs")
     assert response.status_code == 200
     assert response.json() == []
 
@@ -230,6 +228,7 @@ async def test_pause_workflow_run(
 
     # Seed a WorkflowRun directly in the DB with status=running
     from uuid import UUID
+
     run = WorkflowRun(
         workflow_id=UUID(workflow_id),
         session_id="test-session-pause",
@@ -264,6 +263,7 @@ async def test_resume_workflow_run(
     workflow_id = create_resp.json()["id"]
 
     from uuid import UUID
+
     run = WorkflowRun(
         workflow_id=UUID(workflow_id),
         session_id="test-session-resume",
@@ -294,12 +294,15 @@ async def test_execute_workflow_mocked(superuser_client: AsyncClient):
     assert create_resp.status_code == 200
     workflow_id = create_resp.json()["id"]
 
-    with patch(
-        "app.services.execution.agent_execution_service.execute_workflow",
-        new_callable=AsyncMock,
-    ) as mock_exec, patch(
-        "redis.asyncio.from_url",
-        return_value=AsyncMock(aclose=AsyncMock()),
+    with (
+        patch(
+            "app.services.execution.agent_execution_service.execute_workflow",
+            new_callable=AsyncMock,
+        ) as mock_exec,
+        patch(
+            "redis.asyncio.from_url",
+            return_value=AsyncMock(aclose=AsyncMock()),
+        ),
     ):
         mock_exec.return_value = None
         response = await superuser_client.post(

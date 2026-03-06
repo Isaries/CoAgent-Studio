@@ -12,11 +12,11 @@ from app.api import deps
 from app.core.config import settings
 from app.core.db import get_session, get_session_context
 from app.core.socket_manager import manager
+from app.models.room import Room
 from app.models.user import User
 from app.schemas.socket import SocketMessage
 from app.services.chat_service import ChatService
 from app.services.permission_service import permission_service
-from app.models.room import Room
 
 router = APIRouter()
 
@@ -103,6 +103,7 @@ async def websocket_endpoint(
 
     # --- Session is now released; enter message loop ---
     import structlog as _structlog
+
     _ws_logger = _structlog.get_logger()
 
     await manager.connect(websocket, room_id)
@@ -114,8 +115,13 @@ async def websocket_endpoint(
 
             # Rate limiting: max 30 messages per 10 seconds per connection
             now = time.monotonic()
-            if len(message_timestamps) >= MAX_MESSAGES and (now - message_timestamps[0]) < RATE_WINDOW:
-                await websocket.send_json({"type": "error", "content": "Rate limit exceeded. Please slow down."})
+            if (
+                len(message_timestamps) >= MAX_MESSAGES
+                and (now - message_timestamps[0]) < RATE_WINDOW
+            ):
+                await websocket.send_json(
+                    {"type": "error", "content": "Rate limit exceeded. Please slow down."}
+                )
                 continue
             message_timestamps.append(now)
 
@@ -124,7 +130,7 @@ async def websocket_endpoint(
                 chat_service = ChatService(msg_session)
                 user_msg = await chat_service.save_user_message(room_id, user_id, data)
                 timestamp = (user_msg.created_at.isoformat() + "Z") if user_msg.created_at else ""
-                msg_id = str(user_msg.id)
+                str(user_msg.id)
 
             # Broadcast User Message (JSON) — no DB session needed
             socket_msg = SocketMessage(
@@ -140,9 +146,7 @@ async def websocket_endpoint(
             # --- Phase 1: State Tracking (Update last activity) ---
             if manager.broker.redis_client:
                 await manager.broker.redis_client.set(
-                    f"room_activity:{room_id}",
-                    str(time.time()),
-                    ex=86400 * 7  # 7 days expiry
+                    f"room_activity:{room_id}", str(time.time()), ex=86400 * 7  # 7 days expiry
                 )
 
             # --- Phase 2: Trigger Dispatch (Enqueue Event) ---
@@ -150,13 +154,10 @@ async def websocket_endpoint(
                 trigger_payload = {
                     "type": "user_message",
                     "content": data,
-                    "sender_id": str(user_id)
+                    "sender_id": str(user_id),
                 }
                 await websocket.app.state.arq_pool.enqueue_job(
-                    "dispatch_event_task",
-                    "user_message",
-                    room_id,
-                    trigger_payload
+                    "dispatch_event_task", "user_message", room_id, trigger_payload
                 )
             else:
                 _ws_logger.warning("arq_pool_not_initialized")

@@ -2,12 +2,26 @@
 
 from .space import (
     Space as Course,
+)
+from .space import (
     SpaceBase as CourseBase,
+)
+from .space import (
     SpaceCreate as CourseCreate,
-    SpaceRead as CourseRead,
-    SpaceUpdate as CourseUpdate,
+)
+from .space import (
     SpaceMember as CourseMember,
+)
+from .space import (
     SpaceMemberUpdate as CourseMemberUpdate,
+)
+from .space import (
+    SpaceRead as CourseRead,
+)
+from .space import (
+    SpaceUpdate as CourseUpdate,
+)
+from .space import (
     UserSpaceLink as UserCourseLink,
 )
 

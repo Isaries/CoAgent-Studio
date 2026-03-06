@@ -21,6 +21,7 @@ def _get_nlp():
     global _nlp
     if _nlp is None:
         import spacy
+
         _nlp = spacy.load("en_core_web_sm")
     return _nlp
 
@@ -29,29 +30,101 @@ def _get_nlp():
 
 TECH_DICTIONARY: Set[str] = {
     # Languages
-    "python", "javascript", "typescript", "java", "rust", "go", "c++", "c#",
-    "ruby", "php", "swift", "kotlin", "scala", "haskell", "elixir",
+    "python",
+    "javascript",
+    "typescript",
+    "java",
+    "rust",
+    "go",
+    "c++",
+    "c#",
+    "ruby",
+    "php",
+    "swift",
+    "kotlin",
+    "scala",
+    "haskell",
+    "elixir",
     # Frameworks & Libraries
-    "react", "vue", "angular", "django", "flask", "fastapi", "express",
-    "next.js", "nuxt", "spring", "rails", "laravel", "svelte",
+    "react",
+    "vue",
+    "angular",
+    "django",
+    "flask",
+    "fastapi",
+    "express",
+    "next.js",
+    "nuxt",
+    "spring",
+    "rails",
+    "laravel",
+    "svelte",
     # Databases
-    "postgresql", "postgres", "mysql", "mongodb", "redis", "neo4j",
-    "sqlite", "qdrant", "elasticsearch", "dynamodb", "cassandra",
+    "postgresql",
+    "postgres",
+    "mysql",
+    "mongodb",
+    "redis",
+    "neo4j",
+    "sqlite",
+    "qdrant",
+    "elasticsearch",
+    "dynamodb",
+    "cassandra",
     # Infrastructure
-    "docker", "kubernetes", "aws", "gcp", "azure", "terraform",
-    "nginx", "kafka", "rabbitmq", "graphql", "rest", "grpc",
+    "docker",
+    "kubernetes",
+    "aws",
+    "gcp",
+    "azure",
+    "terraform",
+    "nginx",
+    "kafka",
+    "rabbitmq",
+    "graphql",
+    "rest",
+    "grpc",
     # AI/ML
-    "openai", "langchain", "langgraph", "pytorch", "tensorflow",
-    "huggingface", "gpt-4", "gpt-4o", "claude", "llm", "rag",
+    "openai",
+    "langchain",
+    "langgraph",
+    "pytorch",
+    "tensorflow",
+    "huggingface",
+    "gpt-4",
+    "gpt-4o",
+    "claude",
+    "llm",
+    "rag",
     # Tools
-    "git", "github", "gitlab", "jira", "figma", "vscode",
-    "webpack", "vite", "npm", "yarn", "pip",
+    "git",
+    "github",
+    "gitlab",
+    "jira",
+    "figma",
+    "vscode",
+    "webpack",
+    "vite",
+    "npm",
+    "yarn",
+    "pip",
 }
 
 ISSUE_KEYWORDS: Set[str] = {
-    "bug", "error", "issue", "problem", "crash", "failure",
-    "timeout", "bottleneck", "vulnerability", "regression",
-    "deadlock", "memory leak", "race condition", "exception",
+    "bug",
+    "error",
+    "issue",
+    "problem",
+    "crash",
+    "failure",
+    "timeout",
+    "bottleneck",
+    "vulnerability",
+    "regression",
+    "deadlock",
+    "memory leak",
+    "race condition",
+    "exception",
     "broken",
 }
 
@@ -86,7 +159,7 @@ def extract_nlp_facts(messages: List[Dict[str, str]]) -> GraphChunk:
                         EntityNode(
                             name=name,
                             type="PERSON",
-                            description=f"Person mentioned in conversation",
+                            description="Person mentioned in conversation",
                         )
                     )
                     edges.append(
@@ -110,7 +183,7 @@ def extract_nlp_facts(messages: List[Dict[str, str]]) -> GraphChunk:
                     EntityNode(
                         name=canonical,
                         type="TECHNOLOGY",
-                        description=f"Technology mentioned in discussion",
+                        description="Technology mentioned in discussion",
                     )
                 )
                 edges.append(

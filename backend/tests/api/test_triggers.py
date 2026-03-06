@@ -23,12 +23,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import settings
 from app.models.workflow import Workflow
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _create_workflow(db_session: AsyncSession, name: str = "Trigger Test Workflow") -> Workflow:
+
+async def _create_workflow(
+    db_session: AsyncSession, name: str = "Trigger Test Workflow"
+) -> Workflow:
     """Seed a Workflow directly in the DB and return it."""
     workflow = Workflow(
         name=name,
@@ -55,6 +57,7 @@ def _trigger_payload(workflow_id: str) -> dict:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_create_trigger(
@@ -92,7 +95,11 @@ async def test_list_triggers(
     )
     await superuser_client.post(
         f"{settings.API_V1_STR}/triggers",
-        json={**_trigger_payload(str(workflow.id)), "name": "Trigger Beta", "event_type": "silence"},
+        json={
+            **_trigger_payload(str(workflow.id)),
+            "name": "Trigger Beta",
+            "event_type": "silence",
+        },
     )
 
     response = await superuser_client.get(f"{settings.API_V1_STR}/triggers")
@@ -119,9 +126,7 @@ async def test_get_trigger(
     assert create_resp.status_code == 200
     trigger_id = create_resp.json()["id"]
 
-    response = await superuser_client.get(
-        f"{settings.API_V1_STR}/triggers/{trigger_id}"
-    )
+    response = await superuser_client.get(f"{settings.API_V1_STR}/triggers/{trigger_id}")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == trigger_id
@@ -185,15 +190,11 @@ async def test_delete_trigger(
     assert create_resp.status_code == 200
     trigger_id = create_resp.json()["id"]
 
-    delete_resp = await superuser_client.delete(
-        f"{settings.API_V1_STR}/triggers/{trigger_id}"
-    )
+    delete_resp = await superuser_client.delete(f"{settings.API_V1_STR}/triggers/{trigger_id}")
     assert delete_resp.status_code == 200
     assert delete_resp.json()["ok"] is True
 
-    get_resp = await superuser_client.get(
-        f"{settings.API_V1_STR}/triggers/{trigger_id}"
-    )
+    get_resp = await superuser_client.get(f"{settings.API_V1_STR}/triggers/{trigger_id}")
     assert get_resp.status_code == 404
 
 

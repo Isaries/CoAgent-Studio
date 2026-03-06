@@ -16,7 +16,6 @@ from app.core.neo4j_client import neo4j_client
 from app.core.qdrant_client import (
     CHUNK_COLLECTION,
     COMMUNITY_COLLECTION,
-    ENTITY_COLLECTION,
     vector_store,
 )
 from app.models.graph_schemas import QueryIntent
@@ -34,9 +33,7 @@ INTENT_SYSTEM_PROMPT = """You classify user questions about a collaborative lear
 Also extract any specific entity names mentioned in the question."""
 
 
-async def classify_intent(
-    question: str, api_key: str, model: str = "gpt-4o-mini"
-) -> dict:
+async def classify_intent(question: str, api_key: str, model: str = "gpt-4o-mini") -> dict:
     """
     Classify a question as global or local using a lightweight LLM call.
 
@@ -67,7 +64,16 @@ async def classify_intent(
 
     # ── Keyword-based fallback with confidence scoring ──
     question_lower = question.lower()
-    global_keywords = {"summary", "summarize", "overview", "themes", "trends", "patterns", "main topics", "overall"}
+    global_keywords = {
+        "summary",
+        "summarize",
+        "overview",
+        "themes",
+        "trends",
+        "patterns",
+        "main topics",
+        "overall",
+    }
     local_keywords = {"who", "what did", "how was", "which", "specific", "tell me about"}
 
     global_matches = sum(1 for kw in global_keywords if kw in question_lower)
@@ -157,7 +163,10 @@ async def global_search(
         response = await client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "user", "content": GLOBAL_ANSWER_PROMPT.format(context=context, question=question)},
+                {
+                    "role": "user",
+                    "content": GLOBAL_ANSWER_PROMPT.format(context=context, question=question),
+                },
             ],
         )
 
@@ -206,12 +215,18 @@ async def local_search(
     graph_parts = []
     for n in nodes:
         if n:
-            graph_parts.append(f"Entity: {n.get('name', '?')} ({n.get('type', '?')}): {n.get('description', 'N/A')}")
+            graph_parts.append(
+                f"Entity: {n.get('name', '?')} ({n.get('type', '?')}): {n.get('description', 'N/A')}"
+            )
     for e in edges:
         if e:
-            graph_parts.append(f"Relation: {e.get('source', '?')} --[{e.get('relation', '?')}]--> {e.get('target', '?')}: {e.get('evidence', 'N/A')}")
+            graph_parts.append(
+                f"Relation: {e.get('source', '?')} --[{e.get('relation', '?')}]--> {e.get('target', '?')}: {e.get('evidence', 'N/A')}"
+            )
 
-    graph_context = "\n".join(graph_parts) if graph_parts else "No graph data found for these entities."
+    graph_context = (
+        "\n".join(graph_parts) if graph_parts else "No graph data found for these entities."
+    )
 
     # 3. Search relevant chunks for supporting text
     query_vector = await embedding_service.get_embedding(question)
@@ -221,7 +236,10 @@ async def local_search(
         limit=5,
         room_id=room_id,
     )
-    chunk_context = "\n---\n".join([r["payload"].get("text", "") for r in chunk_results]) or "No conversation excerpts found."
+    chunk_context = (
+        "\n---\n".join([r["payload"].get("text", "") for r in chunk_results])
+        or "No conversation excerpts found."
+    )
 
     # 4. Generate answer
     async with AsyncOpenAI(api_key=api_key) as client:

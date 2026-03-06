@@ -79,7 +79,7 @@ describe('useWebSocket composable', () => {
   // --------------------------------------------------------------------------
 
   it('connects to WebSocket on mount when a URL is provided', async () => {
-    const wrapper = mountWithWebSocket('ws://localhost/api/v1/chat/ws/room-1')
+    const _wrapper = mountWithWebSocket('ws://localhost/api/v1/chat/ws/room-1')
     await nextTick()
 
     expect(WebSocketSpy).toHaveBeenCalledOnce()

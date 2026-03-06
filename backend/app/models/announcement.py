@@ -15,7 +15,10 @@ class AnnouncementBase(SQLModel):
 class Announcement(AnnouncementBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     author_id: UUID = Field(foreign_key="user.id")
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
 
     # Backward compat property
     @property

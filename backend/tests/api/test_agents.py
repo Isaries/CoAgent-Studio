@@ -23,7 +23,6 @@ from app.core.config import settings
 from app.models.organization import Organization
 from app.models.project import Project, UserProjectLink
 
-
 # ---------------------------------------------------------------------------
 # Shared test data
 # ---------------------------------------------------------------------------
@@ -40,6 +39,7 @@ AGENT_PAYLOAD = {
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _make_org_and_project(db_session: AsyncSession, owner_id) -> Project:
     """Create an Organization and a Project owned by owner_id, return the Project."""
@@ -58,6 +58,7 @@ async def _make_org_and_project(db_session: AsyncSession, owner_id) -> Project:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_create_agent_config(
@@ -99,9 +100,7 @@ async def test_list_agents_in_project(
     )
     assert create_resp.status_code == 200
 
-    response = await superuser_client.get(
-        f"{settings.API_V1_STR}/agents/{project.id}"
-    )
+    response = await superuser_client.get(f"{settings.API_V1_STR}/agents/{project.id}")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
@@ -125,9 +124,7 @@ async def test_get_agent_config(
     assert create_resp.status_code == 200
     agent_id = create_resp.json()["id"]
 
-    response = await superuser_client.get(
-        f"{settings.API_V1_STR}/agents/{agent_id}/keys"
-    )
+    response = await superuser_client.get(f"{settings.API_V1_STR}/agents/{agent_id}/keys")
     assert response.status_code == 200
     # No keys set yet, so returns an empty dict
     assert response.json() == {}
@@ -181,15 +178,11 @@ async def test_delete_agent_config(
     assert create_resp.status_code == 200
     agent_id = create_resp.json()["id"]
 
-    delete_resp = await superuser_client.delete(
-        f"{settings.API_V1_STR}/agents/{agent_id}"
-    )
+    delete_resp = await superuser_client.delete(f"{settings.API_V1_STR}/agents/{agent_id}")
     assert delete_resp.status_code == 204
 
     # Deleted agent's keys endpoint should now return 404
-    get_resp = await superuser_client.get(
-        f"{settings.API_V1_STR}/agents/{agent_id}/keys"
-    )
+    get_resp = await superuser_client.get(f"{settings.API_V1_STR}/agents/{agent_id}/keys")
     assert get_resp.status_code == 404
 
 

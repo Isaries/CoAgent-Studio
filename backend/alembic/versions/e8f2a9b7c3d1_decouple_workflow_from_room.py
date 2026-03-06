@@ -54,7 +54,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.Column("created_by", sa.Uuid(), sa.ForeignKey("user.id"), nullable=True),
     )
-    op.create_index("ix_trigger_policy_target_workflow_id", "trigger_policy", ["target_workflow_id"])
+    op.create_index(
+        "ix_trigger_policy_target_workflow_id", "trigger_policy", ["target_workflow_id"]
+    )
     op.create_index("ix_trigger_policy_scope_session_id", "trigger_policy", ["scope_session_id"])
 
     # ── 3. Add `attached_workflow_id` to `room` ──────────────────────
@@ -72,7 +74,9 @@ def upgrade() -> None:
     # Copy each row from old table to new table, then link Room.
     conn = op.get_bind()
     old_rows = conn.execute(
-        sa.text("SELECT id, room_id, name, is_active, graph_data, created_at, updated_at FROM room_workflow")
+        sa.text(
+            "SELECT id, room_id, name, is_active, graph_data, created_at, updated_at FROM room_workflow"
+        )
     ).fetchall()
 
     for row in old_rows:
@@ -111,12 +115,12 @@ def upgrade() -> None:
     # ── 5. Update `workflow_run` table ────────────────────────────────
     # Add `session_id` and `trigger_payload`, then copy `room_id` values to `session_id`
     op.add_column("workflow_run", sa.Column("session_id", sa.String(), nullable=True))
-    op.add_column("workflow_run", sa.Column("trigger_payload", JSONB, nullable=True, server_default="{}"))
+    op.add_column(
+        "workflow_run", sa.Column("trigger_payload", JSONB, nullable=True, server_default="{}")
+    )
 
     # Copy room_id to session_id (as string)
-    conn.execute(
-        sa.text("UPDATE workflow_run SET session_id = CAST(room_id AS TEXT)")
-    )
+    conn.execute(sa.text("UPDATE workflow_run SET session_id = CAST(room_id AS TEXT)"))
 
     # Make session_id NOT NULL now
     op.alter_column("workflow_run", "session_id", nullable=False)
@@ -128,11 +132,13 @@ def upgrade() -> None:
         op.drop_constraint("workflow_run_workflow_id_fkey", "workflow_run", type_="foreignkey")
     except Exception:
         pass  # Constraint might not exist by that name
-    
+
     op.create_foreign_key(
         "workflow_run_workflow_id_fkey",
-        "workflow_run", "workflow",
-        ["workflow_id"], ["id"],
+        "workflow_run",
+        "workflow",
+        ["workflow_id"],
+        ["id"],
     )
 
     # Drop the old room_id column from workflow_run (data preserved in session_id)

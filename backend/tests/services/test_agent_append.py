@@ -1,36 +1,41 @@
+import uuid
+from unittest.mock import AsyncMock
 
 import pytest
-import uuid
-from unittest.mock import AsyncMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.services.agent_tool_service import _handle_manage_artifact
-from app.models.artifact import ArtifactType, Artifact
 from sqlmodel import select
+
+from app.models.artifact import Artifact
+from app.services.agent_tool_service import _handle_manage_artifact
 
 # Mock data
 mock_user_id = uuid.uuid4()
-mock_superuser = type('User', (), {'id': mock_user_id, 'is_superuser': True})
+mock_superuser = type("User", (), {"id": mock_user_id, "is_superuser": True})
 
-@pytest.fixture
+
+@pytest.fixture()
 def mock_session():
     return AsyncMock(spec=AsyncSession)
 
-@pytest.mark.asyncio
+
+@pytest.mark.asyncio()
 async def test_agent_append_doc(db_session: AsyncSession):
     """Test appending to a Doc artifact via agent tool."""
-    
+
     # Mock commit early
     db_session.commit = AsyncMock()
     db_session.refresh = AsyncMock()
 
     # Create User
     from app.models.user import User
+
     user = User(id=mock_user_id, email="test@example.com", full_name="Test User")
     db_session.add(user)
     await db_session.flush()
 
     # Create Course
     from app.models.space import Space
+
     space = Space(title="Test Course", description="Test Course Desc", owner_id=mock_user_id)
     db_session.add(space)
     await db_session.flush()
@@ -39,24 +44,19 @@ async def test_agent_append_doc(db_session: AsyncSession):
 
     # Create Room
     from app.models.room import Room
-    room = Room(
-        name="Test Room Append", 
-        description="Test Desc", 
-        space_id=space_id
-    )
+
+    room = Room(name="Test Room Append", description="Test Desc", space_id=space_id)
     db_session.add(room)
     await db_session.flush()
     await db_session.refresh(room)
     room_id = room.id
-    
+
     # 1. Create Doc
     doc_content = {
         "type": "doc",
-        "content": [
-            {"type": "paragraph", "content": [{"type": "text", "text": "Original text"}]}
-        ]
+        "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Original text"}]}],
     }
-    
+
     # Create artifact manually or via tool (let's use tool for consistency)
     await _handle_manage_artifact(
         session=db_session,
@@ -65,33 +65,34 @@ async def test_agent_append_doc(db_session: AsyncSession):
         action="create",
         artifact_type="doc",
         title="Agent Doc Append",
-        content=doc_content
+        content=doc_content,
     )
-    await db_session.flush() # Ensure ID
-    
+    await db_session.flush()  # Ensure ID
+
     # Get ID
-    query = select(Artifact).where(Artifact.room_id == room_id).where(Artifact.title == "Agent Doc Append")
+    query = (
+        select(Artifact)
+        .where(Artifact.room_id == room_id)
+        .where(Artifact.title == "Agent Doc Append")
+    )
     result = await db_session.exec(query)
     artifact = result.first()
     assert artifact is not None
     doc_id = str(artifact.id)
-    
+
     # 2. Append Content
-    append_content = {
-        "type": "paragraph", 
-        "content": [{"type": "text", "text": " Appended text"}]
-    }
-    
+    append_content = {"type": "paragraph", "content": [{"type": "text", "text": " Appended text"}]}
+
     await _handle_manage_artifact(
         session=db_session,
         room_id=room_id,
         user_id=mock_user_id,
         action="append",
         artifact_id=doc_id,
-        content=append_content
+        content=append_content,
     )
     await db_session.flush()
-    
+
     # 3. Verify
     await db_session.refresh(artifact)
     assert artifact.version == 2
@@ -101,18 +102,19 @@ async def test_agent_append_doc(db_session: AsyncSession):
     assert content["content"][1]["content"][0]["text"] == " Appended text"
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_agent_add_step_process(db_session: AsyncSession):
     """Test adding step to Process artifact via agent tool."""
-    
+
     # Mock commit early
     db_session.commit = AsyncMock()
     db_session.refresh = AsyncMock()
 
     # Create User
     from app.models.user import User
+
     # Use a different ID or reuse mock_user_id (reuse is fine logic-wise but strict tests might prefer fresh)
-    # Let's reuse mock_user_id but check if it exists or use merge? 
+    # Let's reuse mock_user_id but check if it exists or use merge?
     # Actually, the sessions are separate per test function? No, db_session fixture usually rolls back.
     # But if it persist, we might hit unique constraint on ID.
     # Let's just try to add it. If it fails, I'll use merge.
@@ -123,6 +125,7 @@ async def test_agent_add_step_process(db_session: AsyncSession):
 
     # Create Course
     from app.models.space import Space
+
     space = Space(title="Test Course Step", description="Test Course Desc", owner_id=mock_user_id)
     db_session.add(space)
     await db_session.flush()
@@ -131,24 +134,21 @@ async def test_agent_add_step_process(db_session: AsyncSession):
 
     # Create Room
     from app.models.room import Room
-    room = Room(
-        name="Test Room Step", 
-        description="Test Desc", 
-        space_id=space_id
-    )
+
+    room = Room(name="Test Room Step", description="Test Desc", space_id=space_id)
     db_session.add(room)
     await db_session.flush()
     await db_session.refresh(room)
     room_id = room.id
-    
+
     # 1. Create Process
     process_content = {
         "nodes": [
             {"id": "1", "type": "input", "data": {"label": "Start"}, "position": {"x": 0, "y": 0}}
         ],
-        "edges": []
+        "edges": [],
     }
-    
+
     await _handle_manage_artifact(
         session=db_session,
         room_id=room_id,
@@ -156,46 +156,53 @@ async def test_agent_add_step_process(db_session: AsyncSession):
         action="create",
         artifact_type="process",
         title="Agent Process Step",
-        content=process_content
+        content=process_content,
     )
     await db_session.flush()
-    
+
     # Get ID
-    query = select(Artifact).where(Artifact.room_id == room_id).where(Artifact.title == "Agent Process Step")
+    query = (
+        select(Artifact)
+        .where(Artifact.room_id == room_id)
+        .where(Artifact.title == "Agent Process Step")
+    )
     result = await db_session.exec(query)
     artifact = result.first()
     assert artifact is not None
     proc_id = str(artifact.id)
-    
+
     # 2. Add Step
     step_content = {
         "nodes": [
-            {"id": "2", "type": "default", "data": {"label": "Step 2"}, "position": {"x": 100, "y": 0}}
+            {
+                "id": "2",
+                "type": "default",
+                "data": {"label": "Step 2"},
+                "position": {"x": 100, "y": 0},
+            }
         ],
-        "edges": [
-            {"id": "e1-2", "source": "1", "target": "2"}
-        ]
+        "edges": [{"id": "e1-2", "source": "1", "target": "2"}],
     }
-    
+
     await _handle_manage_artifact(
         session=db_session,
         room_id=room_id,
         user_id=mock_user_id,
         action="add_step",
         artifact_id=proc_id,
-        content=step_content
+        content=step_content,
     )
     await db_session.flush()
-    
+
     # 3. Verify
     await db_session.refresh(artifact)
     assert artifact.version == 2
-    
+
     # Check Nodes
     nodes = artifact.content["nodes"]
     assert len(nodes) == 2
     assert nodes[1]["id"] == "2"
-    
+
     # Check Edges
     edges = artifact.content["edges"]
     assert len(edges) == 1

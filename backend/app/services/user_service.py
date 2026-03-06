@@ -82,7 +82,7 @@ class UserService:
 
         # Permissions check logic copied from endpoint
         # 1. Super Admin cannot change their own role downgrade check
-        user_data = user.dict(exclude_unset=True)
+        user.dict(exclude_unset=True)
         update_data = user_in.dict(exclude_unset=True)
 
         if (
@@ -122,7 +122,7 @@ class UserService:
                 raise HTTPException(status_code=400, detail="Username already taken")
 
         for field, value in update_data.items():
-             setattr(user, field, value)
+            setattr(user, field, value)
 
         self.session.add(user)
         await self.session.commit()
@@ -130,7 +130,7 @@ class UserService:
         return user
 
     async def update_user_me(self, user_in: UserUpdate, current_user: User) -> User:
-        user_data = current_user.dict(exclude_unset=True)
+        current_user.dict(exclude_unset=True)
         update_data = user_in.dict(exclude_unset=True)
 
         # Security restrictions
@@ -166,6 +166,7 @@ class UserService:
 
         # Snapshot user data before delete to avoid DetachedInstanceError
         from app.models.user import UserRead
+
         user_snapshot = UserRead.model_validate(user)
 
         await self.session.delete(user)

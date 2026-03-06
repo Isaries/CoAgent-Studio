@@ -23,10 +23,10 @@ from app.models.room import Room
 from app.models.space import Space, UserSpaceLink
 from app.models.user import User
 
-
 # ---------------------------------------------------------------------------
 # DB-level helpers (flush, no commit — rolled back after each test)
 # ---------------------------------------------------------------------------
+
 
 async def _create_space_in_db(
     db_session: AsyncSession,
@@ -80,6 +80,7 @@ async def _enroll_user(
 # POST /rooms/ — create room
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_create_room_as_space_owner(
     teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
@@ -96,9 +97,7 @@ async def test_create_room_as_space_owner(
         "is_ai_active": True,
         "ai_mode": "teacher_only",
     }
-    response = await teacher_client.post(
-        f"{settings.API_V1_STR}/rooms/", json=payload
-    )
+    response = await teacher_client.post(f"{settings.API_V1_STR}/rooms/", json=payload)
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["name"] == payload["name"]
@@ -112,18 +111,14 @@ async def test_create_room_as_superadmin(
     superuser_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """Super admin can create a room in any space."""
-    space = await _create_space_in_db(
-        db_session, mock_teacher, title="Superadmin Test Space"
-    )
+    space = await _create_space_in_db(db_session, mock_teacher, title="Superadmin Test Space")
 
     payload = {
         "name": "Admin Room",
         "description": "Created by superadmin",
         "space_id": str(space.id),
     }
-    response = await superuser_client.post(
-        f"{settings.API_V1_STR}/rooms/", json=payload
-    )
+    response = await superuser_client.post(f"{settings.API_V1_STR}/rooms/", json=payload)
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["name"] == "Admin Room"
@@ -137,9 +132,7 @@ async def test_create_room_space_not_found(teacher_client: AsyncClient):
         "name": "Orphan Room",
         "space_id": "00000000-0000-0000-0000-000000000000",
     }
-    response = await teacher_client.post(
-        f"{settings.API_V1_STR}/rooms/", json=payload
-    )
+    response = await teacher_client.post(f"{settings.API_V1_STR}/rooms/", json=payload)
     assert response.status_code == 404, response.text
 
 
@@ -148,17 +141,13 @@ async def test_create_room_as_student_without_space_access_forbidden(
     student_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """A student not enrolled in a space cannot create a room in it (403)."""
-    space = await _create_space_in_db(
-        db_session, mock_teacher, title="Restricted Space"
-    )
+    space = await _create_space_in_db(db_session, mock_teacher, title="Restricted Space")
 
     payload = {
         "name": "Illegal Room",
         "space_id": str(space.id),
     }
-    response = await student_client.post(
-        f"{settings.API_V1_STR}/rooms/", json=payload
-    )
+    response = await student_client.post(f"{settings.API_V1_STR}/rooms/", json=payload)
     assert response.status_code == 403, response.text
 
 
@@ -177,6 +166,7 @@ async def test_create_room_requires_auth(
 # GET /rooms/?space_id= — list rooms by space
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_list_rooms_by_space(
     teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
@@ -187,9 +177,7 @@ async def test_list_rooms_by_space(
     await _create_room_in_db(db_session, space, name="Attention Mechanisms")
 
     # Create another space to verify isolation
-    other_space = await _create_space_in_db(
-        db_session, mock_teacher, title="Unrelated Space"
-    )
+    other_space = await _create_space_in_db(db_session, mock_teacher, title="Unrelated Space")
     await _create_room_in_db(db_session, other_space, name="Should Not Appear")
 
     response = await teacher_client.get(
@@ -210,9 +198,7 @@ async def test_list_rooms_requires_auth(
 ):
     """An unauthenticated request to list rooms must return 401."""
     space = await _create_space_in_db(db_session, mock_teacher)
-    response = await client.get(
-        f"{settings.API_V1_STR}/rooms/", params={"space_id": str(space.id)}
-    )
+    response = await client.get(f"{settings.API_V1_STR}/rooms/", params={"space_id": str(space.id)})
     assert response.status_code == 401, response.text
 
 
@@ -220,19 +206,16 @@ async def test_list_rooms_requires_auth(
 # GET /rooms/{room_id} — get single room
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
-async def test_get_room(
-    teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
-):
+async def test_get_room(teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User):
     """Any authenticated user can fetch a room by ID."""
     space = await _create_space_in_db(db_session, mock_teacher)
     room = await _create_room_in_db(
         db_session, space, name="Computer Vision Lab", description="Object detection exercises"
     )
 
-    response = await teacher_client.get(
-        f"{settings.API_V1_STR}/rooms/{room.id}"
-    )
+    response = await teacher_client.get(f"{settings.API_V1_STR}/rooms/{room.id}")
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["id"] == str(room.id)
@@ -262,6 +245,7 @@ async def test_get_room_requires_auth(
 # ---------------------------------------------------------------------------
 # PUT /rooms/{room_id} — update room
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_update_room_as_teacher(
@@ -325,6 +309,7 @@ async def test_update_room_as_student_without_ta_role_forbidden(
 # DELETE /rooms/{room_id} — delete room
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_delete_room_as_space_owner(
     teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
@@ -334,9 +319,7 @@ async def test_delete_room_as_space_owner(
     await _enroll_user(db_session, mock_teacher.id, space.id, role="space_owner")
     room = await _create_room_in_db(db_session, space, name="Room To Delete")
 
-    response = await teacher_client.delete(
-        f"{settings.API_V1_STR}/rooms/{room.id}"
-    )
+    response = await teacher_client.delete(f"{settings.API_V1_STR}/rooms/{room.id}")
     assert response.status_code == 204, response.text
 
 
@@ -348,9 +331,7 @@ async def test_delete_room_as_superadmin(
     space = await _create_space_in_db(db_session, mock_teacher)
     room = await _create_room_in_db(db_session, space, name="Admin Deletes This Room")
 
-    response = await superuser_client.delete(
-        f"{settings.API_V1_STR}/rooms/{room.id}"
-    )
+    response = await superuser_client.delete(f"{settings.API_V1_STR}/rooms/{room.id}")
     assert response.status_code == 204, response.text
 
 
@@ -358,7 +339,5 @@ async def test_delete_room_as_superadmin(
 async def test_delete_room_not_found(superuser_client: AsyncClient):
     """Deleting a non-existent room UUID returns 404."""
     fake_id = "00000000-0000-0000-0000-000000000002"
-    response = await superuser_client.delete(
-        f"{settings.API_V1_STR}/rooms/{fake_id}"
-    )
+    response = await superuser_client.delete(f"{settings.API_V1_STR}/rooms/{fake_id}")
     assert response.status_code == 404, response.text

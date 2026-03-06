@@ -20,19 +20,20 @@ Note on artifact types (from ArtifactType enum):
   - "process" : Workflow state machines
 """
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models.space import Space
 from app.models.room import Room
-
+from app.models.space import Space
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _create_space_and_room(db_session: AsyncSession, owner_id) -> Room:
     """Create a Space and a Room within it; return the Room."""
@@ -55,6 +56,7 @@ _GRAPHRAG_PATCH = "app.services.artifact_service.ArtifactService._publish_graphr
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_create_task(
@@ -142,9 +144,7 @@ async def test_list_artifacts_by_room(
             json={"type": "doc", "title": "Doc One", "content": {}},
         )
 
-    response = await superuser_client.get(
-        f"{settings.API_V1_STR}/workspaces/{room.id}/artifacts"
-    )
+    response = await superuser_client.get(f"{settings.API_V1_STR}/workspaces/{room.id}/artifacts")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)

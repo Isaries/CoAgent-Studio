@@ -2,6 +2,7 @@ from typing import Any, ClassVar
 
 import structlog
 from arq.connections import RedisSettings
+from arq.cron import cron
 from sqlalchemy.orm import sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -15,10 +16,9 @@ from app.services.graphrag_service import (
 )
 from app.services.trigger_service import (
     dispatch_event_task,
-    run_workflow_task,
     evaluate_time_triggers_cron,
+    run_workflow_task,
 )
-from arq.cron import cron
 
 logger = structlog.get_logger()
 
@@ -40,6 +40,7 @@ async def startup(ctx: dict[str, Any]) -> None:
 
     # Start the Redis Stream consumer for incremental ingestion
     from app.services.graphrag_consumer import graphrag_consumer
+
     try:
         await graphrag_consumer.start(ctx)
     except Exception as e:
@@ -47,6 +48,7 @@ async def startup(ctx: dict[str, Any]) -> None:
 
     # Provide an embedding API key to tasks via context
     import os
+
     ctx["embedding_api_key"] = os.getenv("OPENAI_API_KEY", "")
 
 
@@ -82,4 +84,6 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
     handle_signals = False
-  # Let Docker/Supervisor handle this
+
+
+# Let Docker/Supervisor handle this

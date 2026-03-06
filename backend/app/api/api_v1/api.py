@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 
 from app.api.api_v1.endpoints import (
-    agent_config_crud,
-    agents,
-    agent_types,
     a2a_webhook,
+    admin_db,
+    agent_config_crud,
+    agent_types,
+    agents,
     analytics,
     announcements,
     artifacts,
@@ -13,16 +14,15 @@ from app.api.api_v1.endpoints import (
     graph,
     knowledge,
     login,
-    rooms,
-    spaces,
-    users,
-    user_keys,
     organizations,
     projects,
+    rooms,
+    spaces,
     threads,
-    admin_db,
-    workflows,
     triggers,
+    user_keys,
+    users,
+    workflows,
 )
 
 api_router = APIRouter()

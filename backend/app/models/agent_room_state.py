@@ -30,12 +30,13 @@ class AgentRoomState(SQLModel, table=True):
     last_user_message_at: Optional[datetime] = None
 
     # --- Agent Self-Modification Overrides ---
-    active_overrides: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
+    active_overrides: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     overrides_expires_at: Optional[datetime] = None
 
     # --- Optimistic Locking ---
     version: int = Field(default=0)
 
-    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    updated_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )

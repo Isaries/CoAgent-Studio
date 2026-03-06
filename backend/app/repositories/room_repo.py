@@ -1,26 +1,23 @@
 from typing import List, Optional
 from uuid import UUID
 
-from sqlmodel import select, delete
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.agent_config import AgentConfig
 from app.models.message import Message
 from app.models.room import (
     Room,
+    RoomAgentLink,
     RoomCreate,
     RoomUpdate,
     UserRoomLink,
-    RoomAgentLink,
 )
-from app.models.user import User
 from app.repositories.base_repo import BaseRepository
 
 
 class RepositoryRoom(BaseRepository[Room, RoomCreate, RoomUpdate]):
-    async def get_multi_by_space(
-        self, session: AsyncSession, *, space_id: UUID
-    ) -> List[Room]:
+    async def get_multi_by_space(self, session: AsyncSession, *, space_id: UUID) -> List[Room]:
         query = select(Room).where(Room.space_id == space_id)
         result = await session.exec(query)
         return result.all()
@@ -51,9 +48,7 @@ class RepositoryRoom(BaseRepository[Room, RoomCreate, RoomUpdate]):
         await session.commit()
         return link
 
-    async def remove_agent_link(
-        self, session: AsyncSession, *, link: RoomAgentLink
-    ) -> None:
+    async def remove_agent_link(self, session: AsyncSession, *, link: RoomAgentLink) -> None:
         await session.delete(link)
         await session.commit()
 
@@ -73,7 +68,7 @@ class RepositoryRoom(BaseRepository[Room, RoomCreate, RoomUpdate]):
         await session.exec(delete(Message).where(Message.room_id == room.id))
         # Delete UserRoomLinks
         await session.exec(delete(UserRoomLink).where(UserRoomLink.room_id == room.id))
-        
+
         await session.delete(room)
         await session.commit()
 

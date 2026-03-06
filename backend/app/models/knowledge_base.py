@@ -20,7 +20,10 @@ class KnowledgeBase(SQLModel, table=True):
     node_count: int = Field(default=0)
     edge_count: int = Field(default=0)
     last_built_at: Optional[datetime] = None
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
 
 
 class KBCreate(SQLModel):

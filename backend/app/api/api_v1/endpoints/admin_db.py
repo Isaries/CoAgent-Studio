@@ -1,5 +1,4 @@
 import re
-import traceback
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -48,8 +47,15 @@ TABLE_RELATIONS = {
 
 # Fields to filter out from response for security
 SENSITIVE_FIELDS = [
-    "hashed_password", "salt", "api_key", "secret", "token",
-    "encrypted_api_key", "encrypted_key", "auth_token", "external_config",
+    "hashed_password",
+    "salt",
+    "api_key",
+    "secret",
+    "token",
+    "encrypted_api_key",
+    "encrypted_key",
+    "auth_token",
+    "external_config",
 ]
 
 
@@ -80,7 +86,7 @@ async def get_table_data(
     """
     Get data from a specific table.
     """
-    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
         raise HTTPException(status_code=400, detail="Invalid table name")
 
     try:
@@ -119,6 +125,7 @@ async def get_table_data(
         raise
     except Exception as e:
         import structlog
+
         _logger = structlog.get_logger()
         _logger.error("admin_db_query_error", error=str(e), table=table_name, exc_info=True)
         raise HTTPException(status_code=500, detail="Database query failed") from e

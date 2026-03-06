@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from sqlmodel import select
@@ -12,7 +12,9 @@ from app.models.thread import (
 from app.repositories.base_repo import BaseRepository
 
 
-class RepositoryThreadMessage(BaseRepository[ThreadMessage, ThreadMessageCreate, ThreadMessageUpdate]):
+class RepositoryThreadMessage(
+    BaseRepository[ThreadMessage, ThreadMessageCreate, ThreadMessageUpdate]
+):
     async def get_multi_by_thread(
         self, session: AsyncSession, *, thread_id: UUID, skip: int = 0, limit: int = 1000
     ) -> List[ThreadMessage]:
@@ -27,7 +29,13 @@ class RepositoryThreadMessage(BaseRepository[ThreadMessage, ThreadMessageCreate,
         return result.all()
 
     async def append_message(
-        self, session: AsyncSession, *, thread_id: UUID, role: str, content: str, metadata_json: str = None
+        self,
+        session: AsyncSession,
+        *,
+        thread_id: UUID,
+        role: str,
+        content: str,
+        metadata_json: Optional[str] = None,
     ) -> ThreadMessage:
         msg = ThreadMessage(
             thread_id=thread_id,

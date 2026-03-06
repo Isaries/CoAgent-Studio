@@ -1,5 +1,4 @@
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
-from uuid import UUID
 
 from sqlmodel import SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -26,11 +25,13 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         result = await session.exec(query)
         return result.all()
 
-    async def create(self, session: AsyncSession, *, obj_in: CreateSchemaType, **kwargs) -> ModelType:
+    async def create(
+        self, session: AsyncSession, *, obj_in: CreateSchemaType, **kwargs
+    ) -> ModelType:
         obj_in_data = dict(obj_in)
         # Update with any explicit kwargs provided
         obj_in_data.update(kwargs)
-        
+
         db_obj = self.model.model_validate(obj_in_data)
         session.add(db_obj)
         await session.commit()
@@ -42,16 +43,16 @@ class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         session: AsyncSession,
         *,
         db_obj: ModelType,
-        obj_in: Union[UpdateSchemaType, Dict[str, Any]]
+        obj_in: Union[UpdateSchemaType, Dict[str, Any]],
     ) -> ModelType:
         if isinstance(obj_in, dict):
             update_data = obj_in
         else:
             update_data = obj_in.model_dump(exclude_unset=True)
-            
+
         for field, value in update_data.items():
             setattr(db_obj, field, value)
-                
+
         session.add(db_obj)
         await session.commit()
         await session.refresh(db_obj)

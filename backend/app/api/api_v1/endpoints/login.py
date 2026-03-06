@@ -11,7 +11,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api import deps
 from app.core import security
 from app.core.config import settings
-from app.models.user import User, UserRead, UserRole
+from app.models.user import User, UserRole
 
 router = APIRouter()
 
@@ -51,11 +51,13 @@ async def login_access_token(
 
     from fastapi.responses import JSONResponse
 
-    response = JSONResponse(content={
-        "message": "Login successful",
-        "user_id": str(user.id),
-        "role": user.role,
-    })
+    response = JSONResponse(
+        content={
+            "message": "Login successful",
+            "user_id": str(user.id),
+            "role": user.role,
+        }
+    )
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -109,7 +111,9 @@ async def refresh_token(
     try:
         user_id = UUID(user_id_str) if user_id_str else None
     except (ValueError, TypeError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject") from None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject"
+        ) from None
     user = await session.get(User, user_id)  # type: ignore[func-returns-value]
     if not user or not user.is_active:
         raise HTTPException(
@@ -179,6 +183,7 @@ async def impersonate_user(
         )
 
     import structlog
+
     _logger = structlog.get_logger()
     _logger.warning("user_impersonated", admin_id=str(current_user.id), target_user_id=str(user_id))
 

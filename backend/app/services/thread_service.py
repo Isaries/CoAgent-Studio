@@ -59,7 +59,10 @@ class ThreadService:
                         decrypted_keys.append(dk)
                 except Exception as e:
                     import structlog
-                    structlog.get_logger().warning("key_decryption_failed", key_id=str(k_id), error=str(e))
+
+                    structlog.get_logger().warning(
+                        "key_decryption_failed", key_id=str(k_id), error=str(e)
+                    )
 
         agent = AgentFactory.create_agent(agent_config, api_keys=decrypted_keys)
         if not agent:
@@ -96,7 +99,7 @@ class ThreadService:
         thread = await self.get_thread(thread_id, user)
 
         # 1. Save User Message
-        user_msg = await self.message_repo.append_message(
+        await self.message_repo.append_message(
             self.session,
             thread_id=thread.id,
             role="user",
@@ -108,11 +111,13 @@ class ThreadService:
         agent_config = await self.session.get(AgentConfig, thread.agent_id)
         if not agent_config:
             raise HTTPException(status_code=404, detail="Agent config not found")
-            
+
         agent = await self._initialize_agent(agent_config)
 
         # Load history
-        thread_history = await self.message_repo.get_multi_by_thread(self.session, thread_id=thread.id)
+        thread_history = await self.message_repo.get_multi_by_thread(
+            self.session, thread_id=thread.id
+        )
 
         # Construct payload for AgentCore
         simulated_history = []

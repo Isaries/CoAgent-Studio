@@ -1,26 +1,17 @@
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple, cast
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
 import structlog
-from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.services.agents.std_agents import StudentAgent, TeacherAgent
-from app.core.a2a import A2ADispatcher, A2AMessage, MessageType, AgentId
 from app.core.trigger_resolver import resolve_effective_trigger
-from app.factories.agent_factory import AgentFactory
 from app.models.agent_config import AgentConfig, AgentType
-from app.models.agent_room_state import AgentRoomState
 from app.models.message import Message
-from app.models.room import Room, RoomAgentLink
+from app.models.room import Room
 from app.repositories.agent_repo import AgentConfigRepository
 
-from app.services.agent_tool_service import UPDATE_TRIGGER_TOOL_DEF, MANAGE_ARTIFACT_TOOL_DEF, handle_tool_calls
-
 logger = structlog.get_logger()
-
-
 
 
 # Helper to resolve keys
@@ -32,13 +23,14 @@ async def _resolve_agent_keys(
     Returns Map: ConfigID -> List[DecryptedKey]
     """
     from app.services.user_key_service import UserKeyService
+
     service = UserKeyService(session)
     keys_map = {}
-    
+
     for config in configs:
         if not config:
             continue
-        
+
         # If user_key_ids present, fetch them
         if config.user_key_ids:
             if not config.created_by:
@@ -52,10 +44,10 @@ async def _resolve_agent_keys(
                         decrypted_keys.append(k)
                 except Exception as e:
                     logger.warning(f"Failed to resolve key {key_id}: {e}")
-            
+
             if decrypted_keys:
                 keys_map[config.id] = decrypted_keys
-                
+
     return keys_map
 
 
@@ -66,15 +58,19 @@ async def _get_active_configs(
     return await repo.get_active_configs(room_id)
 
 
-
 # Helper to publish to Redis instead of direct socket manager
 async def publish_message(redis, channel: str, message: str):
     await redis.publish(channel, message)
 
 
 async def publish_a2a_trace(
-    redis, session_id: str, event_type: str, details: str,
-    *, node_id: str = None, run_id: str = None,
+    redis,
+    session_id: str,
+    event_type: str,
+    details: str,
+    *,
+    node_id: Optional[str] = None,
+    run_id: Optional[str] = None,
 ):
     """
     Publish A2A trace event to WebSocket for frontend debugging/visualization.
@@ -92,33 +88,38 @@ async def publish_a2a_trace(
     ts = datetime.now(timezone.utc).isoformat()
 
     # v1 legacy format (backward compat)
-    payload_v1 = json.dumps({
-        "type": "a2a_trace",
-        "sender": f"[A2A {event_type}]",
-        "content": f"[A2A]|{event_type}|{details}",
-        "timestamp": ts,
-        "room_id": session_id,
-        "metadata": {"is_a2a": True, "event_type": event_type},
-    })
+    payload_v1 = json.dumps(
+        {
+            "type": "a2a_trace",
+            "sender": f"[A2A {event_type}]",
+            "content": f"[A2A]|{event_type}|{details}",
+            "timestamp": ts,
+            "room_id": session_id,
+            "metadata": {"is_a2a": True, "event_type": event_type},
+        }
+    )
     await redis.publish(f"room_{session_id}", payload_v1)
 
     # v2 workflow trace format (for canvas live-tracing)
     if node_id or run_id:
-        payload_v2 = json.dumps({
-            "type": "workflow_trace",
-            "run_id": run_id or "",
-            "room_id": session_id,
-            "event_type": event_type,
-            "node_id": node_id or "",
-            "sub_status": details,
-            "timestamp": ts,
-        })
+        payload_v2 = json.dumps(
+            {
+                "type": "workflow_trace",
+                "run_id": run_id or "",
+                "room_id": session_id,
+                "event_type": event_type,
+                "node_id": node_id or "",
+                "sub_status": details,
+                "timestamp": ts,
+            }
+        )
         await redis.publish(f"room_{session_id}", payload_v2)
 
 
 # ---------------------------------------------------------------------------
 # Generic Workflow Execution (Decoupled from Room)
 # ---------------------------------------------------------------------------
+
 
 async def execute_workflow(
     session: AsyncSession,
@@ -141,9 +142,8 @@ async def execute_workflow(
         The event payload that initiated this run (e.g. user message content).
     """
     from app.core.a2a.compiler import WorkflowCompiler
-    from app.models.workflow import Workflow, WorkflowRun, WorkflowStatus
-    from app.repositories.agent_repo import AgentConfigRepository
     from app.factories.agent_factory import AgentFactory
+    from app.models.workflow import Workflow, WorkflowRun, WorkflowStatus
 
     # 1. Load workflow topology by ID
     workflow = await session.get(Workflow, workflow_id)
@@ -193,8 +193,7 @@ async def execute_workflow(
         proposal = state.get("current_proposal", "")
         if proposal:
             await _save_and_broadcast(
-                session, redis, proposal, session_id,
-                AgentType.TEACHER, "[AI Agent]"
+                session, redis, proposal, session_id, AgentType.TEACHER, "[AI Agent]"
             )
 
     try:
@@ -220,7 +219,9 @@ async def execute_workflow(
         }
 
         # Publish trace: workflow started
-        await publish_a2a_trace(redis, session_id, "WORKFLOW_START", f"Workflow '{workflow.name}' triggered")
+        await publish_a2a_trace(
+            redis, session_id, "WORKFLOW_START", f"Workflow '{workflow.name}' triggered"
+        )
 
         result = await compiled_graph.ainvoke(initial_state)
 
@@ -231,7 +232,8 @@ async def execute_workflow(
             for i, msg in enumerate(messages):
                 entry = {
                     "step": i,
-                    "node_id": getattr(msg, "name", None) or result.get("_active_node_id", "unknown"),
+                    "node_id": getattr(msg, "name", None)
+                    or result.get("_active_node_id", "unknown"),
                     "type": getattr(msg, "type", "unknown"),
                     "content_preview": str(getattr(msg, "content", ""))[:200],
                     "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -255,13 +257,16 @@ async def execute_workflow(
         session.add(run)
         await session.commit()
 
-        await publish_a2a_trace(redis, session_id, "WORKFLOW_ERROR", f"Workflow failed: {str(e)[:80]}")
+        await publish_a2a_trace(
+            redis, session_id, "WORKFLOW_ERROR", f"Workflow failed: {str(e)[:80]}"
+        )
         logger.error("workflow_failed", session_id=session_id, error=str(e))
 
 
 # ---------------------------------------------------------------------------
 # Room-aware adapter (backward compat – wraps generic execute_workflow)
 # ---------------------------------------------------------------------------
+
 
 async def _execute_v2_graph_workflow(
     session: AsyncSession,
@@ -275,7 +280,7 @@ async def _execute_v2_graph_workflow(
     to the generic ``execute_workflow`` function.
     """
     # Determine the workflow to execute
-    workflow_id = getattr(room, 'attached_workflow_id', None)
+    workflow_id = getattr(room, "attached_workflow_id", None)
 
     if not workflow_id:
         logger.warning("v2_no_attached_workflow", room_id=room_id)
@@ -284,7 +289,11 @@ async def _execute_v2_graph_workflow(
     # Build trigger payload from the message
     trigger_payload = {
         "type": "user_message",
-        "sender_id": str(last_message.sender_id) if hasattr(last_message, 'sender_id') and last_message.sender_id else "user",
+        "sender_id": (
+            str(last_message.sender_id)
+            if hasattr(last_message, "sender_id") and last_message.sender_id
+            else "user"
+        ),
         "content": last_message.content or "",
     }
 
@@ -316,7 +325,7 @@ async def run_agent_cycle_task(ctx, room_id: str, user_msg_id: str) -> None:
         await process_agents_logic(room_id, session, redis, user_msg)
 
 
-async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:  # noqa: C901
+async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:
     """
     ARQ Task to run agent time-based trigger.
     trigger_role: "teacher" or "student"
@@ -335,6 +344,7 @@ async def run_agent_time_task(ctx, room_id: str, trigger_role: str) -> None:  # 
         # ── v2 Graph Engine Time Trigger ─────────────────────────────────
         logger.info("run_agent_time_task_dispatch", room_id=room_id)
         from app.models.message import Message
+
         # Create a mock message representing the timer event
         timer_msg = Message(
             room_id=room.id,
@@ -360,8 +370,6 @@ async def process_agents_logic(
     await _execute_v2_graph_workflow(session, redis, room, room_id, last_message)
 
 
-
-
 async def _save_and_broadcast(session, redis, content, session_id, agent_type, prefix) -> None:
     # Safely parse session_id as UUID; skip DB save if it's not a valid room UUID
     try:
@@ -378,17 +386,20 @@ async def _save_and_broadcast(session, redis, content, session_id, agent_type, p
 
     # Broadcast via Redis Pub/Sub as JSON matching SocketMessage
     import json
-    payload = json.dumps({
-        "type": "message",
-        "sender": prefix,  # e.g. "[Student AI]"
-        "content": content,
-        "timestamp": timestamp,
-        "room_id": str(session_id),
-        "metadata": {
-            "is_ai": True, 
-            "agent_type": agent_type.value if hasattr(agent_type, "value") else str(agent_type)
+
+    payload = json.dumps(
+        {
+            "type": "message",
+            "sender": prefix,  # e.g. "[Student AI]"
+            "content": content,
+            "timestamp": timestamp,
+            "room_id": str(session_id),
+            "metadata": {
+                "is_ai": True,
+                "agent_type": agent_type.value if hasattr(agent_type, "value") else str(agent_type),
+            },
         }
-    })
+    )
     await publish_message(redis, f"room_{session_id}", payload)
 
 
@@ -419,7 +430,7 @@ async def check_and_process_time_triggers(room_id: str, session: AsyncSession, a
         link = await repo.get_room_agent_link(UUID(room_id), config.id)
 
         effective = resolve_effective_trigger(config, link, state)
-            
+
         trigger = effective.get("trigger", {})
         logic = effective.get("logic", "or")
         enabled = trigger.get("enabled_conditions", [])

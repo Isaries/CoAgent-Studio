@@ -18,10 +18,10 @@ from app.core.config import settings
 from app.models.space import Space, UserSpaceLink
 from app.models.user import User
 
-
 # ---------------------------------------------------------------------------
 # DB-level helpers (flush, no commit — rolled back after each test)
 # ---------------------------------------------------------------------------
+
 
 async def _create_space_in_db(
     db_session: AsyncSession,
@@ -59,6 +59,7 @@ async def _enroll_user(
 # POST /spaces/ — create space
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_create_space_as_teacher(teacher_client: AsyncClient):
     """A teacher can create a new space and receives a full SpaceRead response."""
@@ -67,9 +68,7 @@ async def test_create_space_as_teacher(teacher_client: AsyncClient):
         "description": "Hands-on ML course for beginners",
         "preset": "colearn",
     }
-    response = await teacher_client.post(
-        f"{settings.API_V1_STR}/spaces/", json=payload
-    )
+    response = await teacher_client.post(f"{settings.API_V1_STR}/spaces/", json=payload)
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["title"] == payload["title"]
@@ -87,9 +86,7 @@ async def test_create_space_as_student_forbidden(student_client: AsyncClient):
         "title": "Unauthorised Student Space",
         "description": "This should be rejected",
     }
-    response = await student_client.post(
-        f"{settings.API_V1_STR}/spaces/", json=payload
-    )
+    response = await student_client.post(f"{settings.API_V1_STR}/spaces/", json=payload)
     assert response.status_code == 403, response.text
 
 
@@ -105,6 +102,7 @@ async def test_create_space_requires_auth(client: AsyncClient):
 # GET /spaces/ — list spaces
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_list_spaces_as_teacher(teacher_client: AsyncClient):
     """After creating a space, the teacher sees it in the list response."""
@@ -112,9 +110,7 @@ async def test_list_spaces_as_teacher(teacher_client: AsyncClient):
         "title": "Data Science Fundamentals",
         "description": "Advanced analytics techniques",
     }
-    create_res = await teacher_client.post(
-        f"{settings.API_V1_STR}/spaces/", json=payload
-    )
+    create_res = await teacher_client.post(f"{settings.API_V1_STR}/spaces/", json=payload)
     assert create_res.status_code == 200
 
     response = await teacher_client.get(f"{settings.API_V1_STR}/spaces/")
@@ -151,18 +147,15 @@ async def test_list_spaces_requires_auth(client: AsyncClient):
 # GET /spaces/{space_id} — read single space
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_get_space_as_owner(
     teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """The space owner can fetch a space by its ID."""
-    space = await _create_space_in_db(
-        db_session, mock_teacher, title="Cognitive Science 101"
-    )
+    space = await _create_space_in_db(db_session, mock_teacher, title="Cognitive Science 101")
 
-    response = await teacher_client.get(
-        f"{settings.API_V1_STR}/spaces/{space.id}"
-    )
+    response = await teacher_client.get(f"{settings.API_V1_STR}/spaces/{space.id}")
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["id"] == str(space.id)
@@ -175,13 +168,9 @@ async def test_get_space_as_superadmin(
     superuser_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """Super admin can fetch any space by ID regardless of ownership."""
-    space = await _create_space_in_db(
-        db_session, mock_teacher, title="Private Teacher Space"
-    )
+    space = await _create_space_in_db(db_session, mock_teacher, title="Private Teacher Space")
 
-    response = await superuser_client.get(
-        f"{settings.API_V1_STR}/spaces/{space.id}"
-    )
+    response = await superuser_client.get(f"{settings.API_V1_STR}/spaces/{space.id}")
     assert response.status_code == 200, response.text
     assert response.json()["id"] == str(space.id)
 
@@ -190,9 +179,7 @@ async def test_get_space_as_superadmin(
 async def test_get_space_not_found(teacher_client: AsyncClient):
     """Requesting a space with a non-existent UUID returns 404."""
     fake_id = "00000000-0000-0000-0000-000000000000"
-    response = await teacher_client.get(
-        f"{settings.API_V1_STR}/spaces/{fake_id}"
-    )
+    response = await teacher_client.get(f"{settings.API_V1_STR}/spaces/{fake_id}")
     assert response.status_code == 404, response.text
 
 
@@ -201,12 +188,8 @@ async def test_get_space_as_unenrolled_student_forbidden(
     student_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """A student who is not enrolled in a space must receive 403."""
-    space = await _create_space_in_db(
-        db_session, mock_teacher, title="Restricted Space"
-    )
-    response = await student_client.get(
-        f"{settings.API_V1_STR}/spaces/{space.id}"
-    )
+    space = await _create_space_in_db(db_session, mock_teacher, title="Restricted Space")
+    response = await student_client.get(f"{settings.API_V1_STR}/spaces/{space.id}")
     assert response.status_code == 403, response.text
 
 
@@ -218,14 +201,10 @@ async def test_get_space_as_enrolled_student(
     mock_student: User,
 ):
     """A student enrolled in a space can read it."""
-    space = await _create_space_in_db(
-        db_session, mock_teacher, title="Open Enrollment Space"
-    )
+    space = await _create_space_in_db(db_session, mock_teacher, title="Open Enrollment Space")
     await _enroll_user(db_session, mock_student.id, space.id, role="student")
 
-    response = await student_client.get(
-        f"{settings.API_V1_STR}/spaces/{space.id}"
-    )
+    response = await student_client.get(f"{settings.API_V1_STR}/spaces/{space.id}")
     assert response.status_code == 200, response.text
     assert response.json()["id"] == str(space.id)
 
@@ -233,6 +212,7 @@ async def test_get_space_as_enrolled_student(
 # ---------------------------------------------------------------------------
 # PUT /spaces/{space_id} — update space
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_update_space_as_owner(
@@ -263,9 +243,7 @@ async def test_update_space_as_superadmin(
     superuser_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """Super admin can update any space regardless of ownership."""
-    space = await _create_space_in_db(
-        db_session, mock_teacher, title="Admin Editable Space"
-    )
+    space = await _create_space_in_db(db_session, mock_teacher, title="Admin Editable Space")
 
     update_payload = {"title": "Renamed By Admin"}
     response = await superuser_client.put(
@@ -280,9 +258,7 @@ async def test_update_space_as_student_forbidden(
     student_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """A student cannot update a space — blocked by require_role (403)."""
-    space = await _create_space_in_db(
-        db_session, mock_teacher, title="Read-Only Space"
-    )
+    space = await _create_space_in_db(db_session, mock_teacher, title="Read-Only Space")
 
     response = await student_client.put(
         f"{settings.API_V1_STR}/spaces/{space.id}",
@@ -295,6 +271,7 @@ async def test_update_space_as_student_forbidden(
 # DELETE /spaces/{space_id} — delete space
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_delete_space_as_superadmin(
     superuser_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
@@ -304,9 +281,7 @@ async def test_delete_space_as_superadmin(
         db_session, mock_teacher, title="Space To Be Deleted By Admin"
     )
 
-    response = await superuser_client.delete(
-        f"{settings.API_V1_STR}/spaces/{space.id}"
-    )
+    response = await superuser_client.delete(f"{settings.API_V1_STR}/spaces/{space.id}")
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["id"] == str(space.id)
@@ -318,13 +293,9 @@ async def test_delete_space_as_owner(
     teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """The space owner (teacher) can delete their own space."""
-    space = await _create_space_in_db(
-        db_session, mock_teacher, title="Owner Deletes This Space"
-    )
+    space = await _create_space_in_db(db_session, mock_teacher, title="Owner Deletes This Space")
 
-    response = await teacher_client.delete(
-        f"{settings.API_V1_STR}/spaces/{space.id}"
-    )
+    response = await teacher_client.delete(f"{settings.API_V1_STR}/spaces/{space.id}")
     assert response.status_code == 200, response.text
 
 
@@ -333,13 +304,9 @@ async def test_delete_space_as_student_forbidden(
     student_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """A student cannot delete a space — blocked by require_role (403)."""
-    space = await _create_space_in_db(
-        db_session, mock_teacher, title="Protected Space"
-    )
+    space = await _create_space_in_db(db_session, mock_teacher, title="Protected Space")
 
-    response = await student_client.delete(
-        f"{settings.API_V1_STR}/spaces/{space.id}"
-    )
+    response = await student_client.delete(f"{settings.API_V1_STR}/spaces/{space.id}")
     assert response.status_code == 403, response.text
 
 
@@ -347,7 +314,5 @@ async def test_delete_space_as_student_forbidden(
 async def test_delete_space_not_found(superuser_client: AsyncClient):
     """Deleting a space with a non-existent UUID returns 404."""
     fake_id = "00000000-0000-0000-0000-000000000001"
-    response = await superuser_client.delete(
-        f"{settings.API_V1_STR}/spaces/{fake_id}"
-    )
+    response = await superuser_client.delete(f"{settings.API_V1_STR}/spaces/{fake_id}")
     assert response.status_code == 404, response.text

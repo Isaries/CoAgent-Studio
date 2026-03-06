@@ -186,7 +186,9 @@ class AgentConfigService:
                 return  # Orphaned config, allow admin? Or fail? Logic was pass.
 
             if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-                link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+                link = await self.session.get(
+                    UserProjectLink, (current_user.id, agent_config.project_id)
+                )
                 if not link or link.role not in ["admin", "owner"]:
                     raise HTTPException(status_code=403, detail="Not enough permissions")
         else:
@@ -232,7 +234,9 @@ class AgentConfigService:
         if agent_config.project_id:
             project = await self.session.get(Project, agent_config.project_id)
             if project and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-                link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+                link = await self.session.get(
+                    UserProjectLink, (current_user.id, agent_config.project_id)
+                )
                 if not link or link.role not in ["admin", "owner"]:
                     raise HTTPException(status_code=403, detail="Not enough permissions")
         else:
@@ -252,7 +256,9 @@ class AgentConfigService:
         if agent_config.project_id:
             project = await self.session.get(Project, agent_config.project_id)
             if project and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-                link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+                link = await self.session.get(
+                    UserProjectLink, (current_user.id, agent_config.project_id)
+                )
                 if not link or link.role not in ["admin", "owner"]:
                     raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -280,7 +286,9 @@ class AgentConfigService:
         if agent_config.project_id:
             project = await self.session.get(Project, agent_config.project_id)
             if project and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-                link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+                link = await self.session.get(
+                    UserProjectLink, (current_user.id, agent_config.project_id)
+                )
                 if not link:
                     raise HTTPException(status_code=403, detail="Not enough permissions")
         else:
@@ -334,10 +342,15 @@ class AgentConfigService:
         self, config_id: UUID, version_label: str, current_user: User
     ) -> AgentConfigVersion:
         agent_config = await self.get_project_agent_config(config_id, current_user)
-        
+
         # Require editing privileges
-        if agent_config.project_id and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-            link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+        if agent_config.project_id and current_user.role not in [
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        ]:
+            link = await self.session.get(
+                UserProjectLink, (current_user.id, agent_config.project_id)
+            )
             if not link or link.role not in ["admin", "owner", "editor"]:
                 raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -348,7 +361,7 @@ class AgentConfigService:
             model_provider=agent_config.model_provider,
             model=agent_config.model,
             settings=agent_config.settings,
-            created_by=current_user.id
+            created_by=current_user.id,
         )
         self.session.add(version)
         await self.session.commit()
@@ -357,7 +370,11 @@ class AgentConfigService:
 
     async def list_versions(self, config_id: UUID, current_user: User) -> List[AgentConfigVersion]:
         await self.get_project_agent_config(config_id, current_user)
-        query = select(AgentConfigVersion).where(AgentConfigVersion.config_id == config_id).order_by(AgentConfigVersion.created_at.desc())
+        query = (
+            select(AgentConfigVersion)
+            .where(AgentConfigVersion.config_id == config_id)
+            .order_by(AgentConfigVersion.created_at.desc())
+        )
         result = await self.session.exec(query)
         return result.all()
 
@@ -367,8 +384,13 @@ class AgentConfigService:
         agent_config = await self.get_project_agent_config(config_id, current_user)
 
         # Require editing privileges
-        if agent_config.project_id and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-            link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+        if agent_config.project_id and current_user.role not in [
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        ]:
+            link = await self.session.get(
+                UserProjectLink, (current_user.id, agent_config.project_id)
+            )
             if not link or link.role not in ["admin", "owner", "editor"]:
                 raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -381,7 +403,7 @@ class AgentConfigService:
         agent_config.model = version.model
         if version.settings:
             agent_config.settings = version.settings
-            
+
         self.session.add(agent_config)
         await self.session.commit()
         await self.session.refresh(agent_config)
@@ -396,8 +418,7 @@ class AgentConfigService:
         Get all global agent templates owned by the current user.
         """
         query: Any = select(AgentConfig).where(
-            AgentConfig.is_template == True,
-            AgentConfig.created_by == current_user.id
+            AgentConfig.is_template is True, AgentConfig.created_by == current_user.id
         )
         result = await self.session.exec(query)
         return result.all()
@@ -479,9 +500,7 @@ class AgentConfigService:
         await self.session.refresh(cloned_config)
         return cloned_config
 
-    async def sync_from_parent(
-        self, config_id: UUID, current_user: User
-    ) -> AgentConfig:
+    async def sync_from_parent(self, config_id: UUID, current_user: User) -> AgentConfig:
         """
         Sync an agent instance with its parent template (My Agent).
         Overwrites system_prompt, model_provider, model, and settings.
@@ -497,7 +516,9 @@ class AgentConfigService:
         if agent_config.project_id:
             project = await self.session.get(Project, agent_config.project_id)
             if project and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-                link = await self.session.get(UserProjectLink, (current_user.id, agent_config.project_id))
+                link = await self.session.get(
+                    UserProjectLink, (current_user.id, agent_config.project_id)
+                )
                 if not link or link.role not in ["admin", "owner"]:
                     raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -526,28 +547,28 @@ class AgentConfigService:
 
     async def list_external_agents(self, current_user: User) -> List[AgentConfig]:
         """List all external agents visible to the current user."""
-        query = select(AgentConfig).where(AgentConfig.is_external == True)
-        
+        query = select(AgentConfig).where(AgentConfig.is_external is True)
+
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             query = query.where(AgentConfig.created_by == current_user.id)
-            
+
         result = await self.session.exec(query)
         return list(result.all())
 
     async def create_external_agent(
-        self, 
+        self,
         name: str,
         type_name: str,
         external_config: dict,
         system_prompt: str,
-        current_user: User
+        current_user: User,
     ) -> AgentConfig:
         """Create a new external agent configuration."""
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             raise HTTPException(status_code=403, detail="Not enough permissions")
-            
+
         from app.models.agent_config import AgentCategory
-        
+
         new_config = AgentConfig(
             type=type_name,
             name=name,
@@ -560,7 +581,7 @@ class AgentConfigService:
             capabilities=["a2a_messaging"],
             created_by=current_user.id,
         )
-        
+
         self.session.add(new_config)
         await self.session.commit()
         await self.session.refresh(new_config)
@@ -569,10 +590,10 @@ class AgentConfigService:
     async def test_external_connection(self, config: AgentConfig) -> dict:
         """Test connection for an existing agent config."""
         from app.core.a2a.external_adapter import ExternalAgentAdapter
-        
+
         if not config.is_external:
-             raise HTTPException(status_code=400, detail="Not an external agent")
-             
+            raise HTTPException(status_code=400, detail="Not an external agent")
+
         adapter = ExternalAgentAdapter(config)
         return await adapter.test_connection()
 
@@ -584,13 +605,14 @@ class AgentConfigService:
             name="test",
             model_provider="external",
             is_external=True,
-            external_config=external_config
+            external_config=external_config,
         )
-        
+
         from app.core.a2a.external_adapter import ExternalAgentAdapter
+
         # We might need to ensure the adapter doesn't need other fields that are missing
         # ExternalAgentAdapter checks is_external and external_config.
-        
+
         try:
             adapter = ExternalAgentAdapter(dummy_config)
             return await adapter.test_connection()

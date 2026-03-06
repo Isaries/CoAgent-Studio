@@ -3,7 +3,7 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-const props = defineProps<{
+defineProps<{
   modelValue: string
   matchCount: number
   currentMatch: number

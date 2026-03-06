@@ -18,11 +18,12 @@ from sqlmodel import Field, SQLModel
 
 class TriggerEventType(str, Enum):
     """Canonical event types that can activate a trigger."""
-    USER_MESSAGE = "user_message"       # A user sends a message
-    SILENCE = "silence"                 # No activity for N minutes
-    TIMER = "timer"                     # Cron / interval timer
-    WEBHOOK = "webhook"                 # Incoming external HTTP call
-    MANUAL = "manual"                   # Explicitly triggered by user / API
+
+    USER_MESSAGE = "user_message"  # A user sends a message
+    SILENCE = "silence"  # No activity for N minutes
+    TIMER = "timer"  # Cron / interval timer
+    WEBHOOK = "webhook"  # Incoming external HTTP call
+    MANUAL = "manual"  # Explicitly triggered by user / API
 
 
 class TriggerPolicy(SQLModel, table=True):
@@ -34,6 +35,7 @@ class TriggerPolicy(SQLModel, table=True):
         {"cron": "0 0 * * *"}           # for TIMER
         {"interval_mins": 30}           # for TIMER (interval-based)
     """
+
     __tablename__ = "trigger_policy"
 
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
@@ -52,8 +54,14 @@ class TriggerPolicy(SQLModel, table=True):
 
     is_active: bool = Field(default=True)
 
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
-    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
 

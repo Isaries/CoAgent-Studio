@@ -6,7 +6,6 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .project import Project
-    from .user import User
 
 
 class UserOrganizationLink(SQLModel, table=True):

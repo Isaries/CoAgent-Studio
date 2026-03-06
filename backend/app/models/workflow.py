@@ -18,46 +18,51 @@ from sqlalchemy import Column, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
-
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class WorkflowStatus(str, Enum):
     """Status of a single workflow execution run."""
+
     PENDING = "pending"
     RUNNING = "running"
-    PAUSED = "paused"          # Waiting for human-in-the-loop / timer
+    PAUSED = "paused"  # Waiting for human-in-the-loop / timer
     COMPLETED = "completed"
     FAILED = "failed"
 
 
 class WorkflowNodeType(str, Enum):
     """Canonical node types supported by the graph engine."""
-    AGENT = "agent"            # LLM-powered agent node
-    ROUTER = "router"          # Conditional branching node
-    ACTION = "action"          # Side-effect node (broadcast, tool call, etc.)
-    START = "start"            # Entry point
-    END = "end"                # Terminal node
-    MERGE = "merge"            # Wait-for-all parallel join
-    TOOL = "tool"              # External tool invocation
+
+    AGENT = "agent"  # LLM-powered agent node
+    ROUTER = "router"  # Conditional branching node
+    ACTION = "action"  # Side-effect node (broadcast, tool call, etc.)
+    START = "start"  # Entry point
+    END = "end"  # Terminal node
+    MERGE = "merge"  # Wait-for-all parallel join
+    TOOL = "tool"  # External tool invocation
 
 
 class WorkflowEdgeType(str, Enum):
     """Semantic relationship type carried by an edge."""
-    EVALUATE = "evaluate"      # Target must approve source's output
-    FORWARD = "forward"        # Pass data downstream (default)
-    SUMMARIZE = "summarize"    # Target summarises multiple inputs
-    CRITIQUE = "critique"      # Target provides feedback (non-blocking)
-    TRIGGER = "trigger"        # Source's completion triggers target
+
+    EVALUATE = "evaluate"  # Target must approve source's output
+    FORWARD = "forward"  # Pass data downstream (default)
+    SUMMARIZE = "summarize"  # Target summarises multiple inputs
+    CRITIQUE = "critique"  # Target provides feedback (non-blocking)
+    TRIGGER = "trigger"  # Source's completion triggers target
 
 
 # ---------------------------------------------------------------------------
 # Workflow – the blueprint / topology (decoupled from Room)
 # ---------------------------------------------------------------------------
 
+
 class WorkflowBase(SQLModel):
     """Shared fields for Workflow create / read schemas."""
+
     name: str = Field(default="Default Workflow")
     is_active: bool = Field(default=True)
 
@@ -86,6 +91,7 @@ class Workflow(WorkflowBase, table=True):
       ]
     }
     """
+
     __tablename__ = "workflow"
 
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
@@ -95,8 +101,14 @@ class Workflow(WorkflowBase, table=True):
         sa_column=Column(JSONB, nullable=False),
     )
 
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
-    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
 
@@ -121,6 +133,7 @@ class WorkflowUpdate(SQLModel):
 # WorkflowRun – execution instance (decoupled from Room)
 # ---------------------------------------------------------------------------
 
+
 class WorkflowRun(SQLModel, table=True):
     """
     Tracks a single execution of a workflow graph.
@@ -132,6 +145,7 @@ class WorkflowRun(SQLModel, table=True):
     ``session_id`` is a generic string identifier that ties the run back
     to its source context (e.g. a Room ID, an API request ID, a thread ID).
     """
+
     __tablename__ = "workflow_run"
 
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
@@ -141,23 +155,22 @@ class WorkflowRun(SQLModel, table=True):
     session_id: str = Field(index=True)
 
     # The full trigger payload that initiated this run
-    trigger_payload: Dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column(JSONB)
-    )
+    trigger_payload: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
 
     status: str = Field(default=WorkflowStatus.PENDING.value)
 
     # LangGraph checkpoint – enables pause / resume / replay
-    state_snapshot: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
+    state_snapshot: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
 
     # Ordered log of node executions for the trace UI
     execution_log: Optional[List[Dict[str, Any]]] = Field(
         default_factory=list, sa_column=Column(JSONB)
     )
 
-    started_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    started_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
     completed_at: Optional[datetime] = None
 
     # Error details if status == FAILED

@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from sqlmodel import col, or_, select
@@ -78,9 +78,11 @@ class RepositorySpace(BaseRepository[Space, SpaceCreate, SpaceUpdate]):
         return result.all()
 
     async def get_user_by_email(self, session: AsyncSession, *, email: str) -> Optional[User]:
-         return (await session.exec(select(User).where(User.email == email))).first()
+        return (await session.exec(select(User).where(User.email == email))).first()
 
-    async def update_user_link(self, session: AsyncSession, *, link: UserSpaceLink) -> UserSpaceLink:
+    async def update_user_link(
+        self, session: AsyncSession, *, link: UserSpaceLink
+    ) -> UserSpaceLink:
         session.add(link)
         await session.commit()
         await session.refresh(link)
@@ -89,5 +91,6 @@ class RepositorySpace(BaseRepository[Space, SpaceCreate, SpaceUpdate]):
     async def remove_user_link(self, session: AsyncSession, *, link: UserSpaceLink) -> None:
         await session.delete(link)
         await session.commit()
+
 
 space_repo = RepositorySpace(Space)

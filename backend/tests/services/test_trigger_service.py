@@ -18,15 +18,15 @@ from app.services.trigger_service import TriggerDispatcher
 
 
 def _make_policy(**kwargs) -> TriggerPolicy:
-    defaults = dict(
-        id=uuid4(),
-        name="Test Trigger",
-        event_type="user_message",
-        conditions={},
-        target_workflow_id=uuid4(),
-        scope_session_id=None,
-        is_active=True,
-    )
+    defaults = {
+        "id": uuid4(),
+        "name": "Test Trigger",
+        "event_type": "user_message",
+        "conditions": {},
+        "target_workflow_id": uuid4(),
+        "scope_session_id": None,
+        "is_active": True,
+    }
     defaults.update(kwargs)
     return TriggerPolicy(**defaults)
 
@@ -63,7 +63,9 @@ def test_evaluate_conditions_keyword_match_true():
 
 def test_evaluate_conditions_keyword_match_false():
     dispatcher = TriggerDispatcher(session=AsyncMock())
-    assert dispatcher._evaluate_conditions({"keyword": "goodbye"}, {"content": "Hello World"}) is False
+    assert (
+        dispatcher._evaluate_conditions({"keyword": "goodbye"}, {"content": "Hello World"}) is False
+    )
 
 
 def test_evaluate_conditions_keyword_case_insensitive():
@@ -309,9 +311,7 @@ async def test_resolve_matching_workflows_global_scope_matches_any_session():
     session = _make_session(policies=[policy])
 
     dispatcher = TriggerDispatcher(session=session, redis=None)
-    result = await dispatcher.resolve_matching_workflows(
-        "user_message", "any-room-id", {}
-    )
+    result = await dispatcher.resolve_matching_workflows("user_message", "any-room-id", {})
 
     assert policy.target_workflow_id in result
 

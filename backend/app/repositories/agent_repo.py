@@ -7,7 +7,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.availability_checker import check_agent_availability
 from app.core.cache import cache
-from app.core.scheduler_utils import is_agent_scheduled_now
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.agent_room_state import AgentRoomState
 from app.models.message import Message
@@ -83,25 +82,25 @@ class AgentConfigRepository:
         """
         cache_key = f"external_configs:room:{room_id}"
         cached_data = await cache.get_json(cache_key)
-        
+
         if cached_data:
             return [AgentConfig(**c) for c in cached_data]
-        
+
         query: Any = (
             select(AgentConfig)
             .join(RoomAgentLink, RoomAgentLink.agent_id == AgentConfig.id)
             .where(
                 RoomAgentLink.room_id == room_id,
-                AgentConfig.is_external == True,
-                AgentConfig.is_active == True,
+                AgentConfig.is_external is True,
+                AgentConfig.is_active is True,
             )
         )
         result = await self.session.exec(query)
         configs = list(result.all())
-        
+
         # Cache for 60s
         await cache.set_json(cache_key, [c.model_dump() for c in configs], ttl=60)
-        
+
         return configs
 
     async def get_all_active_configs(self, room_id: UUID) -> list[AgentConfig]:
@@ -122,7 +121,7 @@ class AgentConfigRepository:
             .join(RoomAgentLink, RoomAgentLink.agent_id == AgentConfig.id)
             .where(
                 RoomAgentLink.room_id == room_id,
-                RoomAgentLink.is_active == True,
+                RoomAgentLink.is_active is True,
             )
             .order_by(col(AgentConfig.updated_at).desc())
         )
@@ -154,7 +153,9 @@ class AgentConfigRepository:
         silence_duration = 999999.0
         if last_msg and last_msg.created_at:
             try:
-                silence_duration = (datetime.now(timezone.utc) - last_msg.created_at).total_seconds()
+                silence_duration = (
+                    datetime.now(timezone.utc) - last_msg.created_at
+                ).total_seconds()
             except TypeError:
                 # Fallback for TZ-naive created_at
                 silence_duration = (
@@ -170,7 +171,9 @@ class AgentConfigRepository:
                 .limit(1)
             )
         ).first()
-        t_since = (datetime.now(timezone.utc) - t_last.created_at).total_seconds() if t_last else 999999.0
+        t_since = (
+            (datetime.now(timezone.utc) - t_last.created_at).total_seconds() if t_last else 999999.0
+        )
 
         # Last Student
         s_last = (
@@ -181,7 +184,9 @@ class AgentConfigRepository:
                 .limit(1)
             )
         ).first()
-        s_since = (datetime.now(timezone.utc) - s_last.created_at).total_seconds() if s_last else 999999.0
+        s_since = (
+            (datetime.now(timezone.utc) - s_last.created_at).total_seconds() if s_last else 999999.0
+        )
 
         # Store in Cache
         await cache.set_json(

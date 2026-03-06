@@ -207,30 +207,28 @@ async def get_room_communities(
     room = await _verify_room_access(room_id, current_user, session)
 
     if not room.graphrag_enabled:
-        raise HTTPException(
-            status_code=400, detail="GraphRAG is not enabled for this room"
-        )
+        raise HTTPException(status_code=400, detail="GraphRAG is not enabled for this room")
 
     results = []
     try:
         scroll_result = await vector_store.client.scroll(
             collection_name=COMMUNITY_COLLECTION,
-            scroll_filter={
-                "must": [{"key": "room_id", "match": {"value": str(room_id)}}]
-            },
+            scroll_filter={"must": [{"key": "room_id", "match": {"value": str(room_id)}}]},
             limit=100,
         )
         points, _next = scroll_result
         for point in points:
             payload = point.payload or {}
-            results.append({
-                "community_id": payload.get("community_id"),
-                "title": payload.get("title", ""),
-                "summary": payload.get("summary", ""),
-                "key_findings": payload.get("key_findings", []),
-                "key_entities": payload.get("key_entities", []),
-                "level": payload.get("level", 0),
-            })
+            results.append(
+                {
+                    "community_id": payload.get("community_id"),
+                    "title": payload.get("title", ""),
+                    "summary": payload.get("summary", ""),
+                    "key_findings": payload.get("key_findings", []),
+                    "key_entities": payload.get("key_entities", []),
+                    "level": payload.get("level", 0),
+                }
+            )
     except Exception as e:
         logger.warning("community_scroll_failed", error=str(e))
 
@@ -263,9 +261,9 @@ async def get_graph_status(
 
             is_building = is_building_raw == b"building" if is_building_raw else False
             last_updated_str = (
-                last_completed.decode() if last_completed
-                else last_started.decode() if last_started
-                else None
+                last_completed.decode()
+                if last_completed
+                else last_started.decode() if last_started else None
             )
         finally:
             await redis_client.close()

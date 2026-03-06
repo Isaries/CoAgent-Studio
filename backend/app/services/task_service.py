@@ -1,7 +1,9 @@
+from typing import Any
+
 import structlog
-from typing import Any, Optional
 
 logger = structlog.get_logger()
+
 
 class TaskService:
     """
@@ -19,7 +21,7 @@ class TaskService:
         if not self.arq_pool:
             logger.error("task_enqueue_failed", reason="pool_not_initialized")
             return False
-            
+
         try:
             await self.arq_pool.enqueue_job("run_agent_cycle_task", room_id, message_id)
             return True

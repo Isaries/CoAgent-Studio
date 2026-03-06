@@ -46,9 +46,7 @@ def upgrade() -> None:
             server_default="conversation",
             nullable=False,
         ),
-        sa.Column(
-            "build_status", sa.String(), server_default="idle", nullable=False
-        ),
+        sa.Column("build_status", sa.String(), server_default="idle", nullable=False),
         sa.Column("extraction_model", sa.String(), nullable=True),
         sa.Column("summarization_model", sa.String(), nullable=True),
         sa.Column("node_count", sa.Integer(), server_default="0", nullable=False),

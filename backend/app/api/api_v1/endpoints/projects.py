@@ -94,8 +94,13 @@ async def delete_project(
     project = await service.get_project(project_id, current_user)
 
     # Only project owner or admin can delete
-    if project.owner_id != current_user.id and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
-        raise HTTPException(status_code=403, detail="Only the project owner or admin can delete this project")
+    if project.owner_id != current_user.id and current_user.role not in [
+        UserRole.ADMIN,
+        UserRole.SUPER_ADMIN,
+    ]:
+        raise HTTPException(
+            status_code=403, detail="Only the project owner or admin can delete this project"
+        )
 
     await session.delete(project)
     await session.commit()

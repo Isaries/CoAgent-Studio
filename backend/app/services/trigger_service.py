@@ -6,15 +6,15 @@ records and initiating workflow executions, plus ARQ worker task functions.
 """
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
 import structlog
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models.trigger import TriggerPolicy
 from app.models.room import Room
+from app.models.trigger import TriggerPolicy
 from app.services.execution.agent_execution_service import execute_workflow
 
 logger = structlog.get_logger()
@@ -81,7 +81,11 @@ class TriggerDispatcher:
                 logger.debug("trigger_debounced", trigger_id=str(policy.id), session_id=session_id)
                 continue
 
-            logger.info("trigger_matched", trigger_id=str(policy.id), workflow_id=str(policy.target_workflow_id))
+            logger.info(
+                "trigger_matched",
+                trigger_id=str(policy.id),
+                workflow_id=str(policy.target_workflow_id),
+            )
             matched_workflow_ids.append(policy.target_workflow_id)
 
         return matched_workflow_ids
@@ -110,8 +114,7 @@ class TriggerDispatcher:
 
             if policy.event_type == "silence":
                 sessions_to_check = (
-                    [session_id] if session_id
-                    else await self._get_all_active_sessions()
+                    [session_id] if session_id else await self._get_all_active_sessions()
                 )
 
                 threshold_mins = (policy.conditions or {}).get("threshold_mins", 5)
@@ -127,7 +130,11 @@ class TriggerDispatcher:
                     silent_mins = (now - last_activity) / 60.0
                     if silent_mins >= threshold_mins:
                         if not await self._is_locked(policy.id, sid, lock_time=lock_secs):
-                            logger.info("silence_trigger_fired", session_id=sid, duration=round(silent_mins, 1))
+                            logger.info(
+                                "silence_trigger_fired",
+                                session_id=sid,
+                                duration=round(silent_mins, 1),
+                            )
                             if arq_pool:
                                 await arq_pool.enqueue_job(
                                     "run_workflow_task",
@@ -137,8 +144,10 @@ class TriggerDispatcher:
                                 )
                             else:
                                 await execute_workflow(
-                                    self.session, self.redis,
-                                    policy.target_workflow_id, sid,
+                                    self.session,
+                                    self.redis,
+                                    policy.target_workflow_id,
+                                    sid,
                                     {"type": "silence", "silent_mins": round(silent_mins, 1)},
                                 )
 
@@ -161,8 +170,10 @@ class TriggerDispatcher:
                         )
                     else:
                         await execute_workflow(
-                            self.session, self.redis,
-                            policy.target_workflow_id, sid,
+                            self.session,
+                            self.redis,
+                            policy.target_workflow_id,
+                            sid,
                             {"type": "timer"},
                         )
 
@@ -183,6 +194,7 @@ class TriggerDispatcher:
         pattern = conditions.get("pattern")
         if pattern and "content" in payload:
             import re
+
             try:
                 if not re.search(pattern, payload["content"], re.IGNORECASE):
                     return False
@@ -255,6 +267,7 @@ class TriggerDispatcher:
 # ARQ Worker Tasks
 # ===================================================================
 
+
 async def dispatch_event_task(ctx: dict, event_type: str, session_id: str, payload: dict) -> None:
     """
     ARQ task: evaluate event-driven trigger policies and execute matched
@@ -278,7 +291,9 @@ async def dispatch_event_task(ctx: dict, event_type: str, session_id: str, paylo
             try:
                 await execute_workflow(session, redis, wf_id, session_id, payload)
             except Exception as e:
-                logger.error("trigger_workflow_execution_failed", workflow_id=str(wf_id), error=str(e))
+                logger.error(
+                    "trigger_workflow_execution_failed", workflow_id=str(wf_id), error=str(e)
+                )
 
 
 async def run_workflow_task(ctx: dict, workflow_id: str, session_id: str, payload: dict) -> None:
@@ -308,6 +323,7 @@ async def evaluate_time_triggers_cron(ctx: dict) -> None:
         # Create a temporary ARQ pool for enqueueing follow-up jobs
         from arq import create_pool
         from arq.connections import RedisSettings
+
         from app.core.config import settings
 
         try:

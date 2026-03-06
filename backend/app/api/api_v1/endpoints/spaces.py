@@ -2,6 +2,7 @@ from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -15,7 +16,6 @@ from app.models.space import (
 )
 from app.models.user import User, UserRole
 from app.services.space_service import SpaceService
-from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -70,6 +70,7 @@ async def read_space(
     service = SpaceService(session)
     space = await service.get_space_by_id(space_id)
     from app.services.permission_service import permission_service
+
     if not space:
         raise HTTPException(status_code=404, detail="Space not found")
 
@@ -212,8 +213,8 @@ async def get_space_overview(
     session: AsyncSession = Depends(deps.get_session),
 ):
     """Get real-time status of all rooms in a space."""
-    from app.models.room import Room
     from app.models.message import Message
+    from app.models.room import Room
 
     rooms = await session.exec(select(Room).where(Room.space_id == space_id))
     rooms_list = rooms.all()

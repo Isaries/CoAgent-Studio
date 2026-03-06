@@ -6,7 +6,7 @@ when a specific Workflow should be activated.
 """
 
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List
 from uuid import UUID
 
 import structlog
@@ -17,13 +17,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api import deps
 from app.api.deps import require_role
 from app.core.db import get_session
-from app.models.user import User, UserRole
 from app.models.trigger import (
     TriggerPolicy,
     TriggerPolicyCreate,
     TriggerPolicyRead,
     TriggerPolicyUpdate,
 )
+from app.models.user import User, UserRole
 
 logger = structlog.get_logger()
 router = APIRouter()

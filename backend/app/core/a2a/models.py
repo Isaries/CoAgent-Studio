@@ -15,7 +15,7 @@ from uuid import UUID, uuid4
 class MessageType(str, Enum):
     """
     Enumeration of A2A message types.
-    
+
     - USER_MESSAGE: Message from a human user
     - PROPOSAL: Agent proposes content (e.g., Student drafts a response)
     - EVALUATION_REQUEST: Agent requests evaluation from another (e.g., Student asks Teacher)
@@ -23,6 +23,7 @@ class MessageType(str, Enum):
     - BROADCAST: Final message to be sent to the room
     - SYSTEM: System-level messages (joins, leaves, errors)
     """
+
     USER_MESSAGE = "user_message"
     PROPOSAL = "proposal"
     EVALUATION_REQUEST = "evaluation_request"
@@ -35,7 +36,7 @@ class MessageType(str, Enum):
 class A2AMessage:
     """
     Standardized message envelope for Agent-to-Agent communication.
-    
+
     Attributes:
         id: Unique identifier for this message
         type: The type of message (from MessageType enum)
@@ -46,6 +47,7 @@ class A2AMessage:
         metadata: Additional context (room_id, history, etc.)
         created_at: Timestamp of message creation
     """
+
     type: MessageType = MessageType.USER_MESSAGE
     sender_id: str = ""
     recipient_id: str = "broadcast"

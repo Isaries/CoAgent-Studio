@@ -26,9 +26,7 @@ class OrganizationService:
         org = await self.repo.create(self.session, obj_in=org_in, owner_id=user.id)
 
         # Create user link as owner
-        await self.repo.create_user_link(
-            self.session, user_id=user.id, org_id=org.id, role="owner"
-        )
+        await self.repo.create_user_link(self.session, user_id=user.id, org_id=org.id, role="owner")
         return org
 
     async def get_organization(self, org_id: UUID, user: User) -> Organization:

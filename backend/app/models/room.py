@@ -8,7 +8,6 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .space import Space
-    from .agent_config import AgentConfig
 
 # Default tab configuration for new rooms
 DEFAULT_ENABLED_TABS = {
@@ -50,31 +49,34 @@ class RoomAgentLink(SQLModel, table=True):
 
     # Per-room availability controls (overrides AgentConfig level)
     is_active: bool = Field(default=True)
-    schedule_config: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
-    trigger_config: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
+    schedule_config: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
+    trigger_config: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
 
     # Audit trail
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
-    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
     updated_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
 
 class Room(RoomBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     space_id: UUID = Field(foreign_key="space.id")
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
 
     # Decoupled workflow binding: which Workflow powers this Room's AI
     attached_workflow_id: Optional[UUID] = Field(default=None, foreign_key="workflow.id")
 
     # Dynamic tab configuration
-    enabled_tabs: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
+    enabled_tabs: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
 
     # Knowledge Base reference
     room_kb_id: Optional[UUID] = Field(default=None, foreign_key="knowledge_base.id")

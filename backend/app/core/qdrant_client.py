@@ -29,9 +29,7 @@ class VectorStore:
 
     async def connect(self) -> None:
         """Initialize the Qdrant async client and ensure collections exist."""
-        self._client = AsyncQdrantClient(
-            host=settings.QDRANT_HOST, port=settings.QDRANT_PORT
-        )
+        self._client = AsyncQdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT)
 
         # Ensure all required collections exist
         for collection in [ENTITY_COLLECTION, COMMUNITY_COLLECTION, CHUNK_COLLECTION]:
@@ -74,7 +72,7 @@ class VectorStore:
     ) -> None:
         """
         Upsert vectors with payloads.
-        
+
         Each point: {"id": str, "vector": list[float], "payload": dict}
         """
         qdrant_points = [
@@ -101,7 +99,7 @@ class VectorStore:
     ) -> List[Dict[str, Any]]:
         """
         Semantic search in a collection.
-        
+
         Returns list of {id, score, payload} dicts.
         """
         query_filter = None

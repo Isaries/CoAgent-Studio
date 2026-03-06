@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 class AgentType(str, Enum):
     """Legacy enum for backward compatibility. Use type string directly for new agents."""
+
     TEACHER = "teacher"
     STUDENT = "student"
     DESIGN = "design"
@@ -25,10 +26,11 @@ class AgentCategory(str, Enum):
     Agent category determines base behavior and UI treatment.
     Extensible via database metadata for future categories.
     """
-    INSTRUCTOR = "instructor"     # Guides/supervises (e.g., Teacher)
-    PARTICIPANT = "participant"   # Contributes to discussion (e.g., Student)
-    UTILITY = "utility"           # Background tasks (e.g., Analytics, Design)
-    EXTERNAL = "external"         # External A2A agents via webhook
+
+    INSTRUCTOR = "instructor"  # Guides/supervises (e.g., Teacher)
+    PARTICIPANT = "participant"  # Contributes to discussion (e.g., Student)
+    UTILITY = "utility"  # Background tasks (e.g., Analytics, Design)
+    EXTERNAL = "external"  # External A2A agents via webhook
 
 
 class AgentConfigBase(SQLModel):
@@ -71,7 +73,10 @@ class AgentConfig(AgentConfigBase, table=True):
 
     is_active: bool = Field(default=False)
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
-    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    updated_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
 
     @property
     def has_api_key(self) -> bool:
@@ -84,23 +89,26 @@ class AgentConfig(AgentConfigBase, table=True):
     versions: List["AgentConfigVersion"] = Relationship(
         back_populates="agent_config", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
-    
+
     project: Optional["Project"] = Relationship(back_populates="agent_configs")
 
 
 class AgentConfigVersion(SQLModel, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     config_id: UUID = Field(foreign_key="agentconfig.id", index=True)
-    
+
     version_label: str = Field(default="v1")
     system_prompt: str
     model_provider: str
     model: Optional[str] = None
-    
+
     # Snapshot of settings at that time
     settings: Optional[Dict[str, Any]] = Field(default={}, sa_column=Column(JSONB))
-    
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
     agent_config: "AgentConfig" = Relationship(back_populates="versions")
@@ -112,7 +120,7 @@ class AgentConfigCreate(AgentConfigBase):
     trigger_config: Optional[Dict[str, Any]] = None
     schedule_config: Optional[Dict[str, Any]] = None
     context_window: int = 10
-    user_key_ids: Optional[List[UUID]] = [] # Explicitly add to create schema
+    user_key_ids: Optional[List[UUID]] = []  # Explicitly add to create schema
 
 
 class AgentConfigRead(SQLModel):

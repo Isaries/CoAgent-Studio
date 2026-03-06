@@ -15,18 +15,18 @@ import structlog
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models.artifact import Artifact, ArtifactCreate, ArtifactUpdate, ArtifactType
+from app.models.artifact import Artifact, ArtifactCreate, ArtifactUpdate
 
 logger = structlog.get_logger()
 
 
 class ArtifactService:
     """Service for managing workspace artifacts."""
-    
+
     def __init__(self, session: AsyncSession, socket_manager=None):
         self.session = session
         self.socket_manager = socket_manager
-    
+
     async def list_artifacts(
         self,
         room_id: UUID,
@@ -35,29 +35,29 @@ class ArtifactService:
     ) -> List[Artifact]:
         """
         List all artifacts in a workspace/room.
-        
+
         Args:
             room_id: The workspace (room) ID
             artifact_type: Optional filter by type (TASK, DOC, PROCESS)
             include_deleted: Whether to include soft-deleted artifacts
         """
         query = select(Artifact).where(Artifact.room_id == room_id)
-        
+
         if artifact_type:
             query = query.where(Artifact.type == artifact_type)
-        
+
         if not include_deleted:
-            query = query.where(Artifact.is_deleted == False)
-        
+            query = query.where(Artifact.is_deleted is False)
+
         query = query.order_by(Artifact.created_at.desc())
-        
+
         result = await self.session.exec(query)
         return list(result.all())
-    
+
     async def get_artifact(self, artifact_id: UUID) -> Optional[Artifact]:
         """Get a single artifact by ID."""
         return await self.session.get(Artifact, artifact_id)
-    
+
     async def create_artifact(
         self,
         room_id: UUID,
@@ -76,11 +76,11 @@ class ArtifactService:
             created_by=created_by,
             last_modified_by=created_by,
         )
-        
+
         self.session.add(artifact)
         await self.session.commit()
         await self.session.refresh(artifact)
-        
+
         logger.info(
             "artifact_created",
             artifact_id=str(artifact.id),
@@ -95,7 +95,7 @@ class ArtifactService:
         await self._publish_graphrag_event("artifact_create", room_id, artifact.id)
 
         return artifact
-    
+
     async def update_artifact(
         self,
         artifact_id: UUID,
@@ -108,7 +108,7 @@ class ArtifactService:
         artifact = await self.session.get(Artifact, artifact_id)
         if not artifact:
             return None
-        
+
         # Optimistic locking check
         if data.expected_version is not None:
             if artifact.version != data.expected_version:
@@ -119,24 +119,24 @@ class ArtifactService:
                     actual=artifact.version,
                 )
                 return None  # Client should refresh and retry
-        
+
         # Apply updates
         if data.title is not None:
             artifact.title = data.title
-        
+
         if data.content is not None:
             # Merge content if needed, or replace
             artifact.content = data.content
-        
+
         # Increment version
         artifact.version += 1
         artifact.last_modified_by = modified_by
-        
+
         artifact.updated_at = datetime.now(timezone.utc)
-        
+
         await self.session.commit()
         await self.session.refresh(artifact)
-        
+
         logger.info(
             "artifact_updated",
             artifact_id=str(artifact_id),
@@ -150,7 +150,7 @@ class ArtifactService:
         await self._publish_graphrag_event("artifact_update", artifact.room_id, artifact.id)
 
         return artifact
-    
+
     async def delete_artifact(
         self,
         artifact_id: UUID,
@@ -163,7 +163,7 @@ class ArtifactService:
         artifact = await self.session.get(Artifact, artifact_id)
         if not artifact:
             return False
-        
+
         room_id = artifact.room_id
 
         if hard_delete:
@@ -171,9 +171,9 @@ class ArtifactService:
         else:
             artifact.is_deleted = True
             artifact.last_modified_by = deleted_by
-        
+
         await self.session.commit()
-        
+
         logger.info(
             "artifact_deleted",
             artifact_id=str(artifact_id),
@@ -182,7 +182,7 @@ class ArtifactService:
 
         if self.socket_manager:
             await self._broadcast_delete(room_id, artifact_id)
-        
+
         return True
 
     async def _broadcast_update(self, room_id: UUID, artifact: Artifact):
@@ -192,8 +192,8 @@ class ArtifactService:
             # We want to send the full artifact state
             payload = {
                 "type": "artifact_update",
-                "artifact": artifact.model_dump(mode='json'),
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "artifact": artifact.model_dump(mode="json"),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             await self.socket_manager.broadcast(payload, str(room_id))
         except Exception as e:
@@ -205,7 +205,7 @@ class ArtifactService:
             payload = {
                 "type": "artifact_delete",
                 "artifact_id": str(artifact_id),
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             await self.socket_manager.broadcast(payload, str(room_id))
         except Exception as e:
@@ -216,8 +216,9 @@ class ArtifactService:
     ) -> None:
         """Publish a GraphRAG ingestion event to Redis Streams (non-fatal)."""
         try:
-            from app.core.config import settings
             import redis.asyncio as aioredis
+
+            from app.core.config import settings
 
             r = aioredis.from_url(
                 f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}",
@@ -234,4 +235,3 @@ class ArtifactService:
             await r.aclose()
         except Exception as e:
             logger.debug("graphrag_event_publish_skipped", error=str(e))
-

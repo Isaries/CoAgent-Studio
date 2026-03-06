@@ -90,12 +90,14 @@ async def restore_config_version(
     """
     service = AgentConfigService(session)
     agent_config = await service.restore_version(config_id, version_id, current_user)
-    
+
     # Mask API Key (not part of version, kept from original config)
     from app.models.agent_config import AgentConfigRead
+
     c_read = AgentConfigRead.model_validate(agent_config)
     if agent_config.encrypted_api_key:
         from app.core.security import mask_api_key
+
         c_read.masked_api_key = mask_api_key(agent_config.encrypted_api_key)
-        
+
     return c_read

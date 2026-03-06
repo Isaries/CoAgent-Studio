@@ -7,8 +7,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.models.agent_config import AgentConfig
 from app.models.room import Room, RoomCreate, RoomUpdate
 from app.models.user import User
-from app.repositories.space_repo import space_repo
 from app.repositories.room_repo import room_repo
+from app.repositories.space_repo import space_repo
 from app.services.permission_service import permission_service
 
 
@@ -53,7 +53,9 @@ class RoomService:
 
         await self.repo.cascade_delete_room(self.session, room=room)
 
-    async def assign_user(self, room_id: UUID, user_email: Optional[str], user_id: Optional[UUID], current_user: User) -> str:
+    async def assign_user(
+        self, room_id: UUID, user_email: Optional[str], user_id: Optional[UUID], current_user: User
+    ) -> str:
         room = await self.get_room(room_id)
 
         if not await permission_service.check(current_user, "assign", room, self.session):
@@ -68,7 +70,9 @@ class RoomService:
         if not user_to_assign:
             raise HTTPException(status_code=404, detail="User not found")
 
-        link = await self.repo.get_user_link(self.session, user_id=user_to_assign.id, room_id=room_id)
+        link = await self.repo.get_user_link(
+            self.session, user_id=user_to_assign.id, room_id=room_id
+        )
         if link:
             return "User already assigned to room"
 
@@ -81,8 +85,9 @@ class RoomService:
         if not await permission_service.check(current_user, "update", room, self.session):
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
-        # In a real 3 tier we would use AgentConfigRepo. 
+        # In a real 3 tier we would use AgentConfigRepo.
         from app.models.agent_config import AgentConfig
+
         agent = await self.session.get(AgentConfig, agent_id)
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
@@ -108,5 +113,5 @@ class RoomService:
         return "Agent removed from room"
 
     async def get_agents(self, room_id: UUID) -> List[AgentConfig]:
-        room = await self.get_room(room_id)
+        await self.get_room(room_id)
         return await self.repo.get_agents_by_room(self.session, room_id=room_id)

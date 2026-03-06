@@ -29,10 +29,10 @@ from app.models.agent_config import AgentConfig
 from app.models.organization import Organization
 from app.models.project import Project
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _create_project(db_session: AsyncSession, owner_id) -> Project:
     """Create an Organization + Project and return the Project."""
@@ -67,6 +67,7 @@ async def _create_agent_config(db_session: AsyncSession, project_id, created_by)
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_create_thread(
@@ -147,9 +148,7 @@ async def test_get_thread(
     assert create_resp.status_code == 200
     thread_id = create_resp.json()["id"]
 
-    response = await superuser_client.get(
-        f"{settings.API_V1_STR}/threads/{thread_id}"
-    )
+    response = await superuser_client.get(f"{settings.API_V1_STR}/threads/{thread_id}")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == thread_id
@@ -182,9 +181,7 @@ async def test_get_thread_messages_empty(
     assert create_resp.status_code == 200
     thread_id = create_resp.json()["id"]
 
-    response = await superuser_client.get(
-        f"{settings.API_V1_STR}/threads/{thread_id}/messages"
-    )
+    response = await superuser_client.get(f"{settings.API_V1_STR}/threads/{thread_id}/messages")
     assert response.status_code == 200
     assert response.json() == []
 
@@ -206,14 +203,10 @@ async def test_delete_thread(
     assert create_resp.status_code == 200
     thread_id = create_resp.json()["id"]
 
-    delete_resp = await superuser_client.delete(
-        f"{settings.API_V1_STR}/threads/{thread_id}"
-    )
+    delete_resp = await superuser_client.delete(f"{settings.API_V1_STR}/threads/{thread_id}")
     assert delete_resp.status_code == 204
 
-    get_resp = await superuser_client.get(
-        f"{settings.API_V1_STR}/threads/{thread_id}"
-    )
+    get_resp = await superuser_client.get(f"{settings.API_V1_STR}/threads/{thread_id}")
     assert get_resp.status_code == 404
 
 
@@ -246,7 +239,11 @@ async def test_another_user_cannot_read_thread(
     try:
         create_resp = await client.post(
             f"{settings.API_V1_STR}/threads/",
-            json={"project_id": str(project.id), "agent_id": str(agent.id), "name": "Private Thread"},
+            json={
+                "project_id": str(project.id),
+                "agent_id": str(agent.id),
+                "name": "Private Thread",
+            },
         )
         assert create_resp.status_code == 200
         thread_id = create_resp.json()["id"]
@@ -259,9 +256,7 @@ async def test_another_user_cannot_read_thread(
 
     app.dependency_overrides[deps.get_current_user] = student_override
     try:
-        response = await client.get(
-            f"{settings.API_V1_STR}/threads/{thread_id}"
-        )
+        response = await client.get(f"{settings.API_V1_STR}/threads/{thread_id}")
         assert response.status_code == 403
     finally:
         app.dependency_overrides.pop(deps.get_current_user, None)

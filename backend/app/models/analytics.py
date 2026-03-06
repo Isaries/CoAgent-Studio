@@ -12,7 +12,10 @@ class AnalyticsReport(SQLModel, table=True):
     room_id: Optional[UUID] = Field(default=None, index=True)  # None means space-level report
 
     content: str  # Markdown report
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
 
     # Metadata for what triggered it or type
     report_type: str = Field(default="general")  # general, participation, sentiment

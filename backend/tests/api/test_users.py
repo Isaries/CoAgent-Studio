@@ -21,15 +21,13 @@ from app.core.config import settings
 from app.core.security import get_password_hash
 from app.models.user import User, UserRole
 
-
 # ---------------------------------------------------------------------------
 # GET /users/me
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
-async def test_get_current_user_as_teacher(
-    teacher_client: AsyncClient, mock_teacher: User
-):
+async def test_get_current_user_as_teacher(teacher_client: AsyncClient, mock_teacher: User):
     """Authenticated teacher can retrieve their own profile via /users/me."""
     response = await teacher_client.get(f"{settings.API_V1_STR}/users/me")
     assert response.status_code == 200, response.text
@@ -42,9 +40,7 @@ async def test_get_current_user_as_teacher(
 
 
 @pytest.mark.asyncio()
-async def test_get_current_user_as_student(
-    student_client: AsyncClient, mock_student: User
-):
+async def test_get_current_user_as_student(student_client: AsyncClient, mock_student: User):
     """Authenticated student can retrieve their own profile via /users/me."""
     response = await student_client.get(f"{settings.API_V1_STR}/users/me")
     assert response.status_code == 200, response.text
@@ -64,15 +60,12 @@ async def test_get_current_user_requires_auth(client: AsyncClient):
 # PUT /users/me — update own profile
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
-async def test_update_current_user_full_name(
-    teacher_client: AsyncClient, mock_teacher: User
-):
+async def test_update_current_user_full_name(teacher_client: AsyncClient, mock_teacher: User):
     """A user can update their own full_name via PUT /users/me."""
     update_payload = {"full_name": "Dr. Jane Smith"}
-    response = await teacher_client.put(
-        f"{settings.API_V1_STR}/users/me", json=update_payload
-    )
+    response = await teacher_client.put(f"{settings.API_V1_STR}/users/me", json=update_payload)
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["full_name"] == "Dr. Jane Smith"
@@ -80,14 +73,10 @@ async def test_update_current_user_full_name(
 
 
 @pytest.mark.asyncio()
-async def test_update_current_user_username(
-    student_client: AsyncClient, mock_student: User
-):
+async def test_update_current_user_username(student_client: AsyncClient, mock_student: User):
     """A user can update their username via PUT /users/me."""
     update_payload = {"username": "student_handle_42"}
-    response = await student_client.put(
-        f"{settings.API_V1_STR}/users/me", json=update_payload
-    )
+    response = await student_client.put(f"{settings.API_V1_STR}/users/me", json=update_payload)
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["username"] == "student_handle_42"
@@ -96,15 +85,14 @@ async def test_update_current_user_username(
 @pytest.mark.asyncio()
 async def test_update_current_user_requires_auth(client: AsyncClient):
     """Unauthenticated request to PUT /users/me must return 401."""
-    response = await client.put(
-        f"{settings.API_V1_STR}/users/me", json={"full_name": "Ghost"}
-    )
+    response = await client.put(f"{settings.API_V1_STR}/users/me", json={"full_name": "Ghost"})
     assert response.status_code == 401, response.text
 
 
 # ---------------------------------------------------------------------------
 # GET /users/ — list all users (admin only)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_list_users_as_superadmin(superuser_client: AsyncClient):
@@ -142,6 +130,7 @@ async def test_list_users_requires_auth(client: AsyncClient):
 # POST /users/ — create a new user (admin only)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_create_user_as_superadmin(superuser_client: AsyncClient):
     """Super admin can create a new user account."""
@@ -151,9 +140,7 @@ async def test_create_user_as_superadmin(superuser_client: AsyncClient):
         "role": "student",
         "password": "SecurePassword123!",
     }
-    response = await superuser_client.post(
-        f"{settings.API_V1_STR}/users/", json=payload
-    )
+    response = await superuser_client.post(f"{settings.API_V1_STR}/users/", json=payload)
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["email"] == payload["email"]
@@ -171,9 +158,7 @@ async def test_create_user_as_teacher_forbidden(teacher_client: AsyncClient):
         "role": "student",
         "password": "somepassword",
     }
-    response = await teacher_client.post(
-        f"{settings.API_V1_STR}/users/", json=payload
-    )
+    response = await teacher_client.post(f"{settings.API_V1_STR}/users/", json=payload)
     assert response.status_code == 403, response.text
 
 
@@ -185,15 +170,14 @@ async def test_create_user_as_student_forbidden(student_client: AsyncClient):
         "role": "student",
         "password": "somepassword",
     }
-    response = await student_client.post(
-        f"{settings.API_V1_STR}/users/", json=payload
-    )
+    response = await student_client.post(f"{settings.API_V1_STR}/users/", json=payload)
     assert response.status_code == 403, response.text
 
 
 # ---------------------------------------------------------------------------
 # PUT /users/{user_id} — admin updates any user
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_update_user_role_as_superadmin(
@@ -256,10 +240,9 @@ async def test_update_nonexistent_user_returns_404(superuser_client: AsyncClient
 # GET /users/search
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
-async def test_search_users(
-    teacher_client: AsyncClient, db_session: AsyncSession
-):
+async def test_search_users(teacher_client: AsyncClient, db_session: AsyncSession):
     """Any authenticated user can search users by partial email or name."""
     searchable_user = User(
         email="searchable.person@example.com",

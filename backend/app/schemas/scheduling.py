@@ -5,13 +5,14 @@ These models are used at the API input layer to validate JSON payloads
 before they are stored in JSONB columns.
 """
 
-from typing import Dict, List, Literal, Optional, Tuple
-from pydantic import BaseModel, Field, field_validator
+from typing import Dict, List, Literal, Optional
 
+from pydantic import BaseModel, Field, field_validator
 
 # ============================================================
 # Schedule Config Schemas
 # ============================================================
+
 
 class ScheduleRuleSchema(BaseModel):
     """A single scheduling rule."""
@@ -44,6 +45,7 @@ class ScheduleRuleSchema(BaseModel):
                 raise ValueError("time_range must have exactly 2 elements [start, end]")
             # Basic HH:MM format check
             import re
+
             pattern = re.compile(r"^\d{2}:\d{2}$")
             for t in v:
                 if not pattern.match(t):
@@ -64,6 +66,7 @@ class ScheduleConfigSchema(BaseModel):
 # ============================================================
 # Trigger Config Schemas
 # ============================================================
+
 
 class ContextStrategySchema(BaseModel):
     """How much conversation history the agent should read."""
@@ -113,8 +116,7 @@ class SelfModificationSchema(BaseModel):
     """Controls whether and how the agent can modify its own triggers."""
 
     duration_hours: float = Field(
-        default=0, ge=-1, le=720,
-        description="0=disabled, >0=temp override (hours), -1=permanent"
+        default=0, ge=-1, le=720, description="0=disabled, >0=temp override (hours), -1=permanent"
     )
     bounds: Optional[Dict[str, TriggerBoundsSchema]] = Field(
         default=None,

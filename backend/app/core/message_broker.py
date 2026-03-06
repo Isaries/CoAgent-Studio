@@ -58,10 +58,14 @@ class RedisMessageBroker:
                     if message["type"] == "pmessage":
                         raw_channel = message["channel"]
                         raw_data = message["data"]
-                        channel = raw_channel.decode("utf-8") if isinstance(raw_channel, bytes) else raw_channel
+                        channel = (
+                            raw_channel.decode("utf-8")
+                            if isinstance(raw_channel, bytes)
+                            else raw_channel
+                        )
                         data = raw_data.decode("utf-8") if isinstance(raw_data, bytes) else raw_data
                         # Extract room_id by removing the prefix
-                        room_id = channel[len(CHANNEL_PREFIX):]
+                        room_id = channel[len(CHANNEL_PREFIX) :]
 
                         if self.callback:
                             try:
@@ -69,7 +73,9 @@ class RedisMessageBroker:
                             except asyncio.TimeoutError:
                                 logger.warning("redis_broker_callback_timeout", room_id=room_id)
                             except Exception as e:
-                                logger.error("redis_broker_callback_error", error=str(e), room_id=room_id)
+                                logger.error(
+                                    "redis_broker_callback_error", error=str(e), room_id=room_id
+                                )
             except asyncio.CancelledError:
                 break
             except Exception as e:

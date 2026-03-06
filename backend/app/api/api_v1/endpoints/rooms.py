@@ -9,7 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api import deps
 from app.core.audit_service import log_change
 from app.models.agent_config import AgentConfigRead
-from app.models.room import Room, RoomCreate, RoomRead, RoomUpdate, RoomAgentLink
+from app.models.room import Room, RoomAgentLink, RoomCreate, RoomRead, RoomUpdate
 from app.models.user import User, UserRole
 from app.services.room_service import RoomService
 
@@ -134,15 +134,16 @@ async def read_room_agents(
 ) -> Any:
     service = RoomService(session)
     configs = await service.get_agents(room_id)
-    
+
     from app.core.security import mask_api_key
+
     response_data = []
     for config in configs:
         c_read = AgentConfigRead.model_validate(config)
         if config.encrypted_api_key:
             c_read.masked_api_key = mask_api_key(config.encrypted_api_key)
         response_data.append(c_read)
-        
+
     return response_data
 
 
@@ -150,8 +151,10 @@ async def read_room_agents(
 # Room Agent Link Settings CRUD
 # ============================================================
 
+
 class RoomAgentLinkUpdate(BaseModel):
     """Update schema for RoomAgentLink per-room settings."""
+
     is_active: Optional[bool] = None
     schedule_config: Optional[Dict[str, Any]] = None
     trigger_config: Optional[Dict[str, Any]] = None
@@ -217,6 +220,7 @@ async def update_room_agent_settings(
 
     # Apply updates
     from datetime import datetime, timezone
+
     if data.is_active is not None:
         link.is_active = data.is_active
     if data.schedule_config is not None:
@@ -287,6 +291,7 @@ async def sync_agent_settings_to_space(
 
     # 4. Upsert RoomAgentLink for each sibling
     from datetime import datetime, timezone
+
     synced_count = 0
     for sib_room_id in sibling_ids:
         existing_result = await session.exec(

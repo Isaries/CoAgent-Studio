@@ -1,4 +1,4 @@
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from sqlmodel import col, select
@@ -12,7 +12,9 @@ class MessageRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_room_history_with_users(self, room_id: UUID) -> List[Tuple[Message, Optional[User]]]:
+    async def get_room_history_with_users(
+        self, room_id: UUID
+    ) -> List[Tuple[Message, Optional[User]]]:
         """
         Get all messages for a room, including sender info.
         """

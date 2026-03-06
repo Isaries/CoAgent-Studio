@@ -69,9 +69,7 @@ class GraphRAGConsumer:
 
         # Create consumer group (ignore if already exists)
         try:
-            await self._redis.xgroup_create(
-                STREAM_KEY, GROUP_NAME, id="0", mkstream=True
-            )
+            await self._redis.xgroup_create(STREAM_KEY, GROUP_NAME, id="0", mkstream=True)
         except aioredis.ResponseError as e:
             if "BUSYGROUP" not in str(e):
                 raise
@@ -130,9 +128,7 @@ class GraphRAGConsumer:
                 # Check for rooms that have been quiet long enough
                 pending = await self._get_all_pending()
                 rooms_to_process = [
-                    rid
-                    for rid, ts in pending.items()
-                    if now - ts >= DEBOUNCE_SECONDS
+                    rid for rid, ts in pending.items() if now - ts >= DEBOUNCE_SECONDS
                 ]
 
                 for room_id in rooms_to_process:
@@ -145,9 +141,7 @@ class GraphRAGConsumer:
                 logger.error("graphrag_consumer_error", error=str(e))
                 await asyncio.sleep(5)  # Back off on errors
 
-    async def _trigger_extraction(
-        self, ctx: Dict[str, Any], room_id: str
-    ) -> None:
+    async def _trigger_extraction(self, ctx: Dict[str, Any], room_id: str) -> None:
         """Trigger incremental entity extraction for a room (if GraphRAG is enabled)."""
         try:
             from app.models.room import Room
@@ -169,9 +163,7 @@ class GraphRAGConsumer:
             result = await extract_entities_task(ctx, room_id, extraction_model=extraction_model)
             logger.info("graphrag_incremental_complete", room_id=room_id, result=result)
         except Exception as e:
-            logger.error(
-                "graphrag_incremental_failed", room_id=room_id, error=str(e)
-            )
+            logger.error("graphrag_incremental_failed", room_id=room_id, error=str(e))
 
 
 # Module-level singleton

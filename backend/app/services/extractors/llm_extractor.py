@@ -51,9 +51,7 @@ async def extract_concepts_from_chunk(
     """
     client = instructor.from_openai(AsyncOpenAI(api_key=api_key))
 
-    known_list = "\n".join(
-        f"- {n.name} ({n.type})" for n in known_nodes
-    ) if known_nodes else "None"
+    known_list = "\n".join(f"- {n.name} ({n.type})" for n in known_nodes) if known_nodes else "None"
 
     user_prompt = f"""The following entities are already known — do NOT re-extract these as nodes:
 

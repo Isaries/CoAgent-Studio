@@ -5,10 +5,11 @@ The Dispatcher is the central message router for Agent-to-Agent communication.
 It manages agent registration, message routing, and middleware hooks.
 """
 
-import structlog
 from typing import Awaitable, Callable, Dict, List, Optional
 
-from .models import A2AMessage, MessageType
+import structlog
+
+from .models import A2AMessage
 
 logger = structlog.get_logger()
 
@@ -20,15 +21,15 @@ Middleware = Callable[[A2AMessage], Awaitable[None]]
 class A2ADispatcher:
     """
     Central message dispatcher for A2A protocol.
-    
+
     Agents register their handlers, and the dispatcher routes messages
     between them based on recipient_id.
-    
+
     Example:
         dispatcher = A2ADispatcher()
         dispatcher.register("teacher", teacher_agent.receive_message)
         dispatcher.register("student", student_agent.receive_message)
-        
+
         response = await dispatcher.dispatch(message)
     """
 
@@ -40,7 +41,7 @@ class A2ADispatcher:
     def register(self, agent_id: str, handler: MessageHandler) -> None:
         """
         Register an agent's message handler.
-        
+
         Args:
             agent_id: Unique identifier for the agent (e.g., "teacher", "student")
             handler: Async function that receives A2AMessage and returns optional response
@@ -71,10 +72,10 @@ class A2ADispatcher:
     async def dispatch(self, msg: A2AMessage) -> Optional[A2AMessage]:
         """
         Route a message to its recipient and return the response.
-        
+
         Args:
             msg: The A2AMessage to dispatch
-            
+
         Returns:
             Response message from the recipient, or None if no response
         """

@@ -17,13 +17,18 @@ from app.services.space_service import SpaceService
 
 
 def _make_user(**kwargs) -> User:
-    defaults = dict(id=uuid4(), email="user@example.com", role=UserRole.TEACHER, is_active=True)
+    defaults = {
+        "id": uuid4(),
+        "email": "user@example.com",
+        "role": UserRole.TEACHER,
+        "is_active": True,
+    }
     defaults.update(kwargs)
     return User(**defaults)
 
 
 def _make_space(owner: User, **kwargs) -> Space:
-    defaults = dict(id=uuid4(), title="Test Space", owner_id=owner.id)
+    defaults = {"id": uuid4(), "title": "Test Space", "owner_id": owner.id}
     defaults.update(kwargs)
     return Space(**defaults)
 
@@ -119,9 +124,7 @@ async def test_get_spaces_admin_uses_get_multi_with_owner():
     session = _make_session()
     mock_get_multi = AsyncMock(return_value=[])
 
-    with patch(
-        "app.services.space_service.space_repo.get_multi_with_owner", new=mock_get_multi
-    ):
+    with patch("app.services.space_service.space_repo.get_multi_with_owner", new=mock_get_multi):
         svc = SpaceService(session)
         await svc.get_spaces(admin)
 
@@ -134,9 +137,7 @@ async def test_get_spaces_super_admin_uses_get_multi_with_owner():
     session = _make_session()
     mock_get_multi = AsyncMock(return_value=[])
 
-    with patch(
-        "app.services.space_service.space_repo.get_multi_with_owner", new=mock_get_multi
-    ):
+    with patch("app.services.space_service.space_repo.get_multi_with_owner", new=mock_get_multi):
         svc = SpaceService(session)
         await svc.get_spaces(super_admin)
 

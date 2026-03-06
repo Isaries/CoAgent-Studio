@@ -5,7 +5,6 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.db import get_session
 from app.main import app
 from app.models.user import User
 
@@ -46,6 +45,7 @@ async def test_websocket_connect():
         yield mock_session
 
     import app.api.api_v1.endpoints.chat as chat_module
+
     original_get_session_context = chat_module.get_session_context
     chat_module.get_session_context = mock_get_session_context
 

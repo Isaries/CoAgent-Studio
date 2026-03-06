@@ -8,12 +8,11 @@ utility workflows, and prototyping before promoting to the full compiler.
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
-from app.core.a2a.models import A2AMessage, MessageType
+from app.core.a2a.models import A2AMessage
 
 
 class NodeType(str, Enum):
@@ -31,22 +30,23 @@ class NodeType(str, Enum):
 class WorkflowNode:
     name: str
     type: NodeType
-    handler: Optional[str] = None
-    config: Dict[str, Any] = field(default_factory=dict)
+    handler: str | None = None
+    config: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class WorkflowEdge:
     source: str
     target: str
-    condition: Optional[str] = None
+    condition: str | None = None
 
 
 @dataclass
 class WorkflowContext:
     """Context passed to agent handlers during graph execution."""
-    data: Dict[str, Any] = field(default_factory=dict)
-    history: List[A2AMessage] = field(default_factory=list)
+
+    data: dict[str, Any] = field(default_factory=dict)
+    history: list[A2AMessage] = field(default_factory=list)
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.data.get(key, default)
@@ -73,18 +73,18 @@ class WorkflowGraph:
 
     def __init__(self, name: str = "workflow") -> None:
         self.name = name
-        self.nodes: List[WorkflowNode] = []
-        self.edges: List[WorkflowEdge] = []
+        self.nodes: list[WorkflowNode] = []
+        self.edges: list[WorkflowEdge] = []
 
     # ------------------------------------------------------------------ #
     # Builder API                                                          #
     # ------------------------------------------------------------------ #
 
-    def add_node(self, node: WorkflowNode) -> "WorkflowGraph":
+    def add_node(self, node: WorkflowNode) -> WorkflowGraph:
         self.nodes.append(node)
         return self
 
-    def add_edge(self, edge: WorkflowEdge) -> "WorkflowGraph":
+    def add_edge(self, edge: WorkflowEdge) -> WorkflowGraph:
         self.edges.append(edge)
         return self
 
@@ -93,21 +93,21 @@ class WorkflowGraph:
     # ------------------------------------------------------------------ #
 
     @property
-    def start_node(self) -> Optional[str]:
+    def start_node(self) -> str | None:
         for n in self.nodes:
             if n.type == NodeType.START:
                 return n.name
         return None
 
-    def _node_map(self) -> Dict[str, WorkflowNode]:
+    def _node_map(self) -> dict[str, WorkflowNode]:
         return {n.name: n for n in self.nodes}
 
     # ------------------------------------------------------------------ #
     # Validation                                                           #
     # ------------------------------------------------------------------ #
 
-    def validate(self) -> List[str]:
-        errors: List[str] = []
+    def validate(self) -> list[str]:
+        errors: list[str] = []
         node_names = {n.name for n in self.nodes}
 
         # Must have exactly one start node
@@ -135,7 +135,7 @@ class WorkflowGraph:
     # Navigation                                                           #
     # ------------------------------------------------------------------ #
 
-    def get_next_node(self, from_node: str, condition: Optional[str] = None) -> Optional[str]:
+    def get_next_node(self, from_node: str, condition: str | None = None) -> str | None:
         """Return the name of the next node to visit from *from_node*."""
         candidates = [e for e in self.edges if e.source == from_node]
         if not candidates:
@@ -159,7 +159,7 @@ class WorkflowGraph:
     # Serialisation                                                        #
     # ------------------------------------------------------------------ #
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "nodes": [
@@ -173,21 +173,25 @@ class WorkflowGraph:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorkflowGraph":
+    def from_dict(cls, data: dict[str, Any]) -> WorkflowGraph:
         g = cls(name=data.get("name", "workflow"))
         for nd in data.get("nodes", []):
-            g.add_node(WorkflowNode(
-                name=nd["name"],
-                type=NodeType(nd["type"]),
-                handler=nd.get("handler"),
-                config=nd.get("config", {}),
-            ))
+            g.add_node(
+                WorkflowNode(
+                    name=nd["name"],
+                    type=NodeType(nd["type"]),
+                    handler=nd.get("handler"),
+                    config=nd.get("config", {}),
+                )
+            )
         for ed in data.get("edges", []):
-            g.add_edge(WorkflowEdge(
-                source=ed["source"],
-                target=ed["target"],
-                condition=ed.get("condition"),
-            ))
+            g.add_edge(
+                WorkflowEdge(
+                    source=ed["source"],
+                    target=ed["target"],
+                    condition=ed.get("condition"),
+                )
+            )
         return g
 
 
@@ -195,25 +199,26 @@ class WorkflowGraph:
 # Graph Executor                                                               #
 # --------------------------------------------------------------------------- #
 
+
 class GraphExecutor:
     """Execute a WorkflowGraph by walking its nodes and calling handlers."""
 
     # Built-in condition evaluators
-    _BUILTIN_CONDITIONS: Dict[str, Callable] = {}
+    _BUILTIN_CONDITIONS: dict[str, Callable] = {}
 
     def __init__(self, graph: WorkflowGraph, max_steps: int = 50) -> None:
         self.graph = graph
         self.max_steps = max_steps
-        self._agents: Dict[str, Callable] = {}
+        self._agents: dict[str, Callable] = {}
 
     def register_agent(self, name: str, handler: Callable) -> None:
         self._agents[name] = handler
 
-    async def execute(self, initial_data: Optional[Dict[str, Any]] = None) -> Optional[A2AMessage]:
+    async def execute(self, initial_data: dict[str, Any] | None = None) -> A2AMessage | None:
         ctx = WorkflowContext(data=initial_data or {})
         node_map = self.graph._node_map()
         current = self.graph.start_node
-        last_result: Optional[A2AMessage] = None
+        last_result: A2AMessage | None = None
         steps = 0
 
         while current is not None and steps < self.max_steps:
@@ -242,7 +247,9 @@ class GraphExecutor:
                 elif node.handler == "is_approved":
                     # Built-in: check last result for approval
                     if last_result and isinstance(last_result.content, dict):
-                        condition_key = "approved" if last_result.content.get("approved") else "rejected"
+                        condition_key = (
+                            "approved" if last_result.content.get("approved") else "rejected"
+                        )
                     else:
                         condition_key = "approved"
                 current = self.graph.get_next_node(current, condition_key)
@@ -259,6 +266,7 @@ class GraphExecutor:
 # --------------------------------------------------------------------------- #
 # Predefined workflows                                                         #
 # --------------------------------------------------------------------------- #
+
 
 def create_student_teacher_workflow() -> WorkflowGraph:
     """Return a canonical student-teacher evaluation workflow."""

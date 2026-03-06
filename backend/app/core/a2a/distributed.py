@@ -13,13 +13,13 @@ Key Concepts:
 
 import asyncio
 import json
-import structlog
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional
 from uuid import UUID, uuid4
 
 import redis.asyncio as redis
+import structlog
 
 from .models import A2AMessage, MessageType
 
@@ -32,6 +32,7 @@ MessageHandler = Callable[[A2AMessage], Awaitable[Optional[A2AMessage]]]
 @dataclass
 class DistributedDispatcherConfig:
     """Configuration for the distributed dispatcher."""
+
     stream_prefix: str = "a2a"
     consumer_group: str = "a2a_workers"
     block_ms: int = 5000  # How long to block waiting for messages
@@ -43,16 +44,16 @@ class DistributedDispatcherConfig:
 class DistributedDispatcher:
     """
     Redis Streams-based distributed message dispatcher for A2A protocol.
-    
+
     Unlike the in-memory dispatcher, this enables:
     - Cross-process communication (different Python processes)
     - Cross-machine communication (different servers)
     - Horizontal scaling (multiple workers per agent)
     - Message persistence and replay
     - Exactly-once processing semantics
-    
+
     Architecture:
-    
+
         ┌─────────────┐         ┌─────────────────────┐
         │ Agent A     │         │     Redis Server    │
         │ (Process 1) │◄───────►│ ┌─────────────────┐ │
@@ -67,21 +68,21 @@ class DistributedDispatcher:
         │ Agent C     │◄───────►│                     │
         │ (Process 3) │         └─────────────────────┘
         └─────────────┘
-    
+
     Example:
         dispatcher = DistributedDispatcher(redis_url="redis://localhost:6379")
         await dispatcher.connect()
-        
+
         # Register handler for this agent
         await dispatcher.register("teacher", teacher_handler)
-        
+
         # Start consuming (runs forever)
         await dispatcher.start_consuming("teacher")
-        
+
         # Or dispatch a message
         await dispatcher.dispatch(message)
     """
-    
+
     def __init__(
         self,
         redis_url: str = "redis://localhost:6379",
@@ -94,13 +95,13 @@ class DistributedDispatcher:
         self._consumer_id: str = f"consumer_{uuid4().hex[:8]}"
         self._running: bool = False
         self._pending_responses: Dict[str, asyncio.Future] = {}
-    
+
     async def connect(self) -> None:
         """Connect to Redis."""
         self._redis = redis.from_url(self._redis_url, decode_responses=True)
         await self._redis.ping()
         logger.info("distributed_dispatcher_connected", redis_url=self._redis_url)
-    
+
     async def disconnect(self) -> None:
         """Disconnect from Redis."""
         self._running = False
@@ -108,11 +109,11 @@ class DistributedDispatcher:
             await self._redis.close()
             self._redis = None
         logger.info("distributed_dispatcher_disconnected")
-    
+
     def _get_stream_name(self, agent_id: str) -> str:
         """Get the stream name for an agent."""
         return f"{self._config.stream_prefix}:{agent_id}"
-    
+
     def _get_response_stream(self) -> str:
         """Get the response stream name."""
         return f"{self._config.stream_prefix}:responses"
@@ -120,7 +121,7 @@ class DistributedDispatcher:
     def _get_dlq_stream(self, agent_id: str) -> str:
         """Get the dead-letter queue stream name for an agent."""
         return f"{self._config.stream_prefix}:dlq:{agent_id}"
-    
+
     async def _ensure_consumer_group(self, stream_name: str) -> None:
         """Create consumer group if it doesn't exist."""
         try:
@@ -135,24 +136,24 @@ class DistributedDispatcher:
             if "BUSYGROUP" not in str(e):
                 raise
             # Group already exists, which is fine
-    
+
     def register(self, agent_id: str, handler: MessageHandler) -> None:
         """
         Register a message handler for an agent.
-        
+
         Args:
             agent_id: The agent identifier (e.g., "teacher", "student")
             handler: Async function that processes messages and returns optional response
         """
         self._handlers[agent_id] = handler
         logger.info("distributed_handler_registered", agent_id=agent_id)
-    
+
     def unregister(self, agent_id: str) -> None:
         """Remove an agent handler."""
         if agent_id in self._handlers:
             del self._handlers[agent_id]
             logger.info("distributed_handler_unregistered", agent_id=agent_id)
-    
+
     async def dispatch(
         self,
         msg: A2AMessage,
@@ -161,24 +162,24 @@ class DistributedDispatcher:
     ) -> Optional[A2AMessage]:
         """
         Dispatch a message to an agent's stream.
-        
+
         Args:
             msg: The A2AMessage to dispatch
             wait_response: If True, wait for a response message
             timeout_ms: Custom timeout for response (default: config.response_timeout_ms)
-            
+
         Returns:
             Response message if wait_response=True, else None
         """
         if not self._redis:
             raise RuntimeError("Dispatcher not connected")
-        
+
         stream_name = self._get_stream_name(msg.recipient_id)
         payload = self._serialize(msg)
-        
+
         # Add message to recipient's stream
         entry_id = await self._redis.xadd(stream_name, {"data": payload})
-        
+
         logger.info(
             "distributed_message_dispatched",
             message_id=str(msg.id),
@@ -186,16 +187,16 @@ class DistributedDispatcher:
             stream=stream_name,
             entry_id=entry_id,
         )
-        
+
         if not wait_response:
             return None
-        
+
         # Wait for response on response stream
         return await self._wait_for_response(
             msg.id,
             timeout_ms or self._config.response_timeout_ms,
         )
-    
+
     async def _wait_for_response(
         self,
         correlation_id: UUID,
@@ -204,7 +205,7 @@ class DistributedDispatcher:
         """Wait for a response message with matching correlation_id."""
         future: asyncio.Future = asyncio.Future()
         self._pending_responses[str(correlation_id)] = future
-        
+
         try:
             return await asyncio.wait_for(
                 future,
@@ -219,26 +220,26 @@ class DistributedDispatcher:
             return None
         finally:
             self._pending_responses.pop(str(correlation_id), None)
-    
+
     async def _publish_response(self, msg: A2AMessage) -> None:
         """Publish a response message."""
         if not self._redis:
             return
-        
+
         stream_name = self._get_response_stream()
         payload = self._serialize(msg)
-        
+
         await self._redis.xadd(
             stream_name,
             {"data": payload},
             maxlen=10000,  # Keep last 10k responses
         )
-        
+
         # Also check local pending responses
         correlation_key = str(msg.correlation_id) if msg.correlation_id else None
         if correlation_key and correlation_key in self._pending_responses:
             self._pending_responses[correlation_key].set_result(msg)
-    
+
     async def start_consuming(
         self,
         agent_id: str,
@@ -246,9 +247,9 @@ class DistributedDispatcher:
     ) -> None:
         """
         Start consuming messages for an agent.
-        
+
         This runs in an infinite loop until stop() is called or an error occurs.
-        
+
         Args:
             agent_id: The agent to consume messages for
             stop_on_error: If True, stop on first processing error
@@ -256,13 +257,13 @@ class DistributedDispatcher:
         handler = self._handlers.get(agent_id)
         if not handler:
             raise ValueError(f"No handler registered for agent: {agent_id}")
-        
+
         if not self._redis:
             raise RuntimeError("Dispatcher not connected")
-        
+
         stream_name = self._get_stream_name(agent_id)
         await self._ensure_consumer_group(stream_name)
-        
+
         self._running = True
         logger.info(
             "distributed_consumer_started",
@@ -270,15 +271,13 @@ class DistributedDispatcher:
             stream=stream_name,
             consumer_id=self._consumer_id,
         )
-        
+
         # First, process any pending messages (from previous crashes)
         await self._process_pending(agent_id, stream_name, handler)
-        
+
         # Start background autoclaim task
-        autoclaim_task = asyncio.create_task(
-            self._autoclaim_loop(agent_id, stream_name, handler)
-        )
-        
+        autoclaim_task = asyncio.create_task(self._autoclaim_loop(agent_id, stream_name, handler))
+
         # Then consume new messages
         while self._running:
             try:
@@ -289,11 +288,11 @@ class DistributedDispatcher:
                     count=10,
                     block=self._config.block_ms,
                 )
-                
+
                 if not messages:
                     continue
-                
-                for stream, entries in messages:
+
+                for _stream, entries in messages:
                     for entry_id, data in entries:
                         await self._process_entry(
                             agent_id,
@@ -302,7 +301,7 @@ class DistributedDispatcher:
                             data,
                             handler,
                         )
-                
+
             except asyncio.CancelledError:
                 logger.info("consumer_cancelled", agent_id=agent_id)
                 break
@@ -315,16 +314,16 @@ class DistributedDispatcher:
                 if stop_on_error:
                     raise
                 await asyncio.sleep(1)  # Brief pause before retry
-        
+
         # Stop autoclaim task
         autoclaim_task.cancel()
         try:
             await autoclaim_task
         except asyncio.CancelledError:
             pass
-            
+
         logger.info("distributed_consumer_stopped", agent_id=agent_id)
-    
+
     async def _autoclaim_loop(
         self,
         agent_id: str,
@@ -336,7 +335,7 @@ class DistributedDispatcher:
             try:
                 # Sleep first to avoid hammering Redis
                 await asyncio.sleep(self._config.claim_min_idle_ms / 1000.0)
-                
+
                 # claim_min_idle_ms is used as the idle time threshold
                 # 0-0 means start from the beginning
                 # count=10 items at a time
@@ -348,18 +347,18 @@ class DistributedDispatcher:
                     start_id="0-0",
                     count=10,
                 )
-                
+
                 # xautoclaim returns: (start_id, messages, deleted_ids)
                 # In newer redis-py: [start_id, messages, deleted_ids]
                 messages = result[1]
-                
+
                 if messages:
                     logger.info(
                         "messages_autoclaimed",
                         agent_id=agent_id,
                         count=len(messages),
                     )
-                    
+
                     for entry_id, data in messages:
                         if data:
                             await self._process_entry(
@@ -371,8 +370,10 @@ class DistributedDispatcher:
                             )
                         else:
                             # Ack empty entries
-                            await self._redis.xack(stream_name, self._config.consumer_group, entry_id)
-            
+                            await self._redis.xack(
+                                stream_name, self._config.consumer_group, entry_id
+                            )
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -382,7 +383,7 @@ class DistributedDispatcher:
                     error=str(e),
                 )
                 await asyncio.sleep(5)  # Wait before retrying
-    
+
     async def _process_pending(
         self,
         agent_id: str,
@@ -398,11 +399,11 @@ class DistributedDispatcher:
                 {stream_name: "0"},  # Read from beginning of PEL
                 count=100,
             )
-            
+
             if not pending:
                 return
-            
-            for stream, entries in pending:
+
+            for _stream, entries in pending:
                 for entry_id, data in entries:
                     if data:  # Might be None if already processed
                         await self._process_entry(
@@ -415,7 +416,7 @@ class DistributedDispatcher:
                     else:
                         # Acknowledge empty entries
                         await self._redis.xack(stream_name, self._config.consumer_group, entry_id)
-            
+
             logger.info(
                 "pending_messages_processed",
                 agent_id=agent_id,
@@ -423,7 +424,7 @@ class DistributedDispatcher:
             )
         except Exception as e:
             logger.error("pending_processing_error", agent_id=agent_id, error=str(e))
-    
+
     async def _get_delivery_count(
         self,
         stream_name: str,
@@ -465,13 +466,16 @@ class DistributedDispatcher:
         """Move a message to the dead-letter queue and ACK the original."""
         dlq_stream = self._get_dlq_stream(agent_id)
 
-        await self._redis.xadd(dlq_stream, {
-            "data": data.get("data", "{}"),
-            "original_stream": stream_name,
-            "original_entry_id": entry_id,
-            "error": error,
-            "moved_at": datetime.now(timezone.utc).isoformat(),
-        })
+        await self._redis.xadd(
+            dlq_stream,
+            {
+                "data": data.get("data", "{}"),
+                "original_stream": stream_name,
+                "original_entry_id": entry_id,
+                "error": error,
+                "moved_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
         # ACK the original so it leaves the PEL
         await self._redis.xack(stream_name, self._config.consumer_group, entry_id)
@@ -586,26 +590,28 @@ class DistributedDispatcher:
     def stop(self) -> None:
         """Signal the consumer to stop."""
         self._running = False
-    
+
     def _serialize(self, msg: A2AMessage) -> str:
         """Serialize A2AMessage to JSON string."""
-        return json.dumps({
-            "id": str(msg.id),
-            "type": msg.type.value,
-            "sender_id": str(msg.sender_id),
-            "recipient_id": str(msg.recipient_id),
-            "content": self._serialize_content(msg.content),
-            "correlation_id": str(msg.correlation_id) if msg.correlation_id else None,
-            "metadata": msg.metadata,
-            "created_at": msg.created_at.isoformat(),
-        })
-    
+        return json.dumps(
+            {
+                "id": str(msg.id),
+                "type": msg.type.value,
+                "sender_id": str(msg.sender_id),
+                "recipient_id": str(msg.recipient_id),
+                "content": self._serialize_content(msg.content),
+                "correlation_id": str(msg.correlation_id) if msg.correlation_id else None,
+                "metadata": msg.metadata,
+                "created_at": msg.created_at.isoformat(),
+            }
+        )
+
     def _serialize_content(self, content: Any) -> Any:
         """Serialize message content, handling Pydantic models."""
         if hasattr(content, "model_dump"):
             return content.model_dump()
         return content
-    
+
     def _deserialize(self, data: str) -> A2AMessage:
         """Deserialize JSON string to A2AMessage."""
         d = json.loads(data)
@@ -617,18 +623,22 @@ class DistributedDispatcher:
             content=d.get("content", ""),
             correlation_id=UUID(d["correlation_id"]) if d.get("correlation_id") else None,
             metadata=d.get("metadata", {}),
-            created_at=datetime.fromisoformat(d["created_at"]) if d.get("created_at") else datetime.now(timezone.utc),
+            created_at=(
+                datetime.fromisoformat(d["created_at"])
+                if d.get("created_at")
+                else datetime.now(timezone.utc)
+            ),
         )
-    
+
     # === Utility Methods ===
-    
+
     async def get_stream_info(self, agent_id: str) -> Dict[str, Any]:
         """Get information about an agent's stream."""
         if not self._redis:
             return {}
-        
+
         stream_name = self._get_stream_name(agent_id)
-        
+
         try:
             info = await self._redis.xinfo_stream(stream_name)
             return {
@@ -639,20 +649,20 @@ class DistributedDispatcher:
             }
         except redis.ResponseError:
             return {"length": 0, "exists": False}
-    
+
     async def get_pending_count(self, agent_id: str) -> int:
         """Get count of pending messages for an agent."""
         if not self._redis:
             return 0
-        
+
         stream_name = self._get_stream_name(agent_id)
-        
+
         try:
             pending = await self._redis.xpending(stream_name, self._config.consumer_group)
             return pending.get("pending", 0) if pending else 0
         except redis.ResponseError:
             return 0
-    
+
     async def cleanup_old_messages(
         self,
         agent_id: str,
@@ -661,26 +671,27 @@ class DistributedDispatcher:
         """Remove messages older than max_age from stream."""
         if not self._redis:
             return 0
-        
+
         stream_name = self._get_stream_name(agent_id)
         cutoff = int((datetime.now(timezone.utc).timestamp() - max_age_seconds) * 1000)
-        
+
         # XTRIM with MINID removes entries older than the given ID
         deleted = await self._redis.xtrim(
             stream_name,
             minid=f"{cutoff}-0",
         )
-        
+
         logger.info(
             "stream_cleaned",
             agent_id=agent_id,
             deleted_count=deleted,
         )
-        
+
         return deleted
 
 
 # === Factory Functions ===
+
 
 async def create_distributed_dispatcher(
     redis_url: str = "redis://localhost:6379",
@@ -688,7 +699,7 @@ async def create_distributed_dispatcher(
 ) -> DistributedDispatcher:
     """
     Create and connect a distributed dispatcher.
-    
+
     Usage:
         dispatcher = await create_distributed_dispatcher("redis://localhost:6379")
         dispatcher.register("teacher", teacher_handler)

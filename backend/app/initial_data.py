@@ -31,7 +31,7 @@ async def init_db():
 
     import os
 
-    init_logger.debug("os.environ.get('SUPER_ADMIN') is '%s'", os.environ.get('SUPER_ADMIN'))
+    init_logger.debug("os.environ.get('SUPER_ADMIN') is '%s'", os.environ.get("SUPER_ADMIN"))
     async with AsyncSession(engine) as session:
         init_logger.debug("settings.SUPER_ADMIN is '%s'", settings.SUPER_ADMIN)
 
@@ -66,7 +66,10 @@ async def init_db():
                 backup_username = f"{target_username}_old_{str(uuid.uuid4())[:8]}"
                 init_logger.warning(
                     "Username '%s' is taken by user %s (ID: %s). Renaming that user to '%s'.",
-                    target_username, conflicting_user.email, conflicting_user.id, backup_username,
+                    target_username,
+                    conflicting_user.email,
+                    conflicting_user.id,
+                    backup_username,
                 )
                 conflicting_user.username = backup_username
                 session.add(conflicting_user)

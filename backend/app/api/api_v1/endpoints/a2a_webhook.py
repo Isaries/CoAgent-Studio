@@ -4,21 +4,19 @@ A2A Webhook API Endpoints.
 Receives messages from external agents and injects them into the A2A system.
 """
 
-import json
-import structlog
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+import structlog
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlmodel import select
 
-from app.core.db import get_session
 from app.core.a2a.models import A2AMessage, MessageType
 from app.core.a2a.store import A2AMessageStore
+from app.core.db import get_session
 from app.core.socket_manager import manager
-
 from app.models.agent_config import AgentConfig
 
 logger = structlog.get_logger()
@@ -28,6 +26,7 @@ router = APIRouter(prefix="/a2a", tags=["A2A Webhook"])
 
 class A2AWebhookPayload(BaseModel):
     """Incoming webhook payload from external agent."""
+
     id: Optional[str] = None
     type: str = "broadcast"
     sender_id: str
@@ -39,6 +38,7 @@ class A2AWebhookPayload(BaseModel):
 
 class A2AWebhookResponse(BaseModel):
     """Response for webhook."""
+
     success: bool
     message_id: Optional[str] = None
     dispatched: bool = False
@@ -54,32 +54,32 @@ async def receive_external_agent_message(
 ):
     """
     Receive a message from an external agent and dispatch it.
-    
+
     The external agent must include:
     - X-Agent-ID header: UUID of the registered external agent
     - X-Agent-Token header: Authentication token (matches callback_token in external_config)
-    
+
     The message will be validated, persisted, and dispatched to the room.
     """
     if not x_agent_id:
         raise HTTPException(status_code=400, detail="X-Agent-ID header required")
-    
+
     try:
         agent_uuid = UUID(x_agent_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid X-Agent-ID format")
-    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid X-Agent-ID format") from e
+
     # Validate agent exists and is external
     query = select(AgentConfig).where(
         AgentConfig.id == agent_uuid,
-        AgentConfig.is_external == True,
+        AgentConfig.is_external is True,
     )
     result = await session.exec(query)
     agent_config = result.first()
-    
+
     if not agent_config:
         raise HTTPException(status_code=404, detail="External agent not found")
-    
+
     # Validate token — always require a token when callback_token is configured
     external_config = agent_config.external_config or {}
     expected_token = external_config.get("callback_token")
@@ -88,10 +88,10 @@ async def receive_external_agent_message(
         raise HTTPException(status_code=500, detail="Agent callback_token not configured")
     if x_agent_token != expected_token:
         raise HTTPException(status_code=401, detail="Invalid agent token")
-    
+
     # Extract room_id from metadata (required for broadcast)
     room_id = (payload.metadata or {}).get("room_id")
-    
+
     # Create A2A message
     a2a_message = A2AMessage(
         type=MessageType(payload.type),
@@ -106,7 +106,7 @@ async def receive_external_agent_message(
             "received_at": datetime.now(timezone.utc).isoformat(),
         },
     )
-    
+
     # Persist message to database
     try:
         store = A2AMessageStore(session)
@@ -119,11 +119,11 @@ async def receive_external_agent_message(
             message_id=str(a2a_message.id),
         )
         # Don't raise - message was already processed, just log the persistence failure
-    
+
     # Dispatch message
     dispatched = False
     dispatch_error = None
-    
+
     if payload.recipient_id == "broadcast" and room_id:
         # Broadcast to room via WebSocket
         try:
@@ -140,7 +140,7 @@ async def receive_external_agent_message(
             }
             await manager.broadcast(broadcast_payload, room_id)
             dispatched = True
-            
+
             logger.info(
                 "external_message_dispatched",
                 agent_id=str(agent_uuid),
@@ -151,35 +151,37 @@ async def receive_external_agent_message(
             )
         except Exception as e:
             dispatch_error = str(e)
-            logger.error("external_message_dispatch_failed", error=str(e), message_id=str(a2a_message.id))
-    
+            logger.error(
+                "external_message_dispatch_failed", error=str(e), message_id=str(a2a_message.id)
+            )
+
     elif payload.recipient_id != "broadcast":
         # Point-to-point dispatch to specific agent
         try:
             target_agent_id = UUID(payload.recipient_id)
-            
+
             # Look up target agent config
             target_query = select(AgentConfig).where(AgentConfig.id == target_agent_id)
             target_result = await session.exec(target_query)
             target_config = target_result.first()
-            
+
             if not target_config:
                 dispatch_error = f"Target agent {payload.recipient_id} not found"
             elif target_config.is_external:
                 # Forward to external agent via HTTP
                 from app.core.a2a.external_adapter import ExternalAgentAdapter
-                
+
                 adapter = ExternalAgentAdapter(target_config)
                 response = await adapter.receive_message(a2a_message)
                 dispatched = True
-                
+
                 logger.info(
                     "external_message_p2p_dispatched",
                     source_agent=str(agent_uuid),
                     target_agent=str(target_agent_id),
                     message_id=str(a2a_message.id),
                 )
-                
+
                 # If target responded, broadcast response to room
                 if response and response.content and room_id:
                     response_payload = {
@@ -205,12 +207,14 @@ async def receive_external_agent_message(
                     message_id=str(a2a_message.id),
                     note="Message stored for internal agent pickup",
                 )
-                
+
         except ValueError:
             dispatch_error = f"Invalid recipient_id format: {payload.recipient_id}"
         except Exception as e:
             dispatch_error = str(e)
-            logger.error("external_message_p2p_failed", error=str(e), message_id=str(a2a_message.id))
+            logger.error(
+                "external_message_p2p_failed", error=str(e), message_id=str(a2a_message.id)
+            )
     else:
         # Missing room_id for broadcast
         logger.warning(
@@ -219,7 +223,7 @@ async def receive_external_agent_message(
             message_id=str(a2a_message.id),
             note="Broadcast requires room_id in metadata",
         )
-    
+
     return A2AWebhookResponse(
         success=True,
         message_id=str(a2a_message.id),
@@ -232,5 +236,3 @@ async def receive_external_agent_message(
 async def a2a_health():
     """Health check endpoint for external agents to verify connectivity."""
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
-
-

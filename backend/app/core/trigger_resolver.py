@@ -11,7 +11,6 @@ from app.models.agent_config import AgentConfig
 from app.models.agent_room_state import AgentRoomState
 from app.models.room import RoomAgentLink
 
-
 _DEFAULTS: Dict[str, Any] = {
     "logic": "or",
     "trigger": {
@@ -79,6 +78,7 @@ def _is_override_valid(state: AgentRoomState) -> bool:
     # Handle naive datetimes
     if expires.tzinfo is None:
         from datetime import timezone as tz
+
         expires = expires.replace(tzinfo=tz.utc)
     return expires > now
 

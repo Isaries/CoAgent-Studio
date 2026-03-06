@@ -7,7 +7,7 @@ Handles entity/relationship upsert, Leiden clustering, and subgraph traversal.
 from typing import Any, Dict, List, Optional
 
 import structlog
-from neo4j import AsyncGraphDatabase, AsyncDriver
+from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from app.core.config import settings
 
@@ -131,7 +131,7 @@ class Neo4jClient:
             logger.error(
                 "neo4j_gds_plugin_missing",
                 detail="Neo4j GDS plugin is required for Leiden clustering. "
-                       "Install it from https://neo4j.com/docs/graph-data-science/",
+                "Install it from https://neo4j.com/docs/graph-data-science/",
             )
             return 0  # Return 0 communities with clear error
 
@@ -253,7 +253,8 @@ class Neo4jClient:
         """
         async with self.driver.session() as session:
             result = await session.run(
-                query, room_id=room_id,
+                query,
+                room_id=room_id,
                 names=[n.lower() for n in entity_names],
                 depth=depth,
             )

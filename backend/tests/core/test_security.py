@@ -7,7 +7,7 @@ All tests are pure-unit: no database, no network, no fixtures needed.
 from datetime import timedelta
 
 import pytest
-from jose import jwt, JWTError
+from jose import JWTError, jwt
 
 from app.core.config import settings
 from app.core.security import (

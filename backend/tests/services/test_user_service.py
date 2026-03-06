@@ -15,13 +15,13 @@ from app.services.user_service import UserService
 
 
 def _make_user(**kwargs) -> User:
-    defaults = dict(
-        id=uuid4(),
-        email="user@example.com",
-        role=UserRole.GUEST,
-        is_active=True,
-        hashed_password="$2b$12$fakehash",
-    )
+    defaults = {
+        "id": uuid4(),
+        "email": "user@example.com",
+        "role": UserRole.GUEST,
+        "is_active": True,
+        "hashed_password": "$2b$12$fakehash",
+    }
     defaults.update(kwargs)
     return User(**defaults)
 
@@ -183,9 +183,7 @@ async def test_create_user_without_password_skips_hashing():
     current_user = _make_user(role=UserRole.SUPER_ADMIN)
     user_in = UserCreate(email="nopass@example.com", role=UserRole.GUEST)
 
-    with patch(
-        "app.services.user_service.security.get_password_hash"
-    ) as mock_hash:
+    with patch("app.services.user_service.security.get_password_hash") as mock_hash:
         svc = UserService(session)
         await svc.create_user(user_in, current_user)
 

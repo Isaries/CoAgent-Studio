@@ -23,10 +23,10 @@ from app.models.organization import Organization, UserOrganizationLink
 from app.models.project import Project, UserProjectLink
 from app.models.user import User
 
-
 # ---------------------------------------------------------------------------
 # DB-level helpers (flush, no commit — rolled back after each test)
 # ---------------------------------------------------------------------------
+
 
 async def _create_org_with_owner(
     db_session: AsyncSession,
@@ -43,9 +43,7 @@ async def _create_org_with_owner(
     await db_session.flush()
     await db_session.refresh(org)
 
-    link = UserOrganizationLink(
-        user_id=owner.id, organization_id=org.id, role="owner"
-    )
+    link = UserOrganizationLink(user_id=owner.id, organization_id=org.id, role="owner")
     db_session.add(link)
     await db_session.flush()
 
@@ -69,9 +67,7 @@ async def _create_project_in_db(
     await db_session.flush()
     await db_session.refresh(project)
 
-    link = UserProjectLink(
-        user_id=creator.id, project_id=project.id, role="admin"
-    )
+    link = UserProjectLink(user_id=creator.id, project_id=project.id, role="admin")
     db_session.add(link)
     await db_session.flush()
 
@@ -85,9 +81,7 @@ async def _add_org_member(
     role: str = "member",
 ) -> None:
     """Add a user as a member of an organization."""
-    link = UserOrganizationLink(
-        user_id=user.id, organization_id=org.id, role=role
-    )
+    link = UserOrganizationLink(user_id=user.id, organization_id=org.id, role=role)
     db_session.add(link)
     await db_session.flush()
 
@@ -99,9 +93,7 @@ async def _add_project_member(
     role: str = "member",
 ) -> None:
     """Add a user as a member of a project."""
-    link = UserProjectLink(
-        user_id=user.id, project_id=project.id, role=role
-    )
+    link = UserProjectLink(user_id=user.id, project_id=project.id, role=role)
     db_session.add(link)
     await db_session.flush()
 
@@ -109,6 +101,7 @@ async def _add_project_member(
 # ---------------------------------------------------------------------------
 # POST /projects — create project
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_create_project_as_org_member(
@@ -122,9 +115,7 @@ async def test_create_project_as_org_member(
         "description": "Core multi-agent workflow management system",
         "organization_id": str(org.id),
     }
-    response = await teacher_client.post(
-        f"{settings.API_V1_STR}/projects", json=payload
-    )
+    response = await teacher_client.post(f"{settings.API_V1_STR}/projects", json=payload)
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["name"] == payload["name"]
@@ -145,9 +136,7 @@ async def test_create_project_without_org_membership_forbidden(
         "name": "Sneaky Project",
         "organization_id": str(org.id),
     }
-    response = await student_client.post(
-        f"{settings.API_V1_STR}/projects", json=payload
-    )
+    response = await student_client.post(f"{settings.API_V1_STR}/projects", json=payload)
     assert response.status_code == 403, response.text
 
 
@@ -167,9 +156,7 @@ async def test_create_project_as_org_member_non_owner(
         "description": "A project created by a regular member",
         "organization_id": str(org.id),
     }
-    response = await student_client.post(
-        f"{settings.API_V1_STR}/projects", json=payload
-    )
+    response = await student_client.post(f"{settings.API_V1_STR}/projects", json=payload)
     assert response.status_code == 200, response.text
     assert response.json()["name"] == "Student-Led Research Project"
 
@@ -188,6 +175,7 @@ async def test_create_project_requires_auth(
 # ---------------------------------------------------------------------------
 # GET /projects — list projects for current user
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_list_projects_shows_membership(
@@ -238,9 +226,7 @@ async def test_list_projects_excludes_non_member(
 ):
     """Projects the student is not a member of must not appear in their list."""
     org = await _create_org_with_owner(db_session, mock_teacher, name="Teachers Only Org")
-    await _create_project_in_db(
-        db_session, org, mock_teacher, name="Hidden From Student"
-    )
+    await _create_project_in_db(db_session, org, mock_teacher, name="Hidden From Student")
 
     response = await student_client.get(f"{settings.API_V1_STR}/projects")
     assert response.status_code == 200, response.text
@@ -259,6 +245,7 @@ async def test_list_projects_requires_auth(client: AsyncClient):
 # GET /projects/{project_id} — get single project
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_get_project_as_member(
     teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
@@ -269,9 +256,7 @@ async def test_get_project_as_member(
         db_session, org, mock_teacher, name="Knowledge Graph Pipeline"
     )
 
-    response = await teacher_client.get(
-        f"{settings.API_V1_STR}/projects/{project.id}"
-    )
+    response = await teacher_client.get(f"{settings.API_V1_STR}/projects/{project.id}")
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["id"] == str(project.id)
@@ -285,13 +270,9 @@ async def test_get_project_as_non_member_forbidden(
 ):
     """A user with no project membership receives 403 when fetching it."""
     org = await _create_org_with_owner(db_session, mock_teacher, name="Exclusive Org")
-    project = await _create_project_in_db(
-        db_session, org, mock_teacher, name="Private Project"
-    )
+    project = await _create_project_in_db(db_session, org, mock_teacher, name="Private Project")
 
-    response = await student_client.get(
-        f"{settings.API_V1_STR}/projects/{project.id}"
-    )
+    response = await student_client.get(f"{settings.API_V1_STR}/projects/{project.id}")
     assert response.status_code == 403, response.text
 
 
@@ -309,9 +290,7 @@ async def test_get_project_added_as_member(
     )
     await _add_project_member(db_session, mock_student, project, role="member")
 
-    response = await student_client.get(
-        f"{settings.API_V1_STR}/projects/{project.id}"
-    )
+    response = await student_client.get(f"{settings.API_V1_STR}/projects/{project.id}")
     assert response.status_code == 200, response.text
     assert response.json()["id"] == str(project.id)
 
@@ -320,6 +299,7 @@ async def test_get_project_added_as_member(
 # PUT /projects/{project_id} — update project
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_update_project_as_member(
     teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
@@ -327,7 +307,9 @@ async def test_update_project_as_member(
     """A project member can update the project name and description."""
     org = await _create_org_with_owner(db_session, mock_teacher, name="Update Test Org")
     project = await _create_project_in_db(
-        db_session, org, mock_teacher,
+        db_session,
+        org,
+        mock_teacher,
         name="Original Project Name",
         description="Original description",
     )
@@ -351,9 +333,7 @@ async def test_update_project_as_non_member_forbidden(
 ):
     """A non-member cannot update a project (403)."""
     org = await _create_org_with_owner(db_session, mock_teacher, name="Guarded Update Org")
-    project = await _create_project_in_db(
-        db_session, org, mock_teacher, name="Locked Project"
-    )
+    project = await _create_project_in_db(db_session, org, mock_teacher, name="Locked Project")
 
     response = await student_client.put(
         f"{settings.API_V1_STR}/projects/{project.id}",
@@ -366,19 +346,16 @@ async def test_update_project_as_non_member_forbidden(
 # DELETE /projects/{project_id} — delete project
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_delete_project_as_member(
     teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """A project member can delete the project; response is 204 No Content."""
     org = await _create_org_with_owner(db_session, mock_teacher, name="Delete Test Org")
-    project = await _create_project_in_db(
-        db_session, org, mock_teacher, name="Project To Delete"
-    )
+    project = await _create_project_in_db(db_session, org, mock_teacher, name="Project To Delete")
 
-    response = await teacher_client.delete(
-        f"{settings.API_V1_STR}/projects/{project.id}"
-    )
+    response = await teacher_client.delete(f"{settings.API_V1_STR}/projects/{project.id}")
     assert response.status_code == 204, response.text
 
 
@@ -392,9 +369,7 @@ async def test_delete_project_as_non_member_forbidden(
         db_session, org, mock_teacher, name="Non-Deletable By Student"
     )
 
-    response = await student_client.delete(
-        f"{settings.API_V1_STR}/projects/{project.id}"
-    )
+    response = await student_client.delete(f"{settings.API_V1_STR}/projects/{project.id}")
     assert response.status_code == 403, response.text
 
 

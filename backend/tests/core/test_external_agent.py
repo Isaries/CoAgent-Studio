@@ -7,23 +7,22 @@ Covers:
 - AgentFactory external agent support
 """
 
-import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from httpx import AsyncClient
 
 from app.core.a2a.external_adapter import (
-    ExternalAgentAdapter,
     AuthType,
     CircuitBreakerState,
+    ExternalAgentAdapter,
     OAuthToken,
 )
 from app.core.a2a.models import A2AMessage, MessageType
 from app.factories.agent_factory import AgentFactory
 from app.models.agent_config import AgentConfig
-
 
 # ============================================================================
 # CircuitBreakerState Tests
@@ -43,24 +42,24 @@ class TestCircuitBreakerState:
         """Circuit should open after reaching failure threshold."""
         cb = CircuitBreakerState()
         threshold = 3
-        
+
         cb.record_failure()
         assert cb.should_open(threshold) is False
-        
+
         cb.record_failure()
         assert cb.should_open(threshold) is False
-        
+
         cb.record_failure()
         assert cb.should_open(threshold) is True
 
     def test_resets_on_success(self):
         """Should reset failure count on success."""
         cb = CircuitBreakerState()
-        
+
         cb.record_failure()
         cb.record_failure()
         assert cb.failures == 2
-        
+
         cb.record_success()
         assert cb.failures == 0
         assert cb.is_open is False
@@ -137,9 +136,9 @@ class TestAgentFactoryExternalAgent:
             created_by=uuid4(),
             updated_at=datetime.now(timezone.utc),
         )
-        
+
         agent = AgentFactory.create_agent(config)
-        
+
         assert agent is not None
         assert isinstance(agent, ExternalAgentAdapter)
         assert agent.agent_id == config.id
@@ -163,9 +162,9 @@ class TestAgentFactoryExternalAgent:
             created_by=uuid4(),
             updated_at=datetime.now(timezone.utc),
         )
-        
+
         agent = AgentFactory.create_agent(config)
-        
+
         assert agent is not None
         assert isinstance(agent, ExternalAgentAdapter)
 
@@ -184,9 +183,9 @@ class TestAgentFactoryExternalAgent:
             created_by=uuid4(),
             updated_at=datetime.now(timezone.utc),
         )
-        
+
         agent = AgentFactory.create_agent(config)
-        
+
         assert agent is None
 
 
@@ -198,7 +197,7 @@ class TestAgentFactoryExternalAgent:
 class TestExternalAgentAdapter:
     """Tests for ExternalAgentAdapter functionality."""
 
-    @pytest.fixture
+    @pytest.fixture()
     def external_config(self):
         """Create a test external agent config."""
         return AgentConfig(
@@ -222,34 +221,34 @@ class TestExternalAgentAdapter:
     def test_adapter_initialization(self, external_config):
         """Adapter should initialize correctly from config."""
         adapter = ExternalAgentAdapter(external_config)
-        
+
         assert adapter.agent_id == external_config.id
         assert adapter._webhook_url == "https://test-agent.example.com/webhook"
         assert adapter._auth_type == AuthType.BEARER
         assert adapter._auth_token == "test_bearer_token"
 
-    @pytest.mark.anyio
+    @pytest.mark.anyio()
     async def test_bearer_auth_headers(self, external_config):
         """Bearer auth should generate correct Authorization header."""
         adapter = ExternalAgentAdapter(external_config)
         headers = await adapter._get_auth_headers()
-        
+
         assert "Authorization" in headers
         assert headers["Authorization"] == "Bearer test_bearer_token"
 
-    @pytest.mark.anyio
+    @pytest.mark.anyio()
     async def test_no_auth_headers(self, external_config):
         """No auth type should return empty headers."""
         external_config.external_config["auth_type"] = "none"
         adapter = ExternalAgentAdapter(external_config)
         headers = await adapter._get_auth_headers()
-        
+
         assert headers == {}
 
     def test_message_serialization(self, external_config):
         """Messages should be correctly serialized for external API."""
         adapter = ExternalAgentAdapter(external_config)
-        
+
         msg = A2AMessage(
             type=MessageType.USER_MESSAGE,
             sender_id="user_123",
@@ -257,9 +256,9 @@ class TestExternalAgentAdapter:
             content="Hello external agent!",
             metadata={"room_id": "room_abc"},
         )
-        
+
         payload = adapter._serialize_message(msg)
-        
+
         assert payload["sender_id"] == "user_123"
         assert payload["recipient_id"] == str(external_config.id)
         assert payload["type"] == "user_message"
@@ -268,16 +267,16 @@ class TestExternalAgentAdapter:
     def test_fallback_response_creation(self, external_config):
         """Should create proper fallback message."""
         adapter = ExternalAgentAdapter(external_config)
-        
+
         msg = A2AMessage(
             type=MessageType.USER_MESSAGE,
             sender_id="user",
             recipient_id="agent",
             content="Test",
         )
-        
+
         fallback = adapter._create_fallback_response(msg)
-        
+
         assert fallback.type == MessageType.SYSTEM
         assert fallback.sender_id == "system"
         assert fallback.correlation_id == msg.id
@@ -289,14 +288,14 @@ class TestExternalAgentAdapter:
 # ============================================================================
 
 
-@pytest.mark.anyio
+@pytest.mark.anyio()
 class TestWebhookEndpoint:
     """Tests for the A2A webhook endpoint."""
 
     async def test_health_check(self, client: AsyncClient):
         """Health check endpoint should return ok status."""
         response = await client.get("/api/v1/a2a/health")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
@@ -311,7 +310,7 @@ class TestWebhookEndpoint:
                 "content": "Hello from external",
             },
         )
-        
+
         assert response.status_code == 400
         assert "X-Agent-ID" in response.json()["detail"]
 
@@ -325,7 +324,7 @@ class TestWebhookEndpoint:
                 "content": "Hello",
             },
         )
-        
+
         assert response.status_code == 400
         assert "Invalid X-Agent-ID" in response.json()["detail"]
 
@@ -339,7 +338,7 @@ class TestWebhookEndpoint:
                 "content": "Hello",
             },
         )
-        
+
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
@@ -368,7 +367,7 @@ class TestWebhookEndpoint:
         )
         db_session.add(config)
         await db_session.flush()
-        
+
         # Wrong token should fail
         response = await client.post(
             "/api/v1/a2a/webhook",
@@ -381,7 +380,7 @@ class TestWebhookEndpoint:
                 "content": "Hello",
             },
         )
-        
+
         assert response.status_code == 401
 
     async def test_webhook_accepts_valid_message(
@@ -411,8 +410,10 @@ class TestWebhookEndpoint:
         await db_session.flush()
 
         # Mock socket manager and store
-        with patch("app.api.api_v1.endpoints.a2a_webhook.manager") as mock_manager, \
-             patch("app.api.api_v1.endpoints.a2a_webhook.A2AMessageStore") as mock_store:
+        with (
+            patch("app.api.api_v1.endpoints.a2a_webhook.manager") as mock_manager,
+            patch("app.api.api_v1.endpoints.a2a_webhook.A2AMessageStore") as mock_store,
+        ):
             mock_manager.broadcast = AsyncMock()
             mock_store_instance = MagicMock()
             mock_store_instance.save = AsyncMock()
@@ -431,15 +432,13 @@ class TestWebhookEndpoint:
                     "metadata": {"room_id": "test_room"},
                 },
             )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
         assert data["message_id"] is not None
 
-    async def test_webhook_p2p_dispatch(
-        self, client: AsyncClient, db_session, mock_teacher
-    ):
+    async def test_webhook_p2p_dispatch(self, client: AsyncClient, db_session, mock_teacher):
         """Webhook should dispatch point-to-point messages to target agent."""
         # 1. Create Sender Agent
         sender_id = uuid4()
@@ -460,7 +459,7 @@ class TestWebhookEndpoint:
             created_by=mock_teacher.id,
         )
         db_session.add(sender_config)
-        
+
         # 2. Create Recipient Agent
         recipient_id = uuid4()
         recipient_config = AgentConfig(
@@ -477,26 +476,31 @@ class TestWebhookEndpoint:
         )
         db_session.add(recipient_config)
         await db_session.flush()
-        
+
         # 3. Mock dependencies
-        with patch("app.api.api_v1.endpoints.a2a_webhook.manager") as mock_manager, \
-             patch("app.api.api_v1.endpoints.a2a_webhook.A2AMessageStore") as mock_store, \
-             patch("app.core.a2a.external_adapter.ExternalAgentAdapter.receive_message", new_callable=AsyncMock) as mock_receive:
-            
+        with (
+            patch("app.api.api_v1.endpoints.a2a_webhook.manager") as mock_manager,
+            patch("app.api.api_v1.endpoints.a2a_webhook.A2AMessageStore") as mock_store,
+            patch(
+                "app.core.a2a.external_adapter.ExternalAgentAdapter.receive_message",
+                new_callable=AsyncMock,
+            ) as mock_receive,
+        ):
+
             mock_manager.broadcast = AsyncMock()
             mock_store_instance = MagicMock()
             mock_store_instance.save = AsyncMock()
             mock_store.return_value = mock_store_instance
-            
+
             # Setup mock response from recipient
             mock_response = A2AMessage(
                 content="Ack P2P",
                 sender_id=str(recipient_id),
                 recipient_id=str(sender_id),
-                type=MessageType.EVALUATION_RESULT
+                type=MessageType.EVALUATION_RESULT,
             )
             mock_receive.return_value = mock_response
-            
+
             # 4. Send P2P Message
             response = await client.post(
                 "/api/v1/a2a/webhook",
@@ -511,18 +515,18 @@ class TestWebhookEndpoint:
                     "metadata": {"room_id": "test_room"},
                 },
             )
-            
+
             # 5. Verify Dispatch
             assert response.status_code == 200
             assert response.json()["dispatched"] is True
-            
+
             # Verify receive_message called with correct arg
             assert mock_receive.called
             call_args = mock_receive.call_args[0][0]
             assert isinstance(call_args, A2AMessage)
             assert call_args.recipient_id == str(recipient_id)
             assert call_args.content == "Secret message"
-            
+
             # Verify response broadcast to room
             assert mock_manager.broadcast.called
             broadcast_args = mock_manager.broadcast.call_args[0]

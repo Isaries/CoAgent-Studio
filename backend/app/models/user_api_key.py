@@ -25,12 +25,16 @@ class UserAPIKey(UserAPIKeyBase, table=True):
 
     # Scheduling & Availability Controls
     is_active: bool = Field(default=True)
-    schedule_config: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
+    schedule_config: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
 
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
-    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
 
     user: "User" = Relationship(back_populates="api_keys")
 

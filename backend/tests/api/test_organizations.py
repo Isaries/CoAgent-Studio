@@ -21,10 +21,10 @@ from app.core.config import settings
 from app.models.organization import Organization, UserOrganizationLink
 from app.models.user import User
 
-
 # ---------------------------------------------------------------------------
 # DB-level helpers (flush, no commit — rolled back after each test)
 # ---------------------------------------------------------------------------
+
 
 async def _create_org_in_db(
     db_session: AsyncSession,
@@ -43,9 +43,7 @@ async def _create_org_in_db(
     await db_session.refresh(org)
 
     # Create the owner membership link (mirrors what OrganizationService.create_organization does)
-    link = UserOrganizationLink(
-        user_id=owner.id, organization_id=org.id, role="owner"
-    )
+    link = UserOrganizationLink(user_id=owner.id, organization_id=org.id, role="owner")
     db_session.add(link)
     await db_session.flush()
 
@@ -59,9 +57,7 @@ async def _add_member_to_org(
     role: str = "member",
 ) -> None:
     """Add a user as a member of an organization."""
-    link = UserOrganizationLink(
-        user_id=user.id, organization_id=org.id, role=role
-    )
+    link = UserOrganizationLink(user_id=user.id, organization_id=org.id, role=role)
     db_session.add(link)
     await db_session.flush()
 
@@ -70,6 +66,7 @@ async def _add_member_to_org(
 # POST /organizations — create organization
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_create_organization_as_teacher(teacher_client: AsyncClient):
     """A teacher can create an organization and becomes its owner."""
@@ -77,9 +74,7 @@ async def test_create_organization_as_teacher(teacher_client: AsyncClient):
         "name": "AI Research Lab",
         "description": "Dedicated to advancing machine learning research",
     }
-    response = await teacher_client.post(
-        f"{settings.API_V1_STR}/organizations", json=payload
-    )
+    response = await teacher_client.post(f"{settings.API_V1_STR}/organizations", json=payload)
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["name"] == payload["name"]
@@ -96,9 +91,7 @@ async def test_create_organization_as_student(student_client: AsyncClient):
         "name": "Student Study Group",
         "description": "Peer learning collective",
     }
-    response = await student_client.post(
-        f"{settings.API_V1_STR}/organizations", json=payload
-    )
+    response = await student_client.post(f"{settings.API_V1_STR}/organizations", json=payload)
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["name"] == payload["name"]
@@ -108,9 +101,7 @@ async def test_create_organization_as_student(student_client: AsyncClient):
 async def test_create_organization_as_superadmin(superuser_client: AsyncClient):
     """Super admin can create an organization."""
     payload = {"name": "Platform Admin Org", "description": "Top-level admin organization"}
-    response = await superuser_client.post(
-        f"{settings.API_V1_STR}/organizations", json=payload
-    )
+    response = await superuser_client.post(f"{settings.API_V1_STR}/organizations", json=payload)
     assert response.status_code == 200, response.text
     assert response.json()["name"] == "Platform Admin Org"
 
@@ -126,6 +117,7 @@ async def test_create_organization_requires_auth(client: AsyncClient):
 # ---------------------------------------------------------------------------
 # GET /organizations — list organizations for current user
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_list_organizations_shows_owned(teacher_client: AsyncClient):
@@ -182,18 +174,15 @@ async def test_list_organizations_requires_auth(client: AsyncClient):
 # GET /organizations/{org_id} — get single organization
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_get_organization_as_owner(
     teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """The organization owner can retrieve it by ID."""
-    org = await _create_org_in_db(
-        db_session, mock_teacher, name="Quantum Computing Lab"
-    )
+    org = await _create_org_in_db(db_session, mock_teacher, name="Quantum Computing Lab")
 
-    response = await teacher_client.get(
-        f"{settings.API_V1_STR}/organizations/{org.id}"
-    )
+    response = await teacher_client.get(f"{settings.API_V1_STR}/organizations/{org.id}")
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["id"] == str(org.id)
@@ -209,14 +198,10 @@ async def test_get_organization_as_member(
     mock_student: User,
 ):
     """A user who is a member of an org can retrieve it by ID."""
-    org = await _create_org_in_db(
-        db_session, mock_teacher, name="Open Science Collective"
-    )
+    org = await _create_org_in_db(db_session, mock_teacher, name="Open Science Collective")
     await _add_member_to_org(db_session, mock_student, org, role="member")
 
-    response = await student_client.get(
-        f"{settings.API_V1_STR}/organizations/{org.id}"
-    )
+    response = await student_client.get(f"{settings.API_V1_STR}/organizations/{org.id}")
     assert response.status_code == 200, response.text
     assert response.json()["id"] == str(org.id)
 
@@ -226,19 +211,16 @@ async def test_get_organization_as_non_member_forbidden(
     student_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """A user who is not a member of an org receives 403 when fetching it."""
-    org = await _create_org_in_db(
-        db_session, mock_teacher, name="Members Only Org"
-    )
+    org = await _create_org_in_db(db_session, mock_teacher, name="Members Only Org")
 
-    response = await student_client.get(
-        f"{settings.API_V1_STR}/organizations/{org.id}"
-    )
+    response = await student_client.get(f"{settings.API_V1_STR}/organizations/{org.id}")
     assert response.status_code == 403, response.text
 
 
 # ---------------------------------------------------------------------------
 # PUT /organizations/{org_id} — update organization
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_update_organization_as_owner(
@@ -284,18 +266,15 @@ async def test_update_organization_as_non_owner_member_forbidden(
 # DELETE /organizations/{org_id} — delete organization
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio()
 async def test_delete_organization_as_owner(
     teacher_client: AsyncClient, db_session: AsyncSession, mock_teacher: User
 ):
     """The organization owner can delete the organization; response is 204."""
-    org = await _create_org_in_db(
-        db_session, mock_teacher, name="Org To Be Dissolved"
-    )
+    org = await _create_org_in_db(db_session, mock_teacher, name="Org To Be Dissolved")
 
-    response = await teacher_client.delete(
-        f"{settings.API_V1_STR}/organizations/{org.id}"
-    )
+    response = await teacher_client.delete(f"{settings.API_V1_STR}/organizations/{org.id}")
     assert response.status_code == 204, response.text
 
 
@@ -310,9 +289,7 @@ async def test_delete_organization_as_non_owner_member_forbidden(
     org = await _create_org_in_db(db_session, mock_teacher, name="Protected Org")
     await _add_member_to_org(db_session, mock_student, org, role="member")
 
-    response = await student_client.delete(
-        f"{settings.API_V1_STR}/organizations/{org.id}"
-    )
+    response = await student_client.delete(f"{settings.API_V1_STR}/organizations/{org.id}")
     assert response.status_code == 403, response.text
 
 
@@ -323,7 +300,5 @@ async def test_delete_organization_as_non_member_forbidden(
     """A user with no membership in the org cannot delete it (403)."""
     org = await _create_org_in_db(db_session, mock_teacher, name="Invisible Org")
 
-    response = await student_client.delete(
-        f"{settings.API_V1_STR}/organizations/{org.id}"
-    )
+    response = await student_client.delete(f"{settings.API_V1_STR}/organizations/{org.id}")
     assert response.status_code == 403, response.text

@@ -1,15 +1,20 @@
-import random
-from typing import Optional, Union
+from __future__ import annotations
 
-from app.core.agent_core import AgentCore
-from app.core.a2a.models import A2AMessage, MessageType
+import random
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.core.a2a.workflow_graph import WorkflowContext
+
 from app.core.a2a.base import A2AAgentMixin, AgentId
+from app.core.a2a.models import A2AMessage, MessageType
+from app.core.agent_core import AgentCore
 
 
 class TeacherAgent(AgentCore, A2AAgentMixin):
     """
     Teacher Agent with A2A protocol support.
-    
+
     Handles:
     - Direct replies to chat
     - Evaluation of student proposals via A2A messages
@@ -30,14 +35,12 @@ class TeacherAgent(AgentCore, A2AAgentMixin):
         # 2. Probability check
         return random.random() < ai_frequency
 
-    async def generate_reply(
-        self, message_history: list, tools: Optional[list] = None
-    ) -> Union[str, list]:
+    async def generate_reply(self, message_history: list, tools: list | None = None) -> str | list:
         # Construct context handling both Message and ThreadMessage
         context_lines = []
         for m in message_history[-10:]:
-            sender = getattr(m, 'sender_id', getattr(m, 'role', 'unknown'))
-            content = getattr(m, 'content', '')
+            sender = getattr(m, "sender_id", getattr(m, "role", "unknown"))
+            content = getattr(m, "content", "")
             context_lines.append(f"{sender}: {content}")
         context = "\n".join(context_lines)
         prompt = f"""
@@ -47,20 +50,20 @@ class TeacherAgent(AgentCore, A2AAgentMixin):
         System Instruction: {self.system_prompt}
 
         Task: You are the teacher. Provide guidance, answer questions, or facilitate discussion.
-        
+
         [Data Formats for manage_artifact]
         If you need to create a document or process, use the following JSON structures:
-        
+
         1. Docs (Rich Text):
            Use a simplified Tiptap JSON structure.
            Example: {{"type": "doc", "content": [{{"type": "paragraph", "content": [{{"type": "text", "text": "Your text here"}}]}}]}}
            Headings: {{"type": "heading", "attrs": {{"level": 1}}, "content": [{{"type": "text", "text": "Title"}}]}}
-        
+
         2. Processes (Workflows):
            Use Vue Flow node/edge structure.
            Nodes: {{"id": "1", "type": "default", "data": {{"label": "Step Name"}}, "position": {{"x": 0, "y": 0}}}}
            Edges: {{"id": "e1-2", "source": "1", "target": "2"}}
-           
+
         Response:
         """
         return await self.run(prompt, tools=tools)
@@ -83,10 +86,10 @@ class TeacherAgent(AgentCore, A2AAgentMixin):
         response = await self.run(prompt)
         return "YES" in str(response).upper()
 
-    async def receive_message(self, msg: A2AMessage) -> Optional[A2AMessage]:
+    async def receive_message(self, msg: A2AMessage) -> A2AMessage | None:
         """
         A2A Protocol: Handle incoming messages from other agents.
-        
+
         Supported message types:
         - EVALUATION_REQUEST: Evaluate a student's proposal
         """
@@ -94,39 +97,39 @@ class TeacherAgent(AgentCore, A2AAgentMixin):
             proposal = msg.content
             context = msg.metadata.get("context", "")
             approved = await self.evaluate_student_proposal(proposal, context)
-            
+
             return msg.reply(
                 type=MessageType.EVALUATION_RESULT,
                 content={"approved": approved, "proposal": proposal},
                 sender_id=AgentId.TEACHER,
             )
-        
+
         return None
-    
-    async def handle_workflow_step(self, context: "WorkflowContext") -> Optional[A2AMessage]:
+
+    async def handle_workflow_step(self, context: WorkflowContext) -> A2AMessage | None:
         """
         Adapter method for GraphExecutor.
         Takes full WorkflowContext, returns A2AMessage.
         """
         from app.core.a2a.models import MessageType
-        
+
         # Check previous message in context history effectively?
         # GraphExecutor passes context.last_result usually.
         # But for Teacher, we expect an EVALUATION_REQUEST.
-        
+
         last_msg = context.last_result
         if not last_msg or last_msg.type != MessageType.EVALUATION_REQUEST:
             # Teacher might be the start? No, usually after Student.
             # If start, last_msg is None.
             return None
-            
+
         return await self.receive_message(last_msg)
 
 
 class StudentAgent(AgentCore, A2AAgentMixin):
     """
     Student Agent with A2A protocol support.
-    
+
     Handles:
     - Generating proposals for the chat
     - Processing evaluation results via A2A messages
@@ -141,8 +144,8 @@ class StudentAgent(AgentCore, A2AAgentMixin):
     async def generate_proposal(self, message_history: list) -> str:
         context_lines = []
         for m in message_history[-10:]:
-            sender = getattr(m, 'sender_id', getattr(m, 'role', 'unknown'))
-            content = getattr(m, 'content', '')
+            sender = getattr(m, "sender_id", getattr(m, "role", "unknown"))
+            content = getattr(m, "content", "")
             context_lines.append(f"{sender}: {content}")
         context = "\n".join(context_lines)
         prompt = f"""
@@ -156,10 +159,10 @@ class StudentAgent(AgentCore, A2AAgentMixin):
         """
         return str(await self.run(prompt))
 
-    async def receive_message(self, msg: A2AMessage) -> Optional[A2AMessage]:
+    async def receive_message(self, msg: A2AMessage) -> A2AMessage | None:
         """
         A2A Protocol: Handle incoming messages from other agents.
-        
+
         Supported message types:
         - EVALUATION_RESULT: Process teacher's approval/rejection
         """
@@ -174,43 +177,43 @@ class StudentAgent(AgentCore, A2AAgentMixin):
                     recipient_id=AgentId.BROADCAST,
                 )
             # Rejected: return None (no broadcast)
-        
+
         return None
 
-    async def handle_workflow_step(self, context: "WorkflowContext") -> Optional[A2AMessage]:
+    async def handle_workflow_step(self, context: WorkflowContext) -> A2AMessage | None:
         """
         Adapter method for GraphExecutor.
         """
-        from app.core.a2a.models import MessageType, A2AMessage
         from app.core.a2a.base import AgentId
-        
+        from app.core.a2a.models import A2AMessage, MessageType
+
         last_msg = context.last_result
-        
+
         # CASE 1: Student is generating proposal (Start of flow)
         if not last_msg:
             # We need to construct a message
             # Context data might have 'proposal_prompt' or similar
             # Or we look at chat history if passed in context.data
-            
+
             # Use 'message_history' from context.data if available, else empty
             history = context.data.get("message_history", [])
-            
+
             # Check for override (e.g. from user retry or direct input)
             if context.data.get("proposal_override"):
                 proposal_text = context.data.get("proposal_override")
             else:
                 proposal_text = await self.generate_proposal(history)
-            
+
             return A2AMessage(
                 type=MessageType.EVALUATION_REQUEST,
                 sender_id=AgentId.STUDENT,
                 recipient_id=AgentId.TEACHER,
-                content=proposal_text, 
-                metadata=context.data
+                content=proposal_text,
+                metadata=context.data,
             )
-            
+
         # CASE 2: Student receiving evaluation result
         if last_msg.type == MessageType.EVALUATION_RESULT:
             return await self.receive_message(last_msg)
-            
+
         return None

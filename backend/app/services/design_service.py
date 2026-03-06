@@ -1,5 +1,4 @@
 from typing import Any, Optional
-from uuid import UUID
 
 from fastapi import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -18,7 +17,7 @@ class DesignAgentService:
     async def generate_prompt(
         self,
         request: Any,  # Typed as DesignRequest in API, but Any here to avoid circular dep if needed, or better define DTO
-        user: User
+        user: User,
     ) -> str:
         # 1. Get System Prompt for Design Agent
         if request.custom_system_prompt:
@@ -33,17 +32,14 @@ class DesignAgentService:
         api_key, provider, model = params
 
         if not api_key:
-             raise HTTPException(
+            raise HTTPException(
                 status_code=400,
                 detail="API Key is required. Please set it in the Design Agent settings.",
             )
 
         # 3. Initialize Agent and Generate
         agent = DesignAgent(
-            provider=provider, 
-            api_key=api_key, 
-            system_prompt=sys_prompt,
-            model=model
+            provider=provider, api_key=api_key, system_prompt=sys_prompt, model=model
         )
 
         try:
@@ -57,7 +53,9 @@ class DesignAgentService:
                 raise HTTPException(status_code=400, detail="Invalid API Key provided.") from e
             raise HTTPException(status_code=500, detail=str(e)) from e
 
-    async def _resolve_agent_params(self, request: Any, user: User) -> tuple[Optional[str], str, Optional[str]]:
+    async def _resolve_agent_params(
+        self, request: Any, user: User
+    ) -> tuple[Optional[str], str, Optional[str]]:
         """
         Resolve API Key, Provider, and Model based on request and configuration hierarchy.
         Returns: (api_key, provider, model)
@@ -66,7 +64,7 @@ class DesignAgentService:
             return (
                 request.custom_api_key,
                 request.custom_provider or request.provider,
-                request.custom_model
+                request.custom_model,
             )
 
         api_key = request.api_key
@@ -74,9 +72,13 @@ class DesignAgentService:
         model = None
 
         if not api_key:
-            if getattr(request, 'project_id', None):
-                project_configs = await self.config_service.get_project_agent_configs(request.project_id, user)
-                design_config = next((c for c in project_configs if c.type == AgentType.DESIGN), None)
+            if getattr(request, "project_id", None):
+                project_configs = await self.config_service.get_project_agent_configs(
+                    request.project_id, user
+                )
+                design_config = next(
+                    (c for c in project_configs if c.type == AgentType.DESIGN), None
+                )
                 if design_config:
                     api_key = design_config.encrypted_api_key
                     if not provider and design_config.model_provider:
@@ -92,5 +94,5 @@ class DesignAgentService:
                         provider = sys_config.model_provider
                     if not model and sys_config.model:
                         model = sys_config.model
-        
+
         return api_key, provider, model

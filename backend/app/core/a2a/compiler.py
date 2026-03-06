@@ -19,15 +19,13 @@ Design choices
 
 from __future__ import annotations
 
-import operator
+from typing import Any
+
 import structlog
-from typing import Annotated, Any, Dict, List, Optional, Sequence
-from uuid import UUID
+from langgraph.graph import StateGraph
 
-from langgraph.graph import END, StateGraph
-
-from app.core.a2a.models import A2AMessage, MessageType
-from app.models.workflow import WorkflowEdgeType, WorkflowNodeType
+from app.core.a2a.models import MessageType
+from app.models.workflow import WorkflowNodeType
 
 logger = structlog.get_logger()
 
@@ -35,6 +33,7 @@ logger = structlog.get_logger()
 # ---------------------------------------------------------------------------
 # Shared state that flows through the graph
 # ---------------------------------------------------------------------------
+
 
 class MultiAgentState(dict):
     """
@@ -48,7 +47,6 @@ class MultiAgentState(dict):
         _cycle_count:       Internal counter for the cycle limiter.
         _active_node_id:    ID of the currently executing node (for tracing).
     """
-    pass
 
 
 def _default_state() -> MultiAgentState:
@@ -65,6 +63,7 @@ def _default_state() -> MultiAgentState:
 # ---------------------------------------------------------------------------
 # WorkflowCompiler
 # ---------------------------------------------------------------------------
+
 
 class WorkflowCompiler:
     """
@@ -88,10 +87,10 @@ class WorkflowCompiler:
 
     def compile(
         self,
-        graph_data: Dict[str, Any],
-        agent_registry: Dict[str, Any],
+        graph_data: dict[str, Any],
+        agent_registry: dict[str, Any],
         *,
-        action_registry: Optional[Dict[str, Any]] = None,
+        action_registry: dict[str, Any] | None = None,
         checkpointer: Any = None,
     ) -> Any:
         """
@@ -112,15 +111,15 @@ class WorkflowCompiler:
         -------
         A compiled LangGraph ready for ``ainvoke`` / ``astream``.
         """
-        nodes: List[dict] = graph_data.get("nodes", [])
-        edges: List[dict] = graph_data.get("edges", [])
+        nodes: list[dict] = graph_data.get("nodes", [])
+        edges: list[dict] = graph_data.get("edges", [])
         action_registry = action_registry or {}
 
         builder = StateGraph(dict)  # type: ignore
 
         # Phase 1 – Register nodes ------------------------------------------
-        start_node_id: Optional[str] = None
-        end_node_ids: List[str] = []
+        start_node_id: str | None = None
+        end_node_ids: list[str] = []
 
         for node in nodes:
             nid = node["id"]
@@ -162,7 +161,7 @@ class WorkflowCompiler:
 
         # Phase 2 – Register edges ------------------------------------------
         # Group edges by source to detect conditional routing
-        edges_by_source: Dict[str, List[dict]] = {}
+        edges_by_source: dict[str, list[dict]] = {}
         for edge in edges:
             src = edge["source"]
             edges_by_source.setdefault(src, []).append(edge)
@@ -253,15 +252,19 @@ class WorkflowCompiler:
     @staticmethod
     def _make_passthrough(node_id: str):
         """A no-op node that just passes state through (START, MERGE)."""
+
         async def _passthrough(state: dict) -> dict:
             return {"_active_node_id": node_id}
+
         return _passthrough
 
     @staticmethod
     def _make_end_node(node_id: str):
         """Terminal node – marks the run as complete."""
+
         async def _end(state: dict) -> dict:
             return {"_active_node_id": node_id}
+
         return _end
 
     @staticmethod
@@ -274,6 +277,7 @@ class WorkflowCompiler:
 
         Returns a partial update dict — never mutates ``state`` in-place.
         """
+
         async def _agent(state: dict) -> dict:
             updates: dict = {"_active_node_id": node_id}
 
@@ -292,7 +296,7 @@ class WorkflowCompiler:
                     "sender_id": node_id,
                     "content": f"[System] Cycle limit ({max_cycles}) exceeded. Workflow terminated.",
                 }
-                updates["messages"] = list(state.get("messages", [])) + [term_msg]
+                updates["messages"] = [*list(state.get("messages", [])), term_msg]
                 updates["_cycle_count"] = cycle_count + 1
                 return updates
 
@@ -300,8 +304,13 @@ class WorkflowCompiler:
                 agent_id = node_config.get("config", {}).get("agent_id", "unknown")
                 logger.warning("workflow_agent_node_no_agent", node_id=node_id, agent_id=agent_id)
                 from langchain_core.messages import SystemMessage
+
                 return {
-                    "messages": [SystemMessage(content=f"[Agent '{agent_id}' not found in registry. Skipping node '{node_id}'.]")],
+                    "messages": [
+                        SystemMessage(
+                            content=f"[Agent '{agent_id}' not found in registry. Skipping node '{node_id}'.]"
+                        )
+                    ],
                     "_active_node_id": node_id,
                 }
 
@@ -337,7 +346,7 @@ class WorkflowCompiler:
                 "sender_id": node_id,
                 "content": str(response),
             }
-            updates["messages"] = list(state.get("messages", [])) + [new_msg]
+            updates["messages"] = [*list(state.get("messages", [])), new_msg]
 
             # Cycle limiter
             updates["_cycle_count"] = cycle_count + 1
@@ -357,6 +366,7 @@ class WorkflowCompiler:
         Includes a global cycle guard: if ``_cycle_count >= max_cycles``,
         forces ``_route_result = "exceeded"`` regardless of condition type.
         """
+
         async def _router(state: dict) -> dict:
             updates: dict = {"_active_node_id": node_id}
 
@@ -388,13 +398,16 @@ class WorkflowCompiler:
                 updates["_route_result"] = "default"
 
             return updates
+
         return _router
 
     @staticmethod
     def _make_route_fn(node_id: str):
         """Return a callable that extracts the route result from state."""
+
         def _route(state: dict) -> str:
             return state.get("_route_result", "default")
+
         return _route
 
     @staticmethod
@@ -404,17 +417,20 @@ class WorkflowCompiler:
         Returns a partial update dict. The handler receives state for
         reading but the node itself only updates ``_active_node_id``.
         """
+
         async def _action(state: dict) -> dict:
             if handler:
                 await handler(state)
             else:
                 logger.warning("workflow_action_no_handler", node_id=node_id)
             return {"_active_node_id": node_id}
+
         return _action
 
     @staticmethod
     def _make_tool_node(node_id: str, node_config: dict):
         """Tool node – invokes an external tool via action_registry lookup."""
+
         async def _tool(state: dict) -> dict:
             tool_name = node_config.get("config", {}).get("tool_name", "unknown")
             tool_params = node_config.get("config", {}).get("params", {})
@@ -429,14 +445,20 @@ class WorkflowCompiler:
                 try:
                     result_content = await tool_fn(state, **tool_params)
                 except Exception as e:
-                    logger.error("workflow_tool_node_error", node_id=node_id, tool=tool_name, error=str(e))
-                    result_content = f"[Tool '{tool_name}' error: {str(e)}]"
+                    logger.error(
+                        "workflow_tool_node_error", node_id=node_id, tool=tool_name, error=str(e)
+                    )
+                    result_content = f"[Tool '{tool_name}' error: {e!s}]"
 
             from langchain_core.messages import ToolMessage
+
             return {
-                "messages": [ToolMessage(content=str(result_content), tool_call_id=node_id, name=tool_name)],
+                "messages": [
+                    ToolMessage(content=str(result_content), tool_call_id=node_id, name=tool_name)
+                ],
                 "_active_node_id": node_id,
             }
+
         return _tool
 
     # ------------------------------------------------------------------
@@ -444,7 +466,7 @@ class WorkflowCompiler:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _find_node(nodes: List[dict], node_id: str) -> Optional[dict]:
+    def _find_node(nodes: list[dict], node_id: str) -> dict | None:
         """Find a node dict by ID."""
         for n in nodes:
             if n["id"] == node_id:

@@ -12,19 +12,17 @@ import structlog
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.models.agent_config import AgentConfig
 from app.models.artifact import Artifact
 from app.models.graph_schemas import EntityNode, EntityRelationship, GraphChunk
 from app.models.message import Message
 from app.models.room import RoomAgentLink, UserRoomLink
-from app.models.agent_config import AgentConfig
 from app.models.user import User
 
 logger = structlog.get_logger()
 
 
-async def extract_structural_facts(
-    session: AsyncSession, room_id: str
-) -> GraphChunk:
+async def extract_structural_facts(session: AsyncSession, room_id: str) -> GraphChunk:
     """
     Query DB to derive nodes/edges from room membership, agents, and artifacts.
 
@@ -127,7 +125,9 @@ async def extract_structural_facts(
     if len(sender_ids) > 1:
         # Resolve sender IDs to names
         sender_names: List[str] = []
-        for (sid,) in sender_ids if isinstance(sender_ids[0], tuple) else [(s,) for s in sender_ids]:
+        for (sid,) in (
+            sender_ids if isinstance(sender_ids[0], tuple) else [(s,) for s in sender_ids]
+        ):
             user = await session.get(User, sid)
             if user:
                 sender_names.append(user.full_name or user.username)

@@ -11,7 +11,6 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.api_v1.api import api_router
 from app.core.config import settings
 from app.core.logging import setup_logging
-from app.core.room_monitor import room_monitor
 from app.core.socket_manager import manager
 
 # Setup Logging
@@ -82,6 +81,7 @@ async def lifespan(app: FastAPI):
         logger.warning("shutdown_arq_error", error=str(e))
     try:
         from app.core.cache import cache
+
         await cache.close()
     except Exception as e:
         logger.warning("shutdown_cache_error", error=str(e))
@@ -90,6 +90,7 @@ async def lifespan(app: FastAPI):
     try:
         from app.core.neo4j_client import neo4j_client
         from app.core.qdrant_client import vector_store
+
         await neo4j_client.close()
         await vector_store.close()
     except Exception as e:
@@ -129,6 +130,3 @@ async def root() -> dict[str, str]:
 
 # Deprecated: Startup/Shutdown handle by lifespan
 # @app.on_event("startup") ...
-
-
-

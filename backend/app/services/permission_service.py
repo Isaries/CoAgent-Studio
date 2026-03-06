@@ -3,11 +3,13 @@ from typing import Any, Literal, Union
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.models.space import Space, UserSpaceLink
 from app.models.room import Room
+from app.models.space import Space, UserSpaceLink
 from app.models.user import User, UserRole
 
-Action = Literal["create", "read", "update", "delete", "assign", "list_users", "manage_users", "manage_config"]
+Action = Literal[
+    "create", "read", "update", "delete", "assign", "list_users", "manage_users", "manage_config"
+]
 Resource = Union[Space, Room, User, None]
 
 
@@ -106,7 +108,6 @@ class PermissionService:
             if action == "manage_config":
                 return False
             return action == "read"
-
 
         return False
 

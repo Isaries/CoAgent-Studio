@@ -45,9 +45,7 @@ def is_schedule_allowed_now(schedule_config: Optional[Dict[str, Any]]) -> bool:
         return not matched  # Must NOT match any rule to be allowed
 
 
-def _any_rule_matches(
-    rules: List[Dict], date_str: str, time_str: str, weekday: int
-) -> bool:
+def _any_rule_matches(rules: List[Dict], date_str: str, time_str: str, weekday: int) -> bool:
     """Check if any rule matches the current date/time."""
     for rule in rules:
         rule_type = rule.get("type")
@@ -78,6 +76,7 @@ def _any_rule_matches(
 # ============================================================
 # Legacy Compatibility
 # ============================================================
+
 
 def _legacy_check(schedule: Dict) -> bool:
     """Check using the old { specific: [...], general: {...} } format."""

@@ -17,6 +17,7 @@ from app.services.thread_service import ThreadService
 
 router = APIRouter()
 
+
 # --- Schemas ---
 class ChatRequest(BaseModel):
     message: str
@@ -47,6 +48,7 @@ async def generate_stateless_response(
 
 
 # --- Thread Management ---
+
 
 @router.get("/", response_model=List[AgentThreadRead])
 async def list_threads(

@@ -19,19 +19,24 @@ from app.services.room_service import RoomService
 
 
 def _make_user(**kwargs) -> User:
-    defaults = dict(id=uuid4(), email="user@example.com", role=UserRole.TEACHER, is_active=True)
+    defaults = {
+        "id": uuid4(),
+        "email": "user@example.com",
+        "role": UserRole.TEACHER,
+        "is_active": True,
+    }
     defaults.update(kwargs)
     return User(**defaults)
 
 
 def _make_space(owner: User, **kwargs) -> Space:
-    defaults = dict(id=uuid4(), title="Space", owner_id=owner.id)
+    defaults = {"id": uuid4(), "title": "Space", "owner_id": owner.id}
     defaults.update(kwargs)
     return Space(**defaults)
 
 
 def _make_room(space: Space, **kwargs) -> Room:
-    defaults = dict(id=uuid4(), name="Room", space_id=space.id)
+    defaults = {"id": uuid4(), "name": "Room", "space_id": space.id}
     defaults.update(kwargs)
     return Room(**defaults)
 

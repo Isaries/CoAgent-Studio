@@ -55,8 +55,8 @@ async def _setup_db_schema():
     """
     engine = create_async_engine(TEST_DATABASE_URL, echo=False, future=True)
     async with engine.begin() as conn:
-        from sqlmodel import SQLModel
         from sqlalchemy import text
+        from sqlmodel import SQLModel
 
         # Use CASCADE to handle FK constraints between tables
         await conn.execute(text("DROP SCHEMA public CASCADE"))

@@ -23,12 +23,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.models.space import Space
-from app.models.user import UserRole
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _create_space(db_session: AsyncSession, owner_id) -> Space:
     """Seed a Space owned by owner_id and return it."""
@@ -50,6 +49,7 @@ def _announcement_payload(space_id: str) -> dict:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio()
 async def test_create_announcement(
@@ -121,9 +121,7 @@ async def test_get_announcement(
     assert create_resp.status_code == 200
     announcement_id = create_resp.json()["id"]
 
-    response = await superuser_client.get(
-        f"{settings.API_V1_STR}/announcements/{announcement_id}"
-    )
+    response = await superuser_client.get(f"{settings.API_V1_STR}/announcements/{announcement_id}")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == announcement_id
@@ -192,9 +190,7 @@ async def test_delete_announcement_as_owner(
     )
     assert delete_resp.status_code == 204
 
-    get_resp = await teacher_client.get(
-        f"{settings.API_V1_STR}/announcements/{announcement_id}"
-    )
+    get_resp = await teacher_client.get(f"{settings.API_V1_STR}/announcements/{announcement_id}")
     assert get_resp.status_code == 404
 
 
@@ -227,6 +223,7 @@ async def test_non_author_cannot_update_announcement(
 
     # Seed the announcement directly into the DB (avoid auth override conflict)
     from app.models.announcement import Announcement
+
     announcement = Announcement(
         title="Important Notice",
         content="Please read the updated syllabus.",

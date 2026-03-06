@@ -7,7 +7,6 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from .agent_config import AgentConfig
     from .organization import Organization
-    from .user import User
 
 
 class UserProjectLink(SQLModel, table=True):
@@ -28,7 +27,7 @@ class Project(ProjectBase, table=True):
 
     # Relationships
     organization: "Organization" = Relationship(back_populates="projects")
-    
+
     agent_configs: List["AgentConfig"] = Relationship(
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

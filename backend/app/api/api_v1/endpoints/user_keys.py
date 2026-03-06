@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -9,7 +9,7 @@ from app.api import deps
 from app.core.audit_service import log_change
 from app.core.security import mask_api_key
 from app.models.user import User
-from app.models.user_api_key import UserAPIKey, UserAPIKeyRead, UserAPIKeyCreate
+from app.models.user_api_key import UserAPIKey, UserAPIKeyCreate, UserAPIKeyRead
 from app.services.user_key_service import UserKeyService
 
 router = APIRouter()
@@ -25,7 +25,7 @@ async def list_user_keys(
     """
     service = UserKeyService(session)
     keys = await service.list_keys(current_user.id)
-    
+
     # Mask keys for response
     response_data = []
     for k in keys:
@@ -39,10 +39,10 @@ async def list_user_keys(
             schedule_config=k.schedule_config,
             created_at=k.created_at,
             updated_at=k.updated_at,
-            masked_key=mask_api_key(k.encrypted_key)
+            masked_key=mask_api_key(k.encrypted_key),
         )
         response_data.append(read_model)
-    
+
     return response_data
 
 
@@ -60,13 +60,14 @@ async def create_user_key(
 
     service = UserKeyService(session)
     new_key = await service.create_key(data, current_user.id)
-    
+
     # Return with masked key
-    from app.core.security import mask_api_key
     # We have the raw key in `data.api_key`, use that to mask for response
     # to avoid decrypt overhead.
-    masked = f"{data.api_key[:3]}...{data.api_key[-4:]}" # Simple local masking for immediate response
-    
+    masked = (
+        f"{data.api_key[:3]}...{data.api_key[-4:]}"  # Simple local masking for immediate response
+    )
+
     return UserAPIKeyRead(
         user_id=new_key.user_id,
         provider=new_key.provider,
@@ -75,7 +76,7 @@ async def create_user_key(
         id=new_key.id,
         created_at=new_key.created_at,
         updated_at=new_key.updated_at,
-        masked_key=masked
+        masked_key=masked,
     )
 
 
@@ -95,6 +96,7 @@ async def delete_user_key(
 # ============================================================
 # Key Scheduling & Availability Controls
 # ============================================================
+
 
 class KeyScheduleUpdate(BaseModel):
     is_active: Optional[bool] = None
@@ -121,6 +123,7 @@ async def update_key_schedule(
     }
 
     from datetime import datetime, timezone
+
     if data.is_active is not None:
         key.is_active = data.is_active
     if data.schedule_config is not None:

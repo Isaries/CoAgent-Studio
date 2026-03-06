@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, cast
 
 from google import genai
 from google.genai import types
-from openai import NOT_GIVEN, AsyncOpenAI, RateLimitError, AuthenticationError
+from openai import NOT_GIVEN, AsyncOpenAI, AuthenticationError, RateLimitError
 from openai.types.chat import ChatCompletionToolParam
 
 from app.core.a2a.resilience import with_resilience
@@ -51,7 +51,7 @@ class LLMService(ABC):
 
 class BaseLLMService(LLMService):
     """Base implementation handling fallback logic."""
-    
+
     async def generate_response(
         self,
         prompt: str,
@@ -67,10 +67,10 @@ class BaseLLMService(LLMService):
             keys.append(api_key)
         if api_keys:
             keys.extend(api_keys)
-        
+
         # Deduplicate while preserving order
         keys = list(dict.fromkeys(keys))
-        
+
         if not keys:
             raise ValueError("No API key provided")
 
@@ -82,7 +82,7 @@ class BaseLLMService(LLMService):
                 )
             except (RateLimitError, AuthenticationError) as e:
                 # Catch strictly 429/401 related errors for fallback
-                logger.warning(f"Connection failed with key {i+1}/{len(keys)}: {str(e)}")
+                logger.warning(f"Connection failed with key {i+1}/{len(keys)}: {e!s}")
                 last_error = e
                 continue
             except Exception as e:
@@ -92,10 +92,10 @@ class BaseLLMService(LLMService):
                 # If we want to be robust, we treat almost any "call failed" as a reason to try next key?
                 # But if prompt is invalid, next key won't help.
                 # For safety, let's catch robustly.
-                logger.warning(f"Error with key {i+1}: {str(e)}")
+                logger.warning(f"Error with key {i+1}: {e!s}")
                 last_error = e
                 continue
-        
+
         raise AllKeysExhaustedError(last_error)
 
     @abstractmethod
@@ -135,10 +135,10 @@ class GeminiService(BaseLLMService):
 
         config = types.GenerateContentConfig(tools=gemini_tools, system_instruction=system_prompt)
 
-        # Gemini SDK doesn't use the standard OpenAI exceptions naturally, 
+        # Gemini SDK doesn't use the standard OpenAI exceptions naturally,
         # but resilient wrapper might normalize or we catch raw exceptions.
         # We allow exceptions to propagate to BaseLLMService loop.
-        
+
         async with genai.Client(api_key=api_key) as client:
             response = await client.aio.models.generate_content(
                 model=model_name, contents=prompt, config=config

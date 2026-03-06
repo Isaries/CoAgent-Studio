@@ -20,7 +20,9 @@ class AuditLog(SQLModel, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
 
     # What was changed
-    entity_type: str = Field(index=True)  # "api_key", "agent", "room_agent_link", "agent_room_state"
+    entity_type: str = Field(
+        index=True
+    )  # "api_key", "agent", "room_agent_link", "agent_room_state"
     entity_id: str = Field(index=True)  # UUID string of the modified entity
 
     # What action was performed
@@ -32,16 +34,15 @@ class AuditLog(SQLModel, table=True):
     actor_type: str = Field(default="user")  # "user", "agent", "system"
 
     # Change details
-    old_value: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
-    new_value: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
+    old_value: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
+    new_value: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
 
     # Extra context
-    extra_metadata: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSONB)
-    )
+    extra_metadata: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
 
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True))
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(
+            DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+        ),
+    )

@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -81,21 +81,25 @@ class SpaceService:
             or space.owner_id == current_user.id
         )
         if not is_admin_owner:
-            link = await self.repo.get_user_link(self.session, user_id=current_user.id, space_id=space.id)
+            link = await self.repo.get_user_link(
+                self.session, user_id=current_user.id, space_id=space.id
+            )
             if not link or link.role != "ta":
                 raise HTTPException(status_code=403, detail="Not enough permissions")
 
         user_to_enroll = None
         if user_id:
-             # In a real 3-tier we'd use UserRepo, but since it's simple we use session.get here or basic SQL
-             user_to_enroll = await self.session.get(User, user_id)
+            # In a real 3-tier we'd use UserRepo, but since it's simple we use session.get here or basic SQL
+            user_to_enroll = await self.session.get(User, user_id)
         elif email:
             user_to_enroll = await self.repo.get_user_by_email(self.session, email=email)
 
         if not user_to_enroll:
             raise HTTPException(status_code=404, detail="User not found")
 
-        link = await self.repo.get_user_link(self.session, user_id=user_to_enroll.id, space_id=space_id)
+        link = await self.repo.get_user_link(
+            self.session, user_id=user_to_enroll.id, space_id=space_id
+        )
         if link:
             return "User already enrolled"
 
@@ -104,7 +108,9 @@ class SpaceService:
         )
         return f"User {user_to_enroll.full_name} enrolled as {role}"
 
-    async def get_members(self, space_id: UUID, current_user: User) -> Tuple[List[Tuple[User, str]], UUID]:
+    async def get_members(
+        self, space_id: UUID, current_user: User
+    ) -> Tuple[List[Tuple[User, str]], UUID]:
         space = await self.repo.get(self.session, id=space_id)
         if not space:
             raise HTTPException(status_code=404, detail="Space not found")
@@ -114,7 +120,9 @@ class SpaceService:
             or space.owner_id == current_user.id
         )
         if not is_admin_owner:
-            link = await self.repo.get_user_link(self.session, user_id=current_user.id, space_id=space_id)
+            link = await self.repo.get_user_link(
+                self.session, user_id=current_user.id, space_id=space_id
+            )
             if not link:
                 raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -134,12 +142,16 @@ class SpaceService:
         )
 
         if not is_admin_owner:
-            link = await self.repo.get_user_link(self.session, user_id=current_user.id, space_id=space_id)
+            link = await self.repo.get_user_link(
+                self.session, user_id=current_user.id, space_id=space_id
+            )
             if not link or link.role != "ta":
                 raise HTTPException(status_code=403, detail="Not enough permissions")
             if role in ["ta", "space_owner"]:
                 raise HTTPException(status_code=403, detail="TAs cannot promote to TA/Space Owner")
-            target_link = await self.repo.get_user_link(self.session, user_id=user_id, space_id=space_id)
+            target_link = await self.repo.get_user_link(
+                self.session, user_id=user_id, space_id=space_id
+            )
             if target_link and target_link.role in ["ta", "space_owner"]:
                 raise HTTPException(status_code=403, detail="TAs cannot modify TAs/Space Owners")
 
@@ -167,10 +179,14 @@ class SpaceService:
         )
 
         if not is_admin_owner:
-            link = await self.repo.get_user_link(self.session, user_id=current_user.id, space_id=space_id)
+            link = await self.repo.get_user_link(
+                self.session, user_id=current_user.id, space_id=space_id
+            )
             if not link or link.role != "ta":
                 raise HTTPException(status_code=403, detail="Not enough permissions")
-            target_link = await self.repo.get_user_link(self.session, user_id=user_id, space_id=space_id)
+            target_link = await self.repo.get_user_link(
+                self.session, user_id=user_id, space_id=space_id
+            )
             if target_link and target_link.role in ["ta", "space_owner"]:
                 raise HTTPException(status_code=403, detail="TAs cannot remove TAs/Space Owners")
 

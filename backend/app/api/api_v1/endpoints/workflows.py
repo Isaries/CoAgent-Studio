@@ -18,21 +18,19 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-import uuid
-
 from app.api import deps
 from app.api.deps import require_role
 from app.core.db import get_session
+from app.models.room import Room
 from app.models.user import User, UserRole
 from app.models.workflow import (
     Workflow,
     WorkflowCreate,
     WorkflowRead,
-    WorkflowUpdate,
     WorkflowRun,
     WorkflowRunRead,
+    WorkflowUpdate,
 )
-from app.models.room import Room
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -41,6 +39,7 @@ router = APIRouter()
 # ===================================================================
 # Global Workflow CRUD  (/workflows)
 # ===================================================================
+
 
 @router.get(
     "/workflows",
@@ -163,8 +162,9 @@ async def execute_workflow_endpoint(
 
         {"type": "user_message", "content": "Hello, analyze this..."}
     """
-    from app.services.execution.agent_execution_service import execute_workflow
     import uuid as _uuid
+
+    from app.services.execution.agent_execution_service import execute_workflow
 
     if payload is None:
         payload = {}
@@ -173,12 +173,11 @@ async def execute_workflow_endpoint(
     trigger_payload = {k: v for k, v in payload.items() if k != "session_id"}
 
     try:
-        from app.core.config import settings
         import redis.asyncio as aioredis
 
-        redis_conn = aioredis.from_url(
-            f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}"
-        )
+        from app.core.config import settings
+
+        redis_conn = aioredis.from_url(f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}")
         try:
             await execute_workflow(session, redis_conn, workflow_id, session_id, trigger_payload)
         finally:
@@ -186,12 +185,13 @@ async def execute_workflow_endpoint(
         return {"ok": True, "session_id": session_id}
     except Exception as e:
         logger.error("workflow_execute_error", error=str(e))
-        raise HTTPException(status_code=500, detail="Workflow execution failed")
+        raise HTTPException(status_code=500, detail="Workflow execution failed") from e
 
 
 # ===================================================================
 # WorkflowRun endpoints (global)
 # ===================================================================
+
 
 @router.get(
     "/workflows/{workflow_id}/runs",
@@ -297,6 +297,7 @@ async def resume_workflow_run(
 # Legacy Room-scoped endpoints  (/rooms/{room_id}/workflow)
 # These resolve the Room's attached_workflow_id transparently.
 # ===================================================================
+
 
 @router.get(
     "/rooms/{room_id}/workflow",

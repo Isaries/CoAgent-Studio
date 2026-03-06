@@ -5,9 +5,7 @@ from uuid import UUID, uuid4
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from .agent_config import AgentConfig
-    from .project import Project
-    from .user import User
+    pass
 
 
 class AgentThreadBase(SQLModel):
@@ -26,9 +24,13 @@ class AgentThread(AgentThreadBase, table=True):
     # Relationships
     messages: List["ThreadMessage"] = Relationship(
         back_populates="thread",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan", "order_by": "ThreadMessage.created_at"}
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "order_by": "ThreadMessage.created_at",
+        },
     )
-    
+
+
 class AgentThreadCreate(AgentThreadBase):
     project_id: UUID
     agent_id: UUID
@@ -51,7 +53,9 @@ class AgentThreadUpdate(SQLModel):
 class ThreadMessageBase(SQLModel):
     role: str = Field(description="Role of the sender (user, assistant, tool, system)")
     content: str
-    metadata_json: Optional[str] = Field(default=None, description="Additional data like tool calls")
+    metadata_json: Optional[str] = Field(
+        default=None, description="Additional data like tool calls"
+    )
 
 
 class ThreadMessage(ThreadMessageBase, table=True):

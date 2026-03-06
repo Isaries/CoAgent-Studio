@@ -3,18 +3,19 @@ from datetime import datetime, timezone
 from typing import Any, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.deps import get_current_user, get_session, require_role
+from app.models.knowledge_base import KBCreate, KBRead, KBUpdate, KnowledgeBase
 from app.models.user import User, UserRole
-from app.models.knowledge_base import KnowledgeBase, KBCreate, KBRead, KBUpdate
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
 
 @router.get("/", response_model=List[KBRead])
 async def list_knowledge_bases(
@@ -31,6 +32,7 @@ async def list_knowledge_bases(
     result = await session.exec(query)
     return result.all()
 
+
 @router.post("/", response_model=KBRead)
 async def create_knowledge_base(
     kb_in: KBCreate,
@@ -43,6 +45,7 @@ async def create_knowledge_base(
     await session.refresh(kb)
     return kb
 
+
 @router.get("/{kb_id}", response_model=KBRead)
 async def get_knowledge_base(
     kb_id: UUID,
@@ -53,6 +56,7 @@ async def get_knowledge_base(
     if not kb:
         raise HTTPException(status_code=404, detail="Knowledge base not found")
     return kb
+
 
 @router.put("/{kb_id}", response_model=KBRead)
 async def update_knowledge_base(
@@ -72,6 +76,7 @@ async def update_knowledge_base(
     await session.refresh(kb)
     return kb
 
+
 @router.delete("/{kb_id}")
 async def delete_knowledge_base(
     kb_id: UUID,
@@ -90,8 +95,10 @@ async def delete_knowledge_base(
 # Build, Status, Merge, Query, Documents
 # ============================================================
 
+
 class MergeRequest(BaseModel):
     source_kb_id: str
+
 
 class QueryRequest(BaseModel):
     question: str
@@ -117,9 +124,10 @@ async def build_knowledge_base(
 
     # Attempt to enqueue graphrag build via ARQ
     try:
-        from app.core.config import settings
         from arq import create_pool
         from arq.connections import RedisSettings
+
+        from app.core.config import settings
 
         redis_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
         await redis_pool.enqueue_job(
@@ -199,11 +207,14 @@ async def query_knowledge_base(
         raise HTTPException(status_code=404, detail="Knowledge base not found")
 
     if kb.build_status != "ready":
-        raise HTTPException(status_code=400, detail="Knowledge base is not ready. Please build first.")
+        raise HTTPException(
+            status_code=400, detail="Knowledge base is not ready. Please build first."
+        )
 
     # Delegate to graph_search_service
     try:
         from app.services.graph_search_service import GraphSearchService
+
         search_service = GraphSearchService()
         result = await search_service.search(
             query=body.question,
@@ -233,13 +244,16 @@ async def upload_document_to_kb(
 
     # Validate file type
     allowed_types = {
-        "application/pdf", "text/plain", "text/markdown", "text/csv",
+        "application/pdf",
+        "text/plain",
+        "text/markdown",
+        "text/csv",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     }
     if file.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type: {file.content_type}. Allowed: PDF, TXT, MD, CSV, DOCX"
+            detail=f"Unsupported file type: {file.content_type}. Allowed: PDF, TXT, MD, CSV, DOCX",
         )
 
     # Read file content
@@ -248,10 +262,7 @@ async def upload_document_to_kb(
         raise HTTPException(status_code=400, detail="File too large. Maximum 10MB.")
 
     # Store document (in a real implementation, this would go to a document store)
-    logger.info(
-        "Uploaded document '%s' (%d bytes) to KB %s",
-        file.filename, len(content), kb_id
-    )
+    logger.info("Uploaded document '%s' (%d bytes) to KB %s", file.filename, len(content), kb_id)
 
     # Update source_type if this is the first document
     if kb.source_type == "conversation":

@@ -26,7 +26,10 @@ class Space(SpaceBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     owner_id: UUID = Field(foreign_key="user.id")
     preset: str = Field(default="custom")  # colearn, support, research, custom
-    created_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)))
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
 
     # Relationships
     rooms: List["Room"] = Relationship(

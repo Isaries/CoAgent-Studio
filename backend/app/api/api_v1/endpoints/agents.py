@@ -7,7 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
 from app.core.security import mask_api_key
-from app.models.agent_config import AgentConfigCreate, AgentConfigRead, AgentType
+from app.models.agent_config import AgentConfigCreate, AgentConfigRead
 from app.models.user import User, UserRole
 from app.services.agent_config_service import AgentConfigService
 
@@ -21,7 +21,7 @@ class DesignRequest(BaseModel):
     api_key: Optional[str] = None  # User provided temporarily
     space_id: Optional[UUID] = None  # Context to look up stored key (was course_id)
     provider: str = "gemini"
-    
+
     # Sandbox / Custom Settings
     custom_system_prompt: Optional[str] = None
     custom_api_key: Optional[str] = None
@@ -49,7 +49,7 @@ async def generate_agent_prompt(
 
     # Delegate to Service
     from app.services.design_service import DesignAgentService
-    
+
     design_service = DesignAgentService(session)
     result = await design_service.generate_prompt(request, current_user)
 
@@ -81,12 +81,12 @@ async def update_system_agent_config(
     """
     service = AgentConfigService(session)
     agent_config = await service.update_system_agent_config(agent_type, config_in, current_user)
-    
+
     # Mask
     c_read = AgentConfigRead.model_validate(agent_config)
     if agent_config.encrypted_api_key:
         c_read.masked_api_key = mask_api_key(agent_config.encrypted_api_key)
-        
+
     return c_read
 
 
@@ -342,8 +342,10 @@ async def sync_from_parent(
 # External Agent Management Endpoints
 # ============================================================
 
+
 class ExternalAgentCreate(BaseModel):
     """Request schema for creating an external agent."""
+
     name: str
     type: str = "external"
     webhook_url: str
@@ -357,6 +359,7 @@ class ExternalAgentCreate(BaseModel):
 
 class ExternalAgentTestResult(BaseModel):
     """Response for connection test."""
+
     success: bool
     status_code: Optional[int] = None
     latency_ms: Optional[float] = None
@@ -373,14 +376,14 @@ async def list_external_agents(
     """
     service = AgentConfigService(session)
     configs = await service.list_external_agents(current_user)
-    
+
     response_data = []
     for config in configs:
         c_read = AgentConfigRead.model_validate(config)
         if config.encrypted_api_key:
             c_read.masked_api_key = mask_api_key(config.encrypted_api_key)
         response_data.append(c_read)
-    
+
     return response_data
 
 
@@ -396,9 +399,10 @@ async def create_external_agent(
     Only admins can create external agents.
     """
     service = AgentConfigService(session)
-    
+
     # Build external_config dict
     import secrets
+
     external_config = {
         "webhook_url": data.webhook_url,
         "auth_type": data.auth_type,
@@ -406,10 +410,10 @@ async def create_external_agent(
         "fallback_message": data.fallback_message,
         "callback_token": secrets.token_urlsafe(32),
     }
-    
+
     if data.auth_type == "bearer" and data.auth_token:
         external_config["auth_token"] = data.auth_token
-    
+
     if data.auth_type == "oauth2" and data.oauth_config:
         external_config["oauth_config"] = data.oauth_config
 
@@ -418,9 +422,9 @@ async def create_external_agent(
         type_name=data.type,
         external_config=external_config,
         system_prompt=data.system_prompt,
-        current_user=current_user
+        current_user=current_user,
     )
-    
+
     c_read = AgentConfigRead.model_validate(new_config)
     return c_read
 
@@ -428,7 +432,7 @@ async def create_external_agent(
 @router.post("/external/test-connection", response_model=ExternalAgentTestResult)
 async def test_external_connection_params(
     *,
-    data: ExternalAgentCreate, # Reuse create schema for params
+    data: ExternalAgentCreate,  # Reuse create schema for params
     session: AsyncSession = Depends(deps.get_session),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
@@ -439,7 +443,7 @@ async def test_external_connection_params(
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     service = AgentConfigService(session)
-    
+
     # Construct config dict from request
     external_config = {
         "webhook_url": data.webhook_url,
@@ -466,11 +470,11 @@ async def test_external_agent_connection(
     Sends a health check request to the webhook URL.
     """
     service = AgentConfigService(session)
-    config = await service.get_project_agent_config(config_id, current_user) # Permission check included
-    
+    config = await service.get_project_agent_config(
+        config_id, current_user
+    )  # Permission check included
+
     if not config.is_external:
         raise HTTPException(status_code=400, detail="Not an external agent")
-        
+
     return await service.test_external_connection(config)
-
-

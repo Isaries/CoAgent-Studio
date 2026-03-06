@@ -5,12 +5,12 @@ from app.core.llm_service import LLMFactory, ToolCall
 
 class AgentCore:
     def __init__(
-        self, 
-        provider: str, 
-        api_key: Optional[str] = None, 
+        self,
+        provider: str,
+        api_key: Optional[str] = None,
         api_keys: Optional[List[str]] = None,
-        system_prompt: str = "", 
-        model: Optional[str] = None
+        system_prompt: str = "",
+        model: Optional[str] = None,
     ):
         self.provider = provider
         self.api_key = api_key

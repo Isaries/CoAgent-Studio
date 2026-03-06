@@ -5,7 +5,7 @@
  */
 import { Handle, Position } from '@vue-flow/core'
 
-const props = defineProps<{
+defineProps<{
   id: string
   data: {
     label: string

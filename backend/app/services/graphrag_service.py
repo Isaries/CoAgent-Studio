@@ -17,7 +17,6 @@ import redis.asyncio as aioredis
 import structlog
 import tiktoken
 from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.core.embedding_service import EmbeddingService
@@ -45,6 +44,7 @@ logger = structlog.get_logger()
 
 
 # ── Text Chunking ──────────────────────────────────────────────────────
+
 
 def chunk_messages(messages: List[Dict[str, str]], max_tokens: int = 600) -> List[str]:
     """
@@ -76,6 +76,7 @@ def chunk_messages(messages: List[Dict[str, str]], max_tokens: int = 600) -> Lis
 
 # ── Merge Logic ────────────────────────────────────────────────────────
 
+
 def _merge_graph_chunks(*chunks: GraphChunk) -> GraphChunk:
     """
     Merge multiple GraphChunks, deduplicating nodes and edges.
@@ -104,6 +105,7 @@ def _merge_graph_chunks(*chunks: GraphChunk) -> GraphChunk:
 
 # ── ARQ Tasks ──────────────────────────────────────────────────────────
 
+
 async def extract_entities_task(
     ctx: Dict[str, Any],
     room_id: str,
@@ -130,11 +132,7 @@ async def extract_entities_task(
 
     # ── Fetch messages ──
     async with session_factory() as session:
-        query = (
-            select(Message)
-            .where(Message.room_id == room_id)
-            .order_by(Message.created_at.asc())
-        )
+        query = select(Message).where(Message.room_id == room_id).order_by(Message.created_at.asc())
         result = await session.exec(query)
         db_messages = list(result.all())
 
@@ -150,11 +148,15 @@ async def extract_entities_task(
     # ── Tier 1: Structural extraction (DB-derived) ──
     async with session_factory() as session:
         tier1_chunk = await extract_structural_facts(session, room_id)
-    logger.info("graphrag_tier1_complete", nodes=len(tier1_chunk.nodes), edges=len(tier1_chunk.edges))
+    logger.info(
+        "graphrag_tier1_complete", nodes=len(tier1_chunk.nodes), edges=len(tier1_chunk.edges)
+    )
 
     # ── Tier 2: NLP extraction (spaCy) ──
     tier2_chunk = extract_nlp_facts(formatted)
-    logger.info("graphrag_tier2_complete", nodes=len(tier2_chunk.nodes), edges=len(tier2_chunk.edges))
+    logger.info(
+        "graphrag_tier2_complete", nodes=len(tier2_chunk.nodes), edges=len(tier2_chunk.edges)
+    )
 
     # ── Merge T1+T2 to build known_nodes for LLM prompt ──
     pre_llm = _merge_graph_chunks(tier1_chunk, tier2_chunk)
@@ -190,7 +192,12 @@ async def extract_entities_task(
 
     node_count = await neo4j_client.upsert_entities(room_id, node_dicts)
     edge_count = await neo4j_client.upsert_relationships(room_id, edge_dicts)
-    logger.info("graphrag_neo4j_upsert_complete", room_id=room_id, entity_count=len(final.nodes), edge_count=edge_count)
+    logger.info(
+        "graphrag_neo4j_upsert_complete",
+        room_id=room_id,
+        entity_count=len(final.nodes),
+        edge_count=edge_count,
+    )
 
     # ── Embed entity descriptions → Qdrant ──
     embedding_service = EmbeddingService(api_key=api_key)
@@ -203,16 +210,18 @@ async def extract_entities_task(
         points = []
         for (name, node), vector in zip(unique_nodes.items(), vectors):
             point_id = str(uuid.UUID(hashlib.md5(f"{room_id}:{name}".encode()).hexdigest()))
-            points.append({
-                "id": point_id,
-                "vector": vector,
-                "payload": {
-                    "room_id": room_id,
-                    "name": node.name,
-                    "type": node.type,
-                    "description": node.description,
-                },
-            })
+            points.append(
+                {
+                    "id": point_id,
+                    "vector": vector,
+                    "payload": {
+                        "room_id": room_id,
+                        "name": node.name,
+                        "type": node.type,
+                        "description": node.description,
+                    },
+                }
+            )
         try:
             await vector_store.upsert_embeddings(ENTITY_COLLECTION, points)
             logger.info("graphrag_qdrant_upsert_complete", room_id=room_id, point_count=len(points))
@@ -222,7 +231,7 @@ async def extract_entities_task(
                 room_id=room_id,
                 error=str(e),
                 detail="Neo4j entities were written but Qdrant embeddings failed. "
-                       "Re-run extraction to fix inconsistency.",
+                "Re-run extraction to fix inconsistency.",
             )
             raise
 
@@ -232,25 +241,29 @@ async def extract_entities_task(
         chunk_points = []
         for i, (chunk_text, vector) in enumerate(zip(chunks, chunk_vectors)):
             chunk_id = str(uuid.UUID(hashlib.md5(f"{room_id}:chunk:{i}".encode()).hexdigest()))
-            chunk_points.append({
-                "id": chunk_id,
-                "vector": vector,
-                "payload": {
-                    "room_id": room_id,
-                    "text": chunk_text[:2000],
-                    "chunk_index": i,
-                },
-            })
+            chunk_points.append(
+                {
+                    "id": chunk_id,
+                    "vector": vector,
+                    "payload": {
+                        "room_id": room_id,
+                        "text": chunk_text[:2000],
+                        "chunk_index": i,
+                    },
+                }
+            )
         try:
             await vector_store.upsert_embeddings(CHUNK_COLLECTION, chunk_points)
-            logger.info("graphrag_qdrant_chunks_complete", room_id=room_id, chunk_count=len(chunk_points))
+            logger.info(
+                "graphrag_qdrant_chunks_complete", room_id=room_id, chunk_count=len(chunk_points)
+            )
         except Exception as e:
             logger.error(
                 "graphrag_qdrant_chunk_upsert_failed",
                 room_id=room_id,
                 error=str(e),
                 detail="Neo4j entities were written but Qdrant chunk embeddings failed. "
-                       "Re-run extraction to fix inconsistency.",
+                "Re-run extraction to fix inconsistency.",
             )
             raise
 
@@ -325,9 +338,16 @@ async def build_communities_task(
             nodes_text = "\n".join(
                 [f"- {n['name']} ({n['type']}): {n.get('description', 'N/A')}" for n in nodes if n]
             )
-            edges_text = "\n".join(
-                [f"- {e['source']} --[{e['relation']}]--> {e['target']}: {e.get('evidence', 'N/A')}" for e in edges if e]
-            ) or "No explicit relationships found."
+            edges_text = (
+                "\n".join(
+                    [
+                        f"- {e['source']} --[{e['relation']}]--> {e['target']}: {e.get('evidence', 'N/A')}"
+                        for e in edges
+                        if e
+                    ]
+                )
+                or "No explicit relationships found."
+            )
 
             report = await generate_community_report(
                 cid, nodes_text, edges_text, api_key, model=summarization_model
@@ -337,19 +357,21 @@ async def build_communities_task(
             vector = await embedding_service.get_embedding(summary_text)
 
             point_id = hashlib.md5(f"{room_id}:community:{cid}".encode()).hexdigest()
-            summary_points.append({
-                "id": point_id,
-                "vector": vector,
-                "payload": {
-                    "room_id": room_id,
-                    "community_id": cid,
-                    "title": report.title,
-                    "summary": report.summary,
-                    "key_findings": report.key_findings,
-                    "key_entities": report.key_entities,
-                    "level": report.level,
-                },
-            })
+            summary_points.append(
+                {
+                    "id": point_id,
+                    "vector": vector,
+                    "payload": {
+                        "room_id": room_id,
+                        "community_id": cid,
+                        "title": report.title,
+                        "summary": report.summary,
+                        "key_findings": report.key_findings,
+                        "key_entities": report.key_entities,
+                        "level": report.level,
+                    },
+                }
+            )
         except Exception as e:
             logger.warning("graphrag_community_summary_failed", community_id=cid, error=str(e))
             continue
@@ -393,7 +415,9 @@ async def full_graph_rebuild_task(
     logger.info("graphrag_old_data_wiped", room_id=room_id, neo4j_deleted=deleted)
 
     extract_result = await extract_entities_task(ctx, room_id, extraction_model=extraction_model)
-    community_result = await build_communities_task(ctx, room_id, summarization_model=summarization_model)
+    community_result = await build_communities_task(
+        ctx, room_id, summarization_model=summarization_model
+    )
 
     return {
         "extraction": extract_result,

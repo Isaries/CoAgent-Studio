@@ -7,13 +7,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
 from app.core.security import decrypt_api_key
-from app.services.agents.system_agents import AnalyticsAgent
 from app.models.agent_config import AgentConfig, AgentType
 from app.models.analytics import AnalyticsReport
-from app.models.space import Space
 from app.models.message import Message
 from app.models.room import Room
+from app.models.space import Space
 from app.models.user import User, UserRole
+from app.services.agents.system_agents import AnalyticsAgent
 
 router = APIRouter()
 
@@ -59,9 +59,7 @@ async def generate_space_analytics(
     # Decrypt the API key before use
     key = decrypt_api_key(encrypted_key)
     if not key:
-        raise HTTPException(
-            status_code=500, detail="Failed to decrypt Analytics Agent API key"
-        )
+        raise HTTPException(status_code=500, detail="Failed to decrypt Analytics Agent API key")
 
     # 2. Initialize Agent
     agent = AnalyticsAgent(provider="gemini", api_key=key, system_prompt=prompt)

@@ -6,7 +6,7 @@ import IconSave from '../../../components/icons/IconSave.vue'
 import IconHistory from '../../../components/icons/IconHistory.vue'
 import IconCode from '../../../components/icons/IconCode.vue'
 
-const props = defineProps<{
+defineProps<{
   activeTab: AgentType | string
   isSaving: boolean
   hasUnsavedChanges: boolean
