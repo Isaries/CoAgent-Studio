@@ -9,8 +9,8 @@ vi.mock('@/services/authService', () => ({
     fetchUser: vi.fn(),
     logout: vi.fn(),
     impersonateUser: vi.fn(),
-    stopImpersonating: vi.fn(),
-  },
+    stopImpersonating: vi.fn()
+  }
 }))
 
 vi.mock('@/utils/cookies', () => ({
@@ -18,8 +18,8 @@ vi.mock('@/utils/cookies', () => ({
     getAll: vi.fn(() => ({})),
     get: vi.fn(),
     set: vi.fn(),
-    delete: vi.fn(),
-  },
+    delete: vi.fn()
+  }
 }))
 
 const mockStudent: User = {
@@ -27,7 +27,7 @@ const mockStudent: User = {
   email: 'student@example.com',
   full_name: 'Student User',
   role: UserRole.STUDENT,
-  is_active: true,
+  is_active: true
 }
 
 const mockAdmin: User = {
@@ -35,7 +35,7 @@ const mockAdmin: User = {
   email: 'admin@example.com',
   full_name: 'Admin User',
   role: UserRole.ADMIN,
-  is_active: true,
+  is_active: true
 }
 
 const mockSuperAdmin: User = {
@@ -43,7 +43,7 @@ const mockSuperAdmin: User = {
   email: 'super@example.com',
   full_name: 'Super Admin',
   role: UserRole.SUPER_ADMIN,
-  is_active: true,
+  is_active: true
 }
 
 describe('Auth Store', () => {

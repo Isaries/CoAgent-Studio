@@ -58,7 +58,7 @@ describe('Toast Store', () => {
       store.add('Second', 'info', 0)
       store.add('Third', 'info', 0)
 
-      const ids = store.toasts.map(t => t.id)
+      const ids = store.toasts.map((t) => t.id)
       expect(new Set(ids).size).toBe(3)
       expect(ids[1]).toBeGreaterThan(ids[0])
       expect(ids[2]).toBeGreaterThan(ids[1])

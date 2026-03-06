@@ -13,7 +13,12 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   compactMode: false
 })
-const emit = defineEmits(['update:requirement', 'update:context', 'update:refineCurrent', 'generate'])
+const emit = defineEmits([
+  'update:requirement',
+  'update:context',
+  'update:refineCurrent',
+  'generate'
+])
 
 const requirementModel = computed({
   get: () => props.requirement,
@@ -33,94 +38,164 @@ const refineCurrentModel = computed({
 
 <template>
   <div v-if="!compactMode" class="flex flex-col h-full gap-6 p-1">
-      
-      <!-- Header / Instruction -->
-      <div>
-        <h3 class="text-sm font-bold text-base-content opacity-90 mb-1">Your Requirement</h3>
-        <p class="text-xs text-base-content opacity-50">Describe the agent's persona, goals, and constraints.</p>
-      </div>
+    <!-- Header / Instruction -->
+    <div>
+      <h3 class="text-sm font-bold text-base-content opacity-90 mb-1">Your Requirement</h3>
+      <p class="text-xs text-base-content opacity-50">
+        Describe the agent's persona, goals, and constraints.
+      </p>
+    </div>
 
-      <!-- Main Input Area -->
-      <div class="flex-1 relative group">
-        <textarea
-          v-model="requirementModel"
-          class="textarea textarea-bordered w-full h-full resize-none p-4 text-sm leading-relaxed
-                 bg-base-200/30 focus:bg-base-200/50 transition-all border-base-300 focus:border-primary/50 outline-none
-                 shadow-inner rounded-xl"
-          placeholder="E.g. 'Create a friendly Python tutor who explains concepts using cooking analogies. It should be encouraging but correct errors gently...'"
-        ></textarea>
-        
-        <!-- Decoration Corner -->
-        <div class="absolute bottom-3 right-3 opacity-20 group-focus-within:opacity-100 transition-opacity">
-           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
-        </div>
-      </div>
+    <!-- Main Input Area -->
+    <div class="flex-1 relative group">
+      <textarea
+        v-model="requirementModel"
+        class="textarea textarea-bordered w-full h-full resize-none p-4 text-sm leading-relaxed bg-base-200/30 focus:bg-base-200/50 transition-all border-base-300 focus:border-primary/50 outline-none shadow-inner rounded-xl"
+        placeholder="E.g. 'Create a friendly Python tutor who explains concepts using cooking analogies. It should be encouraging but correct errors gently...'"
+      ></textarea>
 
-      <!-- Settings & Context -->
-      <div class="space-y-4 bg-base-200/30 p-4 rounded-xl border border-base-300/30">
-        <div class="form-control">
-          <label class="label text-[10px] font-bold uppercase tracking-wider opacity-60">Context / Background</label>
-          <input v-model="contextModel" type="text" placeholder="e.g. 'Intro to CS 101 Course'" class="input input-sm input-bordered w-full bg-base-100/50" />
-        </div>
-
-        <div class="flex items-center justify-between pt-2">
-            <label class="cursor-pointer flex items-center gap-2 group">
-              <input type="checkbox" v-model="refineCurrentModel" class="checkbox checkbox-xs checkbox-primary" :disabled="!canEdit" />
-              <span class="text-xs font-medium group-hover:text-primary transition-colors" :class="{'opacity-50': !canEdit}">Refine Mode</span>
-            </label>
-        </div>
-      </div>
-
-      <!-- Action Button -->
-      <button 
-        @click="$emit('generate')" 
-        class="btn btn-primary w-full shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 border-none bg-gradient-to-r from-primary to-secondary text-white font-bold tracking-wide"
-        :disabled="loading"
-        :class="loading ? 'animate-pulse' : ''"
+      <!-- Decoration Corner -->
+      <div
+        class="absolute bottom-3 right-3 opacity-20 group-focus-within:opacity-100 transition-opacity"
       >
-        <span v-if="loading" class="loading loading-spinner loading-sm"></span>
-        <span v-else class="flex items-center gap-2">
-           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-           {{ refineCurrentModel ? 'Refine Agent' : 'Design Agent' }}
-        </span>
-      </button>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="text-primary"
+        >
+          <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+          <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+          <path d="M2 2l7.586 7.586"></path>
+          <circle cx="11" cy="11" r="2"></circle>
+        </svg>
+      </div>
+    </div>
 
+    <!-- Settings & Context -->
+    <div class="space-y-4 bg-base-200/30 p-4 rounded-xl border border-base-300/30">
+      <div class="form-control">
+        <label class="label text-[10px] font-bold uppercase tracking-wider opacity-60"
+          >Context / Background</label
+        >
+        <input
+          v-model="contextModel"
+          type="text"
+          placeholder="e.g. 'Intro to CS 101 Course'"
+          class="input input-sm input-bordered w-full bg-base-100/50"
+        />
+      </div>
+
+      <div class="flex items-center justify-between pt-2">
+        <label class="cursor-pointer flex items-center gap-2 group">
+          <input
+            type="checkbox"
+            v-model="refineCurrentModel"
+            class="checkbox checkbox-xs checkbox-primary"
+            :disabled="!canEdit"
+          />
+          <span
+            class="text-xs font-medium group-hover:text-primary transition-colors"
+            :class="{ 'opacity-50': !canEdit }"
+            >Refine Mode</span
+          >
+        </label>
+      </div>
+    </div>
+
+    <!-- Action Button -->
+    <button
+      @click="$emit('generate')"
+      class="btn btn-primary w-full shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 border-none bg-gradient-to-r from-primary to-secondary text-white font-bold tracking-wide"
+      :disabled="loading"
+      :class="loading ? 'animate-pulse' : ''"
+    >
+      <span v-if="loading" class="loading loading-spinner loading-sm"></span>
+      <span v-else class="flex items-center gap-2">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+          ></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        {{ refineCurrentModel ? 'Refine Agent' : 'Design Agent' }}
+      </span>
+    </button>
   </div>
-  
+
   <!-- COMPACT MODE (Chat Bar Style) -->
   <div v-else class="flex flex-col gap-2">
-      <!-- Top Row: Context & Settings pill -->
-      <div class="flex items-center gap-2">
-          <input 
-             v-model="contextModel" 
-             type="text" 
-             placeholder="Optional Context..." 
-             class="input input-xs bg-base-200 border-white/10 text-gray-400 placeholder-gray-600 focus:text-white rounded-full flex-1"
-          />
-          <label class="cursor-pointer flex items-center gap-1.5 px-2 py-0.5 rounded-full hover:bg-white/5 transition-colors">
-              <input type="checkbox" v-model="refineCurrentModel" class="checkbox checkbox-xs checkbox-primary border-white/20" :disabled="!canEdit" />
-              <span class="text-[10px] text-gray-500 font-medium">Refine</span>
-          </label>
-      </div>
+    <!-- Top Row: Context & Settings pill -->
+    <div class="flex items-center gap-2">
+      <input
+        v-model="contextModel"
+        type="text"
+        placeholder="Optional Context..."
+        class="input input-xs bg-base-200 border-white/10 text-gray-400 placeholder-gray-600 focus:text-white rounded-full flex-1"
+      />
+      <label
+        class="cursor-pointer flex items-center gap-1.5 px-2 py-0.5 rounded-full hover:bg-white/5 transition-colors"
+      >
+        <input
+          type="checkbox"
+          v-model="refineCurrentModel"
+          class="checkbox checkbox-xs checkbox-primary border-white/20"
+          :disabled="!canEdit"
+        />
+        <span class="text-[10px] text-gray-500 font-medium">Refine</span>
+      </label>
+    </div>
 
-      <!-- Input Row -->
-      <div class="relative flex items-end gap-2 bg-[#252526] p-2 rounded-xl border border-white/10 focus-within:border-primary/50 transition-colors shadow-lg">
-          <textarea
-            v-model="requirementModel"
-            class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-gray-200 placeholder-gray-600 resize-none h-auto max-h-[120px] py-2 px-1 focus:outline-none"
-            placeholder="Describe what you want to simulate..."
-            rows="1"
-            @keydown.enter.prevent="$emit('generate')"
-          ></textarea>
-          
-          <button 
-           @click="$emit('generate')" 
-           class="btn btn-sm btn-circle btn-primary shadow-lg shadow-primary/20"
-           :disabled="loading || !requirementModel.trim()"
-          >
-             <span v-if="loading" class="loading loading-spinner loading-xs"></span>
-             <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-          </button>
-      </div>
+    <!-- Input Row -->
+    <div
+      class="relative flex items-end gap-2 bg-[#252526] p-2 rounded-xl border border-white/10 focus-within:border-primary/50 transition-colors shadow-lg"
+    >
+      <textarea
+        v-model="requirementModel"
+        class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-gray-200 placeholder-gray-600 resize-none h-auto max-h-[120px] py-2 px-1 focus:outline-none"
+        placeholder="Describe what you want to simulate..."
+        rows="1"
+        @keydown.enter.prevent="$emit('generate')"
+      ></textarea>
+
+      <button
+        @click="$emit('generate')"
+        class="btn btn-sm btn-circle btn-primary shadow-lg shadow-primary/20"
+        :disabled="loading || !requirementModel.trim()"
+      >
+        <span v-if="loading" class="loading loading-spinner loading-xs"></span>
+        <svg
+          v-else
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
   </div>
 </template>

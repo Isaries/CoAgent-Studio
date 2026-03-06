@@ -30,7 +30,7 @@ const availableModels = [
   { label: 'Claude Sonnet 4 (Balanced)', value: 'claude-sonnet-4-20250514' },
   { label: 'Claude Haiku 4.5 (Fast)', value: 'claude-haiku-4-5-20251001' },
   { label: 'Gemini 2.0 Flash (Fast)', value: 'gemini-2.0-flash' },
-  { label: 'Gemini 1.5 Pro (High Quality)', value: 'gemini-1.5-pro' },
+  { label: 'Gemini 1.5 Pro (High Quality)', value: 'gemini-1.5-pro' }
 ]
 
 const isValid = computed(() => name.value.trim().length > 0)
@@ -61,7 +61,7 @@ async function handleSubmit() {
       source_type: sourceType.value,
       extraction_model: extractionModel.value,
       summarization_model: summarizationModel.value,
-      space_id: spaceId.value || undefined,
+      space_id: spaceId.value || undefined
     }
 
     const kb = await knowledgeService.createKB(payload)
@@ -80,7 +80,14 @@ async function handleSubmit() {
   <dialog class="modal" :class="{ 'modal-open': visible }">
     <div class="modal-box max-w-lg">
       <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3" @click="handleClose">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="2"
+        >
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
@@ -143,7 +150,9 @@ async function handleSubmit() {
               </option>
             </select>
             <label class="label">
-              <span class="label-text-alt text-base-content/50">Extracts entities and relationships</span>
+              <span class="label-text-alt text-base-content/50"
+                >Extracts entities and relationships</span
+              >
             </label>
           </div>
 
@@ -174,18 +183,16 @@ async function handleSubmit() {
             class="input input-bordered w-full"
           />
           <label class="label">
-            <span class="label-text-alt text-base-content/50">Attach this KB to a specific space, or leave blank for a global knowledge base</span>
+            <span class="label-text-alt text-base-content/50"
+              >Attach this KB to a specific space, or leave blank for a global knowledge base</span
+            >
           </label>
         </div>
 
         <!-- Actions -->
         <div class="modal-action mt-2">
           <button type="button" class="btn btn-ghost" @click="handleClose">Cancel</button>
-          <button
-            type="submit"
-            class="btn btn-primary"
-            :disabled="!isValid || isSubmitting"
-          >
+          <button type="submit" class="btn btn-primary" :disabled="!isValid || isSubmitting">
             <span v-if="isSubmitting" class="loading loading-spinner loading-xs"></span>
             {{ isSubmitting ? 'Creating...' : 'Create Knowledge Base' }}
           </button>

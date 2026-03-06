@@ -17,7 +17,7 @@ export default {
     users: '使用者',
     systemAgents: '系統智能體',
     database: '資料庫',
-    settings: '設定',
+    settings: '設定'
   },
   common: {
     save: '儲存',
@@ -35,7 +35,7 @@ export default {
     viewAll: '查看全部',
     enter: '進入',
     assign: '指派',
-    remove: '移除',
+    remove: '移除'
   },
   login: {
     title: 'CoAgent Studio',
@@ -50,7 +50,7 @@ export default {
     orAccessWithId: '或使用帳號登入',
     invalidCredentials: '帳號或密碼錯誤',
     adminTitle: '管理員登入',
-    adminSubtitle: '管理員專用入口',
+    adminSubtitle: '管理員專用入口'
   },
   dashboard: {
     welcome: '歡迎回來，{name}',
@@ -66,7 +66,7 @@ export default {
     messagesDesc: '今日發送的訊息總數',
     noSpaces: '尚無空間。建立你的第一個空間開始使用。',
     quickLinks: '快速連結',
-    recentRooms: '最近房間',
+    recentRooms: '最近房間'
   },
   room: {
     chat: '聊天',
@@ -80,19 +80,19 @@ export default {
     noMessages: '尚無訊息',
     debug: '除錯',
     a2aTrace: 'A2A 除錯追蹤',
-    a2aTraceDesc: '在聊天中顯示智能體間通訊追蹤',
+    a2aTraceDesc: '在聊天中顯示智能體間通訊追蹤'
   },
   space: {
     title: '空間標題',
     description: '描述',
     createNew: '建立新空間',
-    choosePreset: '選擇預設模板並輸入空間資訊。',
+    choosePreset: '選擇預設模板並輸入空間資訊。'
   },
   notifications: {
     title: '通知',
     markAllRead: '全部標記已讀',
     noNotifications: '沒有通知',
-    clear: '清除全部',
+    clear: '清除全部'
   },
   shortcuts: {
     title: '鍵盤快捷鍵',
@@ -102,22 +102,22 @@ export default {
     showShortcuts: '顯示快捷鍵',
     goHome: '前往首頁',
     goSpaces: '前往空間',
-    closeModal: '關閉視窗',
+    closeModal: '關閉視窗'
   },
   commandPalette: {
     placeholder: '搜尋頁面、空間、房間...',
     noResults: '找不到結果',
     pages: '頁面',
     spaces: '空間',
-    rooms: '房間',
+    rooms: '房間'
   },
   network: {
-    offline: '目前處於離線狀態。部分功能可能無法使用。',
+    offline: '目前處於離線狀態。部分功能可能無法使用。'
   },
   error: {
     title: '發生錯誤',
     retry: '重試',
-    unexpected: '發生了意外錯誤。',
+    unexpected: '發生了意外錯誤。'
   },
   profile: {
     editProfile: '編輯個人資料',
@@ -126,13 +126,13 @@ export default {
     avatarUrl: '頭像網址（選填）',
     maxSize: '最大 2MB（PNG/JPG）',
     leaveEmpty: '留空使用預設圖示',
-    logout: '登出',
+    logout: '登出'
   },
   validation: {
     required: '{field} 為必填',
     minLength: '{field} 至少需要 {min} 個字元',
     maxLength: '{field} 最多 {max} 個字元',
     email: '請輸入有效的電子郵件',
-    url: '請輸入有效的網址',
-  },
+    url: '請輸入有效的網址'
+  }
 }

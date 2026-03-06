@@ -9,8 +9,8 @@ vi.mock('@/api', () => ({
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
-    delete: vi.fn(),
-  },
+    delete: vi.fn()
+  }
 }))
 
 import api from '@/api'
@@ -38,11 +38,9 @@ describe('authService', () => {
 
       await authService.login(formData)
 
-      expect(api.post).toHaveBeenCalledWith(
-        '/login/access-token',
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      )
+      expect(api.post).toHaveBeenCalledWith('/login/access-token', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
     })
 
     it('returns true when the API call succeeds', async () => {

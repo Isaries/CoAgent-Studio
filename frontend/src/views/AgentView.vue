@@ -21,28 +21,24 @@ const isLoading = ref(false)
 const isSaving = ref(false)
 const hasUnsavedChanges = ref(false)
 
-const {
-  designConfig,
-  fetchVersions,
-  createVersion
-} = useDesignAgent('project', projectId)
+const { designConfig, fetchVersions, createVersion } = useDesignAgent('project', projectId)
 
 const loadAgent = async () => {
-    isLoading.value = true
-    try {
-        const res = await agentService.getAgents(projectId)
-        const agent = res.data.find(a => a.id === agentId)
-        if (agent) {
-            currentAgentConfig.value = agent
-            designConfig.value = agent
-            await fetchVersions()
-        }
-    } catch(e) {
-        console.error(e)
-        toast.error("Failed to load agent")
-    } finally {
-        isLoading.value = false
+  isLoading.value = true
+  try {
+    const res = await agentService.getAgents(projectId)
+    const agent = res.data.find((a) => a.id === agentId)
+    if (agent) {
+      currentAgentConfig.value = agent
+      designConfig.value = agent
+      await fetchVersions()
     }
+  } catch (e) {
+    console.error(e)
+    toast.error('Failed to load agent')
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const saveAgent = async () => {
@@ -62,33 +58,57 @@ const saveAgent = async () => {
 }
 
 let isInitialLoad = true
-watch(currentAgentConfig, () => {
-    if (isInitialLoad) { isInitialLoad = false; return }
+watch(
+  currentAgentConfig,
+  () => {
+    if (isInitialLoad) {
+      isInitialLoad = false
+      return
+    }
     hasUnsavedChanges.value = true
-}, { deep: true })
+  },
+  { deep: true }
+)
 
 onMounted(() => {
-    loadAgent()
+  loadAgent()
 })
 </script>
 
 <template>
   <div class="h-full flex flex-col overflow-hidden">
     <!-- Header -->
-    <div class="h-16 border-b border-base-300 bg-base-100 flex items-center justify-between px-6 shrink-0">
+    <div
+      class="h-16 border-b border-base-300 bg-base-100 flex items-center justify-between px-6 shrink-0"
+    >
       <div class="flex items-center gap-4">
         <router-link to="/workspace" class="btn btn-ghost btn-sm btn-circle">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
+          </svg>
         </router-link>
         <div>
           <h1 class="text-xl font-bold">{{ currentAgentConfig?.name || 'Loading Agent...' }}</h1>
-          <div class="text-xs opacity-60">{{ currentAgentConfig?.type }} | {{ currentAgentConfig?.model_provider }}</div>
+          <div class="text-xs opacity-60">
+            {{ currentAgentConfig?.type }} | {{ currentAgentConfig?.model_provider }}
+          </div>
         </div>
       </div>
       <div>
-        <button 
-          class="btn btn-primary btn-sm" 
-          @click="saveAgent" 
+        <button
+          class="btn btn-primary btn-sm"
+          @click="saveAgent"
           :disabled="isSaving || !hasUnsavedChanges"
         >
           <span v-if="isSaving" class="loading loading-spinner loading-xs"></span>
@@ -99,28 +119,24 @@ onMounted(() => {
 
     <!-- Content Split: Editor / Sandbox -->
     <div class="flex-1 min-h-0 relative">
-       <ResizableSplitPane
-         :initial-left-width="800"
-         :min-left-width="400"
-         :min-right-width="400"
-       >
-         <template #left>
-            <div class="h-full overflow-y-auto p-6 bg-base-200">
-              <CourseBrainEditor 
-                v-model="currentAgentConfig"
-                :loading="isLoading"
-                :agentType="(currentAgentConfig?.type as AgentType) || AgentType.TEACHER"
-              />
-            </div>
-         </template>
-         
-         <template #right>
-            <div class="h-full bg-base-100 border-l border-base-300">
-              <!-- Thread Chat Sandbox goes here -->
-              <AgentSandbox v-if="currentAgentConfig" :agentId="currentAgentConfig.id" />
-            </div>
-         </template>
-       </ResizableSplitPane>
+      <ResizableSplitPane :initial-left-width="800" :min-left-width="400" :min-right-width="400">
+        <template #left>
+          <div class="h-full overflow-y-auto p-6 bg-base-200">
+            <CourseBrainEditor
+              v-model="currentAgentConfig"
+              :loading="isLoading"
+              :agentType="(currentAgentConfig?.type as AgentType) || AgentType.TEACHER"
+            />
+          </div>
+        </template>
+
+        <template #right>
+          <div class="h-full bg-base-100 border-l border-base-300">
+            <!-- Thread Chat Sandbox goes here -->
+            <AgentSandbox v-if="currentAgentConfig" :agentId="currentAgentConfig.id" />
+          </div>
+        </template>
+      </ResizableSplitPane>
     </div>
   </div>
 </template>

@@ -28,12 +28,12 @@ const ALL_TABS: readonly { key: TabKey; label: string; alwaysVisible: boolean }[
   { key: 'board', label: 'Board', alwaysVisible: false },
   { key: 'docs', label: 'Docs', alwaysVisible: false },
   { key: 'process', label: 'Process', alwaysVisible: false },
-  { key: 'graph', label: 'Knowledge Graph', alwaysVisible: false },
+  { key: 'graph', label: 'Knowledge Graph', alwaysVisible: false }
 ] as const
 
 const visibleTabs = computed(() => {
-  return ALL_TABS.filter(tab =>
-    tab.alwaysVisible || room.value?.enabled_tabs?.[tab.key] !== false
+  return ALL_TABS.filter(
+    (tab) => tab.alwaysVisible || room.value?.enabled_tabs?.[tab.key] !== false
   )
 })
 
@@ -41,13 +41,7 @@ const visibleTabs = computed(() => {
 const roomName = computed(() => room.value?.name || `Room ${roomId}`)
 
 // Use the Chat Composable
-const {
-  messages,
-  connect,
-  disconnect,
-  fetchHistory,
-  sendMessage,
-} = useRoomChat(roomId)
+const { messages, connect, disconnect, fetchHistory, sendMessage } = useRoomChat(roomId)
 
 const handleSend = (text: string) => {
   sendMessage(text)
@@ -88,7 +82,7 @@ onUnmounted(() => {
             class="join-item btn btn-sm"
             :class="{
               'btn-active btn-primary': activeTab === tab.key && tab.key !== 'graph',
-              'btn-active btn-accent': activeTab === tab.key && tab.key === 'graph',
+              'btn-active btn-accent': activeTab === tab.key && tab.key === 'graph'
             }"
             @click="activeTab = tab.key"
           >
@@ -97,7 +91,11 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="flex-none gap-2 flex items-center">
-        <router-link v-if="!authStore.isStudent" :to="`/rooms/${roomId}/settings`" class="btn btn-sm btn-ghost btn-circle">
+        <router-link
+          v-if="!authStore.isStudent"
+          :to="`/rooms/${roomId}/settings`"
+          class="btn btn-sm btn-ghost btn-circle"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="20"
@@ -135,11 +133,7 @@ onUnmounted(() => {
     </div>
 
     <!-- Chat View -->
-    <RoomChat
-      v-show="activeTab === 'chat'"
-      :messages="messages"
-      @send="handleSend"
-    />
+    <RoomChat v-show="activeTab === 'chat'" :messages="messages" @send="handleSend" />
 
     <!-- Board View -->
     <div v-if="activeTab === 'board'" class="flex-1 overflow-hidden bg-base-200/50">

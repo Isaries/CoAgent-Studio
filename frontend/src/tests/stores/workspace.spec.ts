@@ -8,8 +8,8 @@ vi.mock('@/services/artifactService', () => ({
     listArtifacts: vi.fn(),
     createArtifact: vi.fn(),
     updateArtifact: vi.fn(),
-    deleteArtifact: vi.fn(),
-  },
+    deleteArtifact: vi.fn()
+  }
 }))
 
 function makeTask(overrides: Partial<Artifact> = {}): Artifact {
@@ -23,7 +23,7 @@ function makeTask(overrides: Partial<Artifact> = {}): Artifact {
     created_by: 'user-1',
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
-    ...overrides,
+    ...overrides
   }
 }
 
@@ -129,8 +129,8 @@ describe('Workspace Store', () => {
         expect.objectContaining({
           type: 'task',
           title: 'Task',
-          content: expect.objectContaining({ status: 'in_progress' }),
-        }),
+          content: expect.objectContaining({ status: 'in_progress' })
+        })
       )
     })
   })
@@ -175,8 +175,14 @@ describe('Workspace Store', () => {
   describe('moveTask', () => {
     it('calls updateArtifact with new status', async () => {
       const artifactService = (await import('@/services/artifactService')).default
-      const task = makeTask({ id: 'task-1', content: { status: 'todo', priority: 'medium', order: 0 } })
-      const updated = makeTask({ id: 'task-1', content: { status: 'in_progress', priority: 'medium', order: 0 } })
+      const task = makeTask({
+        id: 'task-1',
+        content: { status: 'todo', priority: 'medium', order: 0 }
+      })
+      const updated = makeTask({
+        id: 'task-1',
+        content: { status: 'in_progress', priority: 'medium', order: 0 }
+      })
       vi.mocked(artifactService.updateArtifact).mockResolvedValueOnce(updated)
 
       const store = useWorkspaceStore()
@@ -186,7 +192,7 @@ describe('Workspace Store', () => {
 
       expect(artifactService.updateArtifact).toHaveBeenCalledWith(
         'task-1',
-        expect.objectContaining({ content: expect.objectContaining({ status: 'in_progress' }) }),
+        expect.objectContaining({ content: expect.objectContaining({ status: 'in_progress' }) })
       )
     })
   })
@@ -198,13 +204,13 @@ describe('Workspace Store', () => {
         makeTask({ id: 't1', content: { status: 'todo', order: 0 } }),
         makeTask({ id: 't2', content: { status: 'in_progress', order: 0 } }),
         makeTask({ id: 't3', content: { status: 'todo', order: 1 } }),
-        makeTask({ id: 'd1', type: 'doc', content: {} as any }),
+        makeTask({ id: 'd1', type: 'doc', content: {} as any })
       ]
 
       const cols = store.kanbanColumns
-      const todoCol = cols.find(c => c.status === 'todo')
-      const inProgressCol = cols.find(c => c.status === 'in_progress')
-      const reviewCol = cols.find(c => c.status === 'review')
+      const todoCol = cols.find((c) => c.status === 'todo')
+      const inProgressCol = cols.find((c) => c.status === 'in_progress')
+      const reviewCol = cols.find((c) => c.status === 'review')
 
       expect(cols).toHaveLength(4)
       expect(todoCol?.tasks).toHaveLength(2)
@@ -217,11 +223,11 @@ describe('Workspace Store', () => {
       store.artifacts = [
         makeTask({ id: 't1', content: { status: 'todo', order: 2 } }),
         makeTask({ id: 't2', content: { status: 'todo', order: 0 } }),
-        makeTask({ id: 't3', content: { status: 'todo', order: 1 } }),
+        makeTask({ id: 't3', content: { status: 'todo', order: 1 } })
       ]
 
-      const todoCol = store.kanbanColumns.find(c => c.status === 'todo')
-      expect(todoCol!.tasks.map(t => t.id)).toEqual(['t2', 't3', 't1'])
+      const todoCol = store.kanbanColumns.find((c) => c.status === 'todo')
+      expect(todoCol!.tasks.map((t) => t.id)).toEqual(['t2', 't3', 't1'])
     })
   })
 
@@ -231,11 +237,11 @@ describe('Workspace Store', () => {
       store.artifacts = [
         makeTask({ id: 't1', type: 'task' }),
         makeTask({ id: 'd1', type: 'doc' }),
-        makeTask({ id: 'd2', type: 'doc' }),
+        makeTask({ id: 'd2', type: 'doc' })
       ]
 
       expect(store.documents).toHaveLength(2)
-      expect(store.documents.every(a => a.type === 'doc')).toBe(true)
+      expect(store.documents.every((a) => a.type === 'doc')).toBe(true)
     })
   })
 
@@ -244,7 +250,7 @@ describe('Workspace Store', () => {
       const store = useWorkspaceStore()
       store.artifacts = [
         makeTask({ id: 't1', type: 'task' }),
-        makeTask({ id: 'p1', type: 'process' }),
+        makeTask({ id: 'p1', type: 'process' })
       ]
 
       expect(store.processes).toHaveLength(1)

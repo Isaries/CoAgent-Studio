@@ -21,7 +21,10 @@ const emit = defineEmits([
 
 // Local State for Two-Way Binding (Prevents mutation of props)
 import { CalendarMode } from '../../types/enums'
-const localConfig = ref<LegacyScheduleConfig>({ specific: [], general: { mode: CalendarMode.NONE, rules: [] } })
+const localConfig = ref<LegacyScheduleConfig>({
+  specific: [],
+  general: { mode: CalendarMode.NONE, rules: [] }
+})
 
 // Update local when prop changes (from parent)
 watch(

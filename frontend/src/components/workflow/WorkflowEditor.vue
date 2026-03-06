@@ -34,7 +34,16 @@ const props = defineProps<{
 const toast = useToastStore()
 
 // ─── Vue Flow ───────────────────────────────────────────────
-const { addNodes, addEdges, removeNodes, removeEdges, onNodeClick, onEdgeClick, onConnect, project } = useVueFlow()
+const {
+  addNodes,
+  addEdges,
+  removeNodes,
+  removeEdges,
+  onNodeClick,
+  onEdgeClick,
+  onConnect,
+  project
+} = useVueFlow()
 
 const nodes = ref<any[]>([])
 const edges = ref<any[]>([])
@@ -47,7 +56,7 @@ const nodeTypes: any = {
   router: markRaw(LogicNode),
   merge: markRaw(LogicNode),
   action: markRaw(LogicNode),
-  tool: markRaw(LogicNode),
+  tool: markRaw(LogicNode)
 }
 
 // ─── Properties Panel ───────────────────────────────────────
@@ -92,11 +101,11 @@ const fetchRoomAgents = async () => {
 
 // ─── Node Palette (drag & drop) ─────────────────────────────
 const paletteItems = computed(() => {
-  const agentItems = roomAgents.value.map(a => ({
+  const agentItems = roomAgents.value.map((a) => ({
     nodeType: 'agent',
     label: a.name,
     agentId: a.id,
-    agentType: a.type,
+    agentType: a.type
   }))
 
   const logicItems = [
@@ -104,7 +113,7 @@ const paletteItems = computed(() => {
     { nodeType: 'end', label: 'END' },
     { nodeType: 'router', label: 'CONDITION' },
     { nodeType: 'merge', label: 'MERGE' },
-    { nodeType: 'action', label: 'BROADCAST' },
+    { nodeType: 'action', label: 'BROADCAST' }
   ]
 
   return { agents: agentItems, logic: logicItems }
@@ -131,7 +140,7 @@ const onDrop = (event: DragEvent) => {
   const bounds = canvasEl.getBoundingClientRect()
   const position = project({
     x: event.clientX - bounds.left,
-    y: event.clientY - bounds.top,
+    y: event.clientY - bounds.top
   })
 
   const newId = `node-${Date.now()}`
@@ -143,8 +152,8 @@ const onDrop = (event: DragEvent) => {
       label: dragData.label || dragData.nodeType.toUpperCase(),
       agentId: dragData.agentId || null,
       agentType: dragData.agentType || null,
-      config: {},
-    },
+      config: {}
+    }
   }
 
   addNodes([newNode])
@@ -154,28 +163,30 @@ const onDrop = (event: DragEvent) => {
 // ─── Edge creation ──────────────────────────────────────────
 onConnect((connection) => {
   const edgeId = `edge-${Date.now()}`
-  addEdges([{
-    id: edgeId,
-    source: connection.source,
-    target: connection.target,
-    type: 'smoothstep',
-    animated: false,
-    data: { type: 'forward' },
-    markerEnd: MarkerType.ArrowClosed,
-    label: 'forward',
-  }])
+  addEdges([
+    {
+      id: edgeId,
+      source: connection.source,
+      target: connection.target,
+      type: 'smoothstep',
+      animated: false,
+      data: { type: 'forward' },
+      markerEnd: MarkerType.ArrowClosed,
+      label: 'forward'
+    }
+  ])
 })
 
 // ─── Properties panel callbacks ─────────────────────────────
 const onUpdateNode = (id: string, data: Record<string, any>) => {
-  const node = nodes.value.find(n => n.id === id)
+  const node = nodes.value.find((n) => n.id === id)
   if (node) {
     node.data = { ...node.data, ...data }
   }
 }
 
 const onUpdateEdge = (id: string, data: Record<string, any>) => {
-  const edge = edges.value.find(e => e.id === id)
+  const edge = edges.value.find((e) => e.id === id)
   if (edge) {
     if (data.type) {
       edge.data = { ...edge.data, type: data.type }
@@ -218,7 +229,7 @@ const loadWorkflow = async () => {
           id: n.id,
           type: n.type || 'agent',
           position: n.position || { x: 0, y: 0 },
-          data: n.config || { label: n.id },
+          data: n.config || { label: n.id }
         }))
       }
       if (graph?.edges?.length) {
@@ -230,7 +241,7 @@ const loadWorkflow = async () => {
           animated: false,
           data: { type: e.type || 'forward', condition: e.condition },
           label: e.type || 'forward',
-          markerEnd: MarkerType.ArrowClosed,
+          markerEnd: MarkerType.ArrowClosed
         }))
       }
     }
@@ -245,33 +256,33 @@ const saveWorkflow = async () => {
   isSaving.value = true
   try {
     const graphData = {
-      nodes: nodes.value.map(n => ({
+      nodes: nodes.value.map((n) => ({
         id: n.id,
         type: n.type,
         position: n.position,
         config: {
           ...n.data,
-          agent_id: n.data?.agentId || undefined,
-        },
+          agent_id: n.data?.agentId || undefined
+        }
       })),
-      edges: edges.value.map(e => ({
+      edges: edges.value.map((e) => ({
         id: e.id,
         source: e.source,
         target: e.target,
         type: e.data?.type || 'forward',
-        condition: e.data?.condition || undefined,
-      })),
+        condition: e.data?.condition || undefined
+      }))
     }
 
     if (props.workflowId) {
       await workflowService.updateWorkflow(props.workflowId, {
         name: workflowName.value,
-        graph_data: graphData,
+        graph_data: graphData
       })
     } else if (props.roomId) {
       await workflowService.saveWorkflow(props.roomId, {
         name: workflowName.value,
-        graph_data: graphData,
+        graph_data: graphData
       })
     }
     toast.success('Workflow saved! ✓')
@@ -288,7 +299,7 @@ const activeNodeId = ref<string | null>(null)
 
 // Watch for active node changes and update node data
 watch(activeNodeId, (newId) => {
-  nodes.value.forEach(n => {
+  nodes.value.forEach((n) => {
     n.data = { ...n.data, isActive: n.id === newId }
   })
 })
@@ -304,9 +315,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="workflow-editor flex h-[calc(100vh-120px)] bg-base-200 rounded-xl overflow-hidden border border-base-300">
+  <div
+    class="workflow-editor flex h-[calc(100vh-120px)] bg-base-200 rounded-xl overflow-hidden border border-base-300"
+  >
     <!-- ─── Left: Node Palette ─────────────────────────── -->
-    <div class="w-56 bg-base-100 border-r border-base-300 p-3 flex flex-col gap-3 overflow-y-auto shrink-0">
+    <div
+      class="w-56 bg-base-100 border-r border-base-300 p-3 flex flex-col gap-3 overflow-y-auto shrink-0"
+    >
       <div class="flex items-center justify-between">
         <h3 class="font-bold text-sm uppercase tracking-wider opacity-60">Nodes</h3>
       </div>
@@ -320,7 +335,9 @@ onMounted(async () => {
         draggable="true"
         @dragstart="onDragStart($event, item)"
       >
-        <div class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs">🤖</div>
+        <div class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs">
+          🤖
+        </div>
         <div>
           <div class="font-medium text-xs">{{ item.label }}</div>
           <div class="text-[10px] opacity-50">{{ item.agentType }}</div>
@@ -340,7 +357,17 @@ onMounted(async () => {
         @dragstart="onDragStart($event, item)"
       >
         <span class="text-base">
-          {{ item.nodeType === 'start' ? '▶' : item.nodeType === 'end' ? '⏹' : item.nodeType === 'router' ? '⑂' : item.nodeType === 'merge' ? '⤵' : '⚡' }}
+          {{
+            item.nodeType === 'start'
+              ? '▶'
+              : item.nodeType === 'end'
+                ? '⏹'
+                : item.nodeType === 'router'
+                  ? '⑂'
+                  : item.nodeType === 'merge'
+                    ? '⤵'
+                    : '⚡'
+          }}
         </span>
         <span class="font-medium text-xs">{{ item.label }}</span>
       </div>
@@ -357,7 +384,7 @@ onMounted(async () => {
         />
         <button
           class="btn btn-primary btn-sm"
-          :class="{ 'loading': isSaving }"
+          :class="{ loading: isSaving }"
           :disabled="isSaving"
           @click="saveWorkflow"
         >
@@ -366,7 +393,10 @@ onMounted(async () => {
       </div>
 
       <!-- Loading -->
-      <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-base-200/80 z-20">
+      <div
+        v-if="isLoading"
+        class="absolute inset-0 flex items-center justify-center bg-base-200/80 z-20"
+      >
         <span class="loading loading-spinner loading-lg text-primary"></span>
       </div>
 
@@ -375,7 +405,11 @@ onMounted(async () => {
         v-model:nodes="nodes"
         v-model:edges="edges"
         :node-types="nodeTypes"
-        :default-edge-options="{ type: 'smoothstep', animated: false, markerEnd: MarkerType.ArrowClosed }"
+        :default-edge-options="{
+          type: 'smoothstep',
+          animated: false,
+          markerEnd: MarkerType.ArrowClosed
+        }"
         :fit-view-on-init="true"
         :snap-to-grid="true"
         :snap-grid="[16, 16]"

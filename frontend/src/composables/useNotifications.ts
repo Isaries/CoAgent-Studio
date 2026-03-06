@@ -17,6 +17,6 @@ export function useNotifications() {
     addNotification,
     markRead: store.markRead,
     markAllRead: store.markAllRead,
-    clear: store.clear,
+    clear: store.clear
   }
 }

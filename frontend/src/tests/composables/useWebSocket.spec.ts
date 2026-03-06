@@ -30,7 +30,7 @@ const createMockWs = (url: string): MockWebSocket => {
     onerror: null,
     onclose: null,
     readyState: WebSocket.CONNECTING,
-    url,
+    url
   }
   return mockWsInstance
 }
@@ -39,16 +39,13 @@ const createMockWs = (url: string): MockWebSocket => {
 // Helper: mount a component that uses useWebSocket
 // ---------------------------------------------------------------------------
 
-function mountWithWebSocket(
-  url: string,
-  options: Parameters<typeof useWebSocket>[1] = {}
-) {
+function mountWithWebSocket(url: string, options: Parameters<typeof useWebSocket>[1] = {}) {
   const Wrapper = defineComponent({
     setup() {
       const ws = useWebSocket(url, options)
       return { ws }
     },
-    template: '<div />',
+    template: '<div />'
   })
 
   return mount(Wrapper)
@@ -64,9 +61,9 @@ describe('useWebSocket composable', () => {
   beforeEach(() => {
     vi.useFakeTimers()
 
-    WebSocketSpy = vi.spyOn(global, 'WebSocket').mockImplementation(
-      (url: string | URL) => createMockWs(String(url)) as unknown as WebSocket
-    )
+    WebSocketSpy = vi
+      .spyOn(global, 'WebSocket')
+      .mockImplementation((url: string | URL) => createMockWs(String(url)) as unknown as WebSocket)
   })
 
   afterEach(() => {
@@ -114,7 +111,7 @@ describe('useWebSocket composable', () => {
         const ws = useWebSocket('', {})
         return { ws }
       },
-      template: '<div />',
+      template: '<div />'
     })
 
     mount(Wrapper)
@@ -162,7 +159,7 @@ describe('useWebSocket composable', () => {
   it('transitions to RECONNECTING status after unexpected close', async () => {
     const wrapper = mountWithWebSocket('ws://localhost/room', {
       reconnectInterval: 1000,
-      maxReconnectAttempts: 3,
+      maxReconnectAttempts: 3
     })
     await nextTick()
 
@@ -176,7 +173,7 @@ describe('useWebSocket composable', () => {
   it('attempts to reconnect after the reconnect interval elapses', async () => {
     mountWithWebSocket('ws://localhost/room', {
       reconnectInterval: 1000,
-      maxReconnectAttempts: 3,
+      maxReconnectAttempts: 3
     })
     await nextTick()
 
@@ -196,7 +193,7 @@ describe('useWebSocket composable', () => {
   it('stops reconnecting after maxReconnectAttempts is exhausted', async () => {
     mountWithWebSocket('ws://localhost/room', {
       reconnectInterval: 100,
-      maxReconnectAttempts: 2,
+      maxReconnectAttempts: 2
     })
     await nextTick()
 
@@ -229,11 +226,11 @@ describe('useWebSocket composable', () => {
       type: 'chat',
       sender: 'Alice',
       content: 'Hello!',
-      timestamp: '2026-03-04T10:00:00Z',
+      timestamp: '2026-03-04T10:00:00Z'
     }
 
     const messageEvent = new MessageEvent('message', {
-      data: JSON.stringify(payload),
+      data: JSON.stringify(payload)
     })
     mockWsInstance.onmessage!(messageEvent)
     await nextTick()

@@ -15,15 +15,15 @@ function makeToast(overrides: Partial<Toast> = {}): Toast {
     message: 'Test message',
     type: 'info',
     duration: 0, // 0 = no auto-remove in tests
-    ...overrides,
+    ...overrides
   }
 }
 
 function mountContainer() {
   return mount(ToastContainer, {
     global: {
-      plugins: [createPinia()],
-    },
+      plugins: [createPinia()]
+    }
   })
 }
 
@@ -157,7 +157,7 @@ describe('ToastContainer component', () => {
     { type: 'info', expectedClass: 'alert-info' },
     { type: 'success', expectedClass: 'alert-success' },
     { type: 'warning', expectedClass: 'alert-warning' },
-    { type: 'error', expectedClass: 'alert-error' },
+    { type: 'error', expectedClass: 'alert-error' }
   ]
 
   typeClassMap.forEach(({ type, expectedClass }) => {

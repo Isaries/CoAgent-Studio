@@ -10,7 +10,7 @@ export function useScheduleConfig(initialConfig?: ScheduleConfig | null) {
   const scheduleConfig = ref<ScheduleConfig>(
     initialConfig || {
       mode: ScheduleMode.WHITELIST,
-      rules: [],
+      rules: []
     }
   )
 
@@ -53,6 +53,6 @@ export function useScheduleConfig(initialConfig?: ScheduleConfig | null) {
     removeRule,
     setMode,
     reset,
-    loadConfig,
+    loadConfig
   }
 }

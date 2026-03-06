@@ -67,6 +67,6 @@ export function useFormValidation<T extends Record<string, FieldConfig>>(fields:
     touchField,
     validateAll,
     isValid,
-    reset,
+    reset
   }
 }

@@ -13,15 +13,7 @@ const route = useRoute()
 const toast = useToastStore()
 const { confirm: confirmDialog } = useConfirm()
 
-const {
-  knowledgeBases,
-  loading,
-  error,
-  fetchKBs,
-  deleteKB,
-  buildKB,
-  mergeKB,
-} = useKnowledgeBase()
+const { knowledgeBases, loading, error, fetchKBs, deleteKB, buildKB, mergeKB } = useKnowledgeBase()
 
 // ── View Mode ───────────────────────────────────────────────────
 type ViewMode = 'list' | 'detail'
@@ -37,16 +29,16 @@ const filteredKBs = computed(() => {
 
   // Scope filter
   if (scopeFilter.value === 'space') {
-    result = result.filter(kb => kb.space_id && !kb.room_id)
+    result = result.filter((kb) => kb.space_id && !kb.room_id)
   } else if (scopeFilter.value === 'room') {
-    result = result.filter(kb => kb.room_id)
+    result = result.filter((kb) => kb.room_id)
   }
 
   // Search filter
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
     result = result.filter(
-      kb =>
+      (kb) =>
         kb.name.toLowerCase().includes(q) ||
         (kb.description && kb.description.toLowerCase().includes(q))
     )
@@ -75,7 +67,7 @@ async function handleBuildKB(kb: KnowledgeBase) {
   if (success) {
     toast.success(`Build started for "${kb.name}"`)
     // Update local status to building
-    const idx = knowledgeBases.value.findIndex(k => k.id === kb.id)
+    const idx = knowledgeBases.value.findIndex((k) => k.id === kb.id)
     if (idx !== -1) {
       knowledgeBases.value[idx] = { ...knowledgeBases.value[idx], build_status: 'building' }
     }
@@ -87,7 +79,13 @@ async function handleBuildKB(kb: KnowledgeBase) {
 }
 
 async function handleDeleteKB(kb: KnowledgeBase) {
-  if (!(await confirmDialog('Delete Knowledge Base', `Are you sure you want to delete "${kb.name}"? This action cannot be undone.`))) return
+  if (
+    !(await confirmDialog(
+      'Delete Knowledge Base',
+      `Are you sure you want to delete "${kb.name}"? This action cannot be undone.`
+    ))
+  )
+    return
   const success = await deleteKB(kb.id)
   if (success) {
     toast.success(`"${kb.name}" deleted`)
@@ -133,13 +131,13 @@ async function pollNext(kbId: string) {
   try {
     const statusResult = await knowledgeService.getKBStatus(kbId)
     // Update in the list
-    const idx = knowledgeBases.value.findIndex(k => k.id === kbId)
+    const idx = knowledgeBases.value.findIndex((k) => k.id === kbId)
     if (idx !== -1) {
       knowledgeBases.value[idx] = {
         ...knowledgeBases.value[idx],
         build_status: statusResult.build_status as KnowledgeBase['build_status'],
         node_count: statusResult.node_count,
-        edge_count: statusResult.edge_count,
+        edge_count: statusResult.edge_count
       }
     }
     // Update detail view if this KB is selected
@@ -148,7 +146,7 @@ async function pollNext(kbId: string) {
         ...selectedKB.value,
         build_status: statusResult.build_status as KnowledgeBase['build_status'],
         node_count: statusResult.node_count,
-        edge_count: statusResult.edge_count,
+        edge_count: statusResult.edge_count
       }
     }
 
@@ -216,7 +214,7 @@ async function saveInlineEdit(field: 'name' | 'description') {
   try {
     const updated = await knowledgeService.updateKB(selectedKB.value.id, payload)
     selectedKB.value = updated
-    const idx = knowledgeBases.value.findIndex(k => k.id === updated.id)
+    const idx = knowledgeBases.value.findIndex((k) => k.id === updated.id)
     if (idx !== -1) knowledgeBases.value[idx] = updated
     toast.success('Updated successfully')
   } catch (e: any) {
@@ -252,7 +250,7 @@ async function submitQuery() {
   } catch (e: any) {
     queryResult.value = {
       answer: e.response?.data?.detail || 'Query failed. Make sure the graph is built first.',
-      error: true,
+      error: true
     }
   } finally {
     queryLoading.value = false
@@ -292,7 +290,7 @@ const isMerging = ref(false)
 
 const mergeableKBs = computed(() => {
   if (!selectedKB.value) return []
-  return knowledgeBases.value.filter(kb => kb.id !== selectedKB.value!.id)
+  return knowledgeBases.value.filter((kb) => kb.id !== selectedKB.value!.id)
 })
 
 async function handleMerge() {
@@ -306,10 +304,12 @@ async function handleMerge() {
       showMergeModal.value = false
       mergeTargetId.value = ''
       // Refresh KB data
-      await fetchKBs(route.query.space_id ? { space_id: route.query.space_id as string } : undefined)
+      await fetchKBs(
+        route.query.space_id ? { space_id: route.query.space_id as string } : undefined
+      )
       // Reload selected KB
       if (selectedKB.value) {
-        const refreshed = knowledgeBases.value.find(kb => kb.id === selectedKB.value!.id)
+        const refreshed = knowledgeBases.value.find((kb) => kb.id === selectedKB.value!.id)
         if (refreshed) selectedKB.value = refreshed
       }
     } else {
@@ -328,21 +328,31 @@ function formatDate(dateStr: string | undefined) {
 
 function statusBadgeClass(status: string) {
   switch (status) {
-    case 'idle': return 'badge-ghost'
-    case 'building': return 'badge-warning'
-    case 'ready': return 'badge-success'
-    case 'error': return 'badge-error'
-    default: return 'badge-ghost'
+    case 'idle':
+      return 'badge-ghost'
+    case 'building':
+      return 'badge-warning'
+    case 'ready':
+      return 'badge-success'
+    case 'error':
+      return 'badge-error'
+    default:
+      return 'badge-ghost'
   }
 }
 
 function statusLabel(status: string) {
   switch (status) {
-    case 'idle': return 'Not Built'
-    case 'building': return 'Building'
-    case 'ready': return 'Ready'
-    case 'error': return 'Error'
-    default: return status
+    case 'idle':
+      return 'Not Built'
+    case 'building':
+      return 'Building'
+    case 'ready':
+      return 'Ready'
+    case 'error':
+      return 'Error'
+    default:
+      return status
   }
 }
 
@@ -388,12 +398,10 @@ onUnmounted(() => {
 
 <template>
   <div class="p-6 max-w-7xl mx-auto">
-
     <!-- ════════════════════════════════════════════════════════ -->
     <!-- LIST MODE                                               -->
     <!-- ════════════════════════════════════════════════════════ -->
     <template v-if="viewMode === 'list'">
-
       <!-- Header -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
@@ -403,7 +411,14 @@ onUnmounted(() => {
           </p>
         </div>
         <button class="btn btn-primary" @click="showCreateModal = true">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
           Create Knowledge Base
@@ -418,8 +433,19 @@ onUnmounted(() => {
           <option value="room">Room-level</option>
         </select>
         <div class="relative flex-1">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
           </svg>
           <input
             v-model="searchQuery"
@@ -442,23 +468,50 @@ onUnmounted(() => {
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="filteredKBs.length === 0 && knowledgeBases.length === 0" class="text-center py-16 bg-base-100 rounded-box shadow">
-        <div class="w-16 h-16 mx-auto rounded-full bg-base-200 flex items-center justify-center mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+      <div
+        v-else-if="filteredKBs.length === 0 && knowledgeBases.length === 0"
+        class="text-center py-16 bg-base-100 rounded-box shadow"
+      >
+        <div
+          class="w-16 h-16 mx-auto rounded-full bg-base-200 flex items-center justify-center mb-4"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-8 w-8 text-base-content/30"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
+            />
           </svg>
         </div>
         <h3 class="font-bold text-lg mb-2">No Knowledge Bases Yet</h3>
         <p class="text-base-content/60 mb-4 max-w-md mx-auto">
-          Create your first knowledge base to start extracting structured knowledge from conversations and documents.
+          Create your first knowledge base to start extracting structured knowledge from
+          conversations and documents.
         </p>
-        <button class="btn btn-primary" @click="showCreateModal = true">Create Your First Knowledge Base</button>
+        <button class="btn btn-primary" @click="showCreateModal = true">
+          Create Your First Knowledge Base
+        </button>
       </div>
 
       <!-- No Results (with filter) -->
       <div v-else-if="filteredKBs.length === 0" class="text-center py-16">
         <p class="text-base-content/60">No knowledge bases match your search criteria.</p>
-        <button class="btn btn-sm btn-ghost mt-2" @click="searchQuery = ''; scopeFilter = 'all'">Clear Filters</button>
+        <button
+          class="btn btn-sm btn-ghost mt-2"
+          @click="
+            searchQuery = ''
+            scopeFilter = 'all'
+          "
+        >
+          Clear Filters
+        </button>
       </div>
 
       <!-- KB Grid -->
@@ -478,11 +531,17 @@ onUnmounted(() => {
     <!-- DETAIL MODE                                             -->
     <!-- ════════════════════════════════════════════════════════ -->
     <template v-else-if="viewMode === 'detail' && selectedKB">
-
       <!-- Back Button + Header -->
       <div class="mb-6">
         <button class="btn btn-ghost btn-sm gap-1 mb-4" @click="handleBackToList">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           Back to Knowledge Bases
@@ -501,7 +560,13 @@ onUnmounted(() => {
                 @keyup.enter="saveInlineEdit('name')"
                 @keyup.escape="cancelEdit"
               />
-              <button class="btn btn-xs btn-primary" :disabled="isSavingEdit" @click="saveInlineEdit('name')">Save</button>
+              <button
+                class="btn btn-xs btn-primary"
+                :disabled="isSavingEdit"
+                @click="saveInlineEdit('name')"
+              >
+                Save
+              </button>
               <button class="btn btn-xs btn-ghost" @click="cancelEdit">Cancel</button>
             </div>
             <h1
@@ -523,7 +588,13 @@ onUnmounted(() => {
                 @keyup.escape="cancelEdit"
               ></textarea>
               <div class="flex flex-col gap-1">
-                <button class="btn btn-xs btn-primary" :disabled="isSavingEdit" @click="saveInlineEdit('description')">Save</button>
+                <button
+                  class="btn btn-xs btn-primary"
+                  :disabled="isSavingEdit"
+                  @click="saveInlineEdit('description')"
+                >
+                  Save
+                </button>
                 <button class="btn btn-xs btn-ghost" @click="cancelEdit">Cancel</button>
               </div>
             </div>
@@ -544,17 +615,44 @@ onUnmounted(() => {
               :disabled="selectedKB.build_status === 'building'"
               @click="handleBuildKB(selectedKB)"
             >
-              <span v-if="selectedKB.build_status === 'building'" class="loading loading-spinner loading-xs"></span>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <span
+                v-if="selectedKB.build_status === 'building'"
+                class="loading loading-spinner loading-xs"
+              ></span>
+              <svg
+                v-else
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
               {{ selectedKB.build_status === 'building' ? 'Building...' : 'Build Graph' }}
             </button>
 
             <button class="btn btn-sm btn-outline" @click="triggerUpload" :disabled="isUploading">
               <span v-if="isUploading" class="loading loading-spinner loading-xs"></span>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              <svg
+                v-else
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                />
               </svg>
               Upload Document
             </button>
@@ -566,16 +664,42 @@ onUnmounted(() => {
               @change="handleFileUpload"
             />
 
-            <button class="btn btn-sm btn-outline" @click="showMergeModal = true" :disabled="mergeableKBs.length === 0">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            <button
+              class="btn btn-sm btn-outline"
+              @click="showMergeModal = true"
+              :disabled="mergeableKBs.length === 0"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                />
               </svg>
               Merge
             </button>
 
             <button class="btn btn-sm btn-error btn-outline" @click="handleDeleteKB(selectedKB)">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
               </svg>
             </button>
           </div>
@@ -588,7 +712,10 @@ onUnmounted(() => {
           <div class="flex items-center gap-2">
             <span class="text-base-content/50 font-medium">Status:</span>
             <span class="badge gap-1" :class="statusBadgeClass(selectedKB.build_status)">
-              <span v-if="selectedKB.build_status === 'building'" class="loading loading-spinner loading-xs"></span>
+              <span
+                v-if="selectedKB.build_status === 'building'"
+                class="loading loading-spinner loading-xs"
+              ></span>
               {{ statusLabel(selectedKB.build_status) }}
             </span>
           </div>
@@ -658,8 +785,20 @@ onUnmounted(() => {
               @click="submitQuery"
             >
               <span v-if="queryLoading" class="loading loading-spinner loading-sm"></span>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <svg
+                v-else
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
               Query
             </button>
@@ -667,11 +806,24 @@ onUnmounted(() => {
 
           <!-- Query Hint -->
           <div v-if="!queryResult && !queryLoading" class="text-center py-8 text-base-content/40">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-12 w-12 mx-auto mb-3 opacity-50"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <p class="text-sm">Enter a question to query the knowledge graph.</p>
-            <p class="text-xs mt-1">Example: "What are the main topics discussed?" or "Summarize the key concepts."</p>
+            <p class="text-xs mt-1">
+              Example: "What are the main topics discussed?" or "Summarize the key concepts."
+            </p>
           </div>
 
           <!-- Loading -->
@@ -680,9 +832,15 @@ onUnmounted(() => {
           </div>
 
           <!-- Query Result -->
-          <div v-if="queryResult && !queryLoading" class="bg-base-200/50 rounded-lg p-4 border border-base-300">
+          <div
+            v-if="queryResult && !queryLoading"
+            class="bg-base-200/50 rounded-lg p-4 border border-base-300"
+          >
             <div v-if="queryResult.intent" class="mb-2">
-              <span class="badge badge-sm" :class="queryResult.intent === 'global' ? 'badge-primary' : 'badge-secondary'">
+              <span
+                class="badge badge-sm"
+                :class="queryResult.intent === 'global' ? 'badge-primary' : 'badge-secondary'"
+              >
                 {{ queryResult.intent === 'global' ? 'Global Analysis' : 'Local Search' }}
               </span>
             </div>
@@ -692,14 +850,18 @@ onUnmounted(() => {
             >
               {{ queryResult.answer }}
             </div>
-            <div v-if="queryResult.sources && queryResult.sources.length > 0" class="mt-3 pt-3 border-t border-base-300">
+            <div
+              v-if="queryResult.sources && queryResult.sources.length > 0"
+              class="mt-3 pt-3 border-t border-base-300"
+            >
               <span class="text-xs font-semibold text-base-content/50 mb-1 block">Sources:</span>
               <div class="flex flex-wrap gap-1">
                 <span
                   v-for="src in queryResult.sources"
                   :key="src"
                   class="badge badge-outline badge-xs"
-                >{{ src }}</span>
+                  >{{ src }}</span
+                >
               </div>
             </div>
           </div>
@@ -710,12 +872,24 @@ onUnmounted(() => {
       <div v-if="activeTab === 'graph'" class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body">
           <div class="flex flex-col items-center justify-center py-16 text-base-content/40">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-16 w-16 mb-4 opacity-40"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
+              />
             </svg>
             <h3 class="font-bold text-lg mb-2">Graph Visualization</h3>
             <p class="text-sm text-center max-w-md mb-4">
-              Interactive graph visualization is available in the Room view. Navigate to the room associated with this knowledge base to view and explore the entity-relationship graph.
+              Interactive graph visualization is available in the Room view. Navigate to the room
+              associated with this knowledge base to view and explore the entity-relationship graph.
             </p>
             <div v-if="selectedKB.room_id" class="flex gap-2">
               <router-link :to="`/rooms/${selectedKB.room_id}`" class="btn btn-primary btn-sm">
@@ -745,15 +919,26 @@ onUnmounted(() => {
     <!-- Merge Modal -->
     <dialog class="modal" :class="{ 'modal-open': showMergeModal }">
       <div class="modal-box">
-        <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3" @click="showMergeModal = false">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <button
+          class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3"
+          @click="showMergeModal = false"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
 
         <h3 class="font-bold text-lg mb-1">Merge Knowledge Bases</h3>
         <p class="text-sm text-base-content/60 mb-4">
-          Merge another knowledge base into <strong>{{ selectedKB?.name }}</strong>. The source data will be combined into this knowledge base.
+          Merge another knowledge base into <strong>{{ selectedKB?.name }}</strong
+          >. The source data will be combined into this knowledge base.
         </p>
 
         <div class="form-control mb-4">
@@ -784,6 +969,5 @@ onUnmounted(() => {
         <button @click="showMergeModal = false">close</button>
       </form>
     </dialog>
-
   </div>
 </template>

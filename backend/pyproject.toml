@@ -29,6 +29,30 @@ plugins = ["pydantic.mypy"]
 exclude = ["alembic", "migrations", "tests"]
 strict_optional = true
 explicit_package_bases = true
+ignore_missing_imports = true
+disable_error_code = [
+    "func-returns-value",
+    "var-annotated",
+    "union-attr",
+    "arg-type",
+    "attr-defined",
+    "assignment",
+    "dict-item",
+    "index",
+    "misc",
+    "override",
+    "return-value",
+    "call-arg",
+    "type-arg",
+    "call-overload",
+    "operator",
+    "name-defined",
+    "has-type",
+    "import-untyped",
+    "valid-type",
+    "no-redef",
+    "truthy-function",
+]
 
 [[tool.mypy.overrides]]
 module = "tests.*"

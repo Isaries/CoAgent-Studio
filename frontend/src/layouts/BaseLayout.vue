@@ -36,7 +36,7 @@ register({
   keys: 'Ctrl+K',
   label: 'commandPalette',
   scope: 'global',
-  action: () => openPalette(),
+  action: () => openPalette()
 })
 
 // Profile Edit State
@@ -50,7 +50,7 @@ const editLoading = ref(false)
 // Stream 7: Profile form validation
 const profileValidation = useFormValidation({
   full_name: { rules: [required(t('validation.required', { field: t('profile.displayName') }))] },
-  avatar_url: { rules: [urlRule(t('validation.url'))] },
+  avatar_url: { rules: [urlRule(t('validation.url'))] }
 })
 
 const openProfileModal = () => {
@@ -97,7 +97,7 @@ const handleAvatarUpload = async (event: Event) => {
 const updateProfile = async () => {
   const valid = profileValidation.validateAll({
     full_name: editForm.value.full_name,
-    avatar_url: editForm.value.avatar_url,
+    avatar_url: editForm.value.avatar_url
   })
   if (!valid) return
 
@@ -129,16 +129,23 @@ export default {
 
 <template>
   <ToastContainer />
-  <div
-    class="drawer lg:drawer-open"
-    :class="{ 'border-4 border-error': isImpersonating }"
-  >
+  <div class="drawer lg:drawer-open" :class="{ 'border-4 border-error': isImpersonating }">
     <input id="my-drawer-2" type="checkbox" class="drawer-toggle" />
 
     <!-- Impersonation Banner -->
     <div v-if="isImpersonating" class="fixed bottom-6 right-6 z-50 animate-bounce">
       <button @click="stopImpersonating()" class="btn btn-error shadow-lg gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
           <polyline points="16 17 21 12 16 7"></polyline>
           <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -152,8 +159,18 @@ export default {
       <div class="w-full navbar bg-base-100 lg:hidden user-select-none">
         <div class="flex-none lg:hidden">
           <label for="my-drawer-2" class="btn btn-square btn-ghost">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              class="inline-block w-6 h-6 stroke-current"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 6h16M4 12h16M4 18h16"
+              ></path>
             </svg>
           </label>
         </div>
@@ -212,22 +229,34 @@ export default {
             </div>
 
             <div class="form-control w-full mb-2">
-              <label class="label"><span class="label-text">{{ t('profile.displayName') }}</span></label>
+              <label class="label"
+                ><span class="label-text">{{ t('profile.displayName') }}</span></label
+              >
               <input
                 type="text"
                 v-model="editForm.full_name"
                 placeholder="John Doe"
                 class="input input-bordered w-full"
-                :class="{ 'input-error': profileValidation.touched.full_name && profileValidation.errors.full_name }"
+                :class="{
+                  'input-error':
+                    profileValidation.touched.full_name && profileValidation.errors.full_name
+                }"
                 @blur="profileValidation.touchField('full_name', editForm.full_name)"
               />
-              <label v-if="profileValidation.touched.full_name && profileValidation.errors.full_name" class="label">
-                <span class="label-text-alt text-error">{{ profileValidation.errors.full_name }}</span>
+              <label
+                v-if="profileValidation.touched.full_name && profileValidation.errors.full_name"
+                class="label"
+              >
+                <span class="label-text-alt text-error">{{
+                  profileValidation.errors.full_name
+                }}</span>
               </label>
             </div>
 
             <div class="form-control w-full mb-2">
-              <label class="label"><span class="label-text">{{ t('profile.avatarImage') }}</span></label>
+              <label class="label"
+                ><span class="label-text">{{ t('profile.avatarImage') }}</span></label
+              >
               <input
                 type="file"
                 @change="handleAvatarUpload"
@@ -242,17 +271,27 @@ export default {
             <div class="divider text-xs">OR</div>
 
             <div class="form-control w-full mb-2">
-              <label class="label"><span class="label-text">{{ t('profile.avatarUrl') }}</span></label>
+              <label class="label"
+                ><span class="label-text">{{ t('profile.avatarUrl') }}</span></label
+              >
               <input
                 type="text"
                 v-model="editForm.avatar_url"
                 placeholder="https://..."
                 class="input input-bordered w-full"
-                :class="{ 'input-error': profileValidation.touched.avatar_url && profileValidation.errors.avatar_url }"
+                :class="{
+                  'input-error':
+                    profileValidation.touched.avatar_url && profileValidation.errors.avatar_url
+                }"
                 @blur="profileValidation.touchField('avatar_url', editForm.avatar_url)"
               />
-              <label v-if="profileValidation.touched.avatar_url && profileValidation.errors.avatar_url" class="label">
-                <span class="label-text-alt text-error">{{ profileValidation.errors.avatar_url }}</span>
+              <label
+                v-if="profileValidation.touched.avatar_url && profileValidation.errors.avatar_url"
+                class="label"
+              >
+                <span class="label-text-alt text-error">{{
+                  profileValidation.errors.avatar_url
+                }}</span>
               </label>
               <label v-else class="label">
                 <span class="label-text-alt">{{ t('profile.leaveEmpty') }}</span>
@@ -261,9 +300,13 @@ export default {
           </div>
 
           <div class="modal-action flex justify-between items-center w-full">
-            <button class="btn btn-error btn-outline btn-sm" @click="logout">{{ t('profile.logout') }}</button>
+            <button class="btn btn-error btn-outline btn-sm" @click="logout">
+              {{ t('profile.logout') }}
+            </button>
             <div class="flex gap-2">
-              <button class="btn btn-ghost" @click="showProfileModal = false">{{ t('common.cancel') }}</button>
+              <button class="btn btn-ghost" @click="showProfileModal = false">
+                {{ t('common.cancel') }}
+              </button>
               <button class="btn btn-primary" @click="updateProfile" :disabled="editLoading">
                 {{ t('common.save') }}
               </button>
@@ -314,68 +357,111 @@ export default {
 
           <!-- PLATFORM section (non-students only) -->
           <template v-if="!isStudent">
-            <div class="divider text-xs opacity-50 uppercase tracking-widest">{{ t('nav.platform') }}</div>
+            <div class="divider text-xs opacity-50 uppercase tracking-widest">
+              {{ t('nav.platform') }}
+            </div>
             <li>
               <router-link to="/agents" active-class="active">{{ t('nav.agentLab') }}</router-link>
             </li>
             <li>
-              <router-link to="/my-agents" active-class="active">{{ t('nav.myAgents') }}</router-link>
+              <router-link to="/my-agents" active-class="active">{{
+                t('nav.myAgents')
+              }}</router-link>
             </li>
             <li>
-              <router-link to="/platform/workflows" active-class="active">{{ t('nav.workflows') }}</router-link>
+              <router-link to="/platform/workflows" active-class="active">{{
+                t('nav.workflows')
+              }}</router-link>
             </li>
             <li>
-              <router-link to="/platform/triggers" active-class="active">{{ t('nav.triggers') }}</router-link>
+              <router-link to="/platform/triggers" active-class="active">{{
+                t('nav.triggers')
+              }}</router-link>
             </li>
             <li>
-              <router-link to="/platform/knowledge" active-class="active">{{ t('nav.knowledgeEngine') }}</router-link>
+              <router-link to="/platform/knowledge" active-class="active">{{
+                t('nav.knowledgeEngine')
+              }}</router-link>
             </li>
           </template>
 
           <!-- SPACES section -->
-          <div class="divider text-xs opacity-50 uppercase tracking-widest">{{ t('nav.spaces') }}</div>
+          <div class="divider text-xs opacity-50 uppercase tracking-widest">
+            {{ t('nav.spaces') }}
+          </div>
           <li>
             <router-link to="/spaces" active-class="active">{{ t('nav.mySpaces') }}</router-link>
           </li>
 
           <!-- SYSTEM section -->
-          <div class="divider text-xs opacity-50 uppercase tracking-widest">{{ t('nav.system') }}</div>
+          <div class="divider text-xs opacity-50 uppercase tracking-widest">
+            {{ t('nav.system') }}
+          </div>
           <li v-if="!isStudent">
             <router-link to="/my-keys" active-class="active">{{ t('nav.myApiKeys') }}</router-link>
           </li>
           <li v-if="isAdmin">
-            <router-link to="/analytics" active-class="active">{{ t('nav.analytics') }}</router-link>
+            <router-link to="/analytics" active-class="active">{{
+              t('nav.analytics')
+            }}</router-link>
           </li>
 
           <!-- ADMIN section (admin only) -->
           <template v-if="isAdmin">
-            <div class="divider text-xs opacity-50 uppercase tracking-widest">{{ t('nav.admin') }}</div>
+            <div class="divider text-xs opacity-50 uppercase tracking-widest">
+              {{ t('nav.admin') }}
+            </div>
             <li>
-              <router-link to="/dashboard" active-class="active">{{ t('nav.dashboard') }}</router-link>
+              <router-link to="/dashboard" active-class="active">{{
+                t('nav.dashboard')
+              }}</router-link>
             </li>
             <li>
-              <router-link to="/admin/users" active-class="active">{{ t('nav.users') }}</router-link>
+              <router-link to="/admin/users" active-class="active">{{
+                t('nav.users')
+              }}</router-link>
             </li>
             <li>
-              <router-link to="/admin/system-agents" active-class="active">{{ t('nav.systemAgents') }}</router-link>
+              <router-link to="/admin/system-agents" active-class="active">{{
+                t('nav.systemAgents')
+              }}</router-link>
             </li>
             <li>
-              <router-link to="/admin/database" active-class="active">{{ t('nav.database') }}</router-link>
+              <router-link to="/admin/database" active-class="active">{{
+                t('nav.database')
+              }}</router-link>
             </li>
           </template>
 
           <div class="divider"></div>
 
-          <li><a @click="openProfileModal">{{ t('nav.settings') }}</a></li>
+          <li>
+            <a @click="openProfileModal">{{ t('nav.settings') }}</a>
+          </li>
         </div>
 
         <!-- Sidebar Bottom: Theme + Language (Stream 1) -->
         <div class="flex items-center justify-center gap-2 py-2 border-t border-base-200">
           <ThemeToggle />
           <LanguageSwitcher />
-          <kbd class="kbd kbd-sm cursor-pointer opacity-50 hover:opacity-100" @click="openPalette" title="Ctrl+K">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <kbd
+            class="kbd kbd-sm cursor-pointer opacity-50 hover:opacity-100"
+            @click="openPalette"
+            title="Ctrl+K"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
           </kbd>
         </div>

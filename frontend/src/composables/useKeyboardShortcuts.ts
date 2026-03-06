@@ -34,7 +34,8 @@ export function useKeyboardShortcuts() {
 
   const handleKeydown = (e: KeyboardEvent) => {
     const target = e.target as HTMLElement
-    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+    const isInput =
+      target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
 
     // Ctrl/Cmd+K — always works
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -74,7 +75,9 @@ export function useKeyboardShortcuts() {
       keys: '?',
       label: 'showShortcuts',
       scope: 'global',
-      action: () => { isHelpOpen.value = true }
+      action: () => {
+        isHelpOpen.value = true
+      }
     })
     register({
       keys: 'Escape',
@@ -109,6 +112,6 @@ export function useKeyboardShortcuts() {
     isHelpOpen,
     register,
     unregister,
-    registerDefaults,
+    registerDefaults
   }
 }

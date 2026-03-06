@@ -19,7 +19,6 @@ const { canEditUser, canDeleteUser, isSuperAdmin, currentUser } = usePermissions
 const toast = useToastStore()
 const { confirm: confirmDialog } = useConfirm()
 
-
 // Modal Refs
 const createModal = ref<InstanceType<typeof UserCreateModal> | null>(null)
 const editModal = ref<InstanceType<typeof UserEditModal> | null>(null)
@@ -41,7 +40,8 @@ const handleDelete = async (user: User) => {
     toast.error('You do not have permission to delete this user.')
     return
   }
-  if (!(await confirmDialog('Delete User', `Are you sure you want to delete ${user.username}?`))) return
+  if (!(await confirmDialog('Delete User', `Are you sure you want to delete ${user.username}?`)))
+    return
   await deleteUser(user.id)
 }
 

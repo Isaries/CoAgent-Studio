@@ -5,7 +5,7 @@ import en from '../locales/en'
 const i18n = createI18n({
   legacy: false,
   locale: 'en',
-  messages: { en },
+  messages: { en }
 })
 
 config.global.plugins = [i18n]

@@ -25,13 +25,48 @@ export function useCommandPalette() {
     { id: 'home', label: 'Home', category: 'Pages', action: () => router.push('/') },
     { id: 'spaces', label: 'My Spaces', category: 'Pages', action: () => router.push('/spaces') },
     { id: 'agents', label: 'Agent Lab', category: 'Pages', action: () => router.push('/agents') },
-    { id: 'my-agents', label: 'My Agents', category: 'Pages', action: () => router.push('/my-agents') },
-    { id: 'workflows', label: 'Workflows', category: 'Pages', action: () => router.push('/platform/workflows') },
-    { id: 'triggers', label: 'Triggers', category: 'Pages', action: () => router.push('/platform/triggers') },
-    { id: 'knowledge', label: 'Knowledge Engine', category: 'Pages', action: () => router.push('/platform/knowledge') },
-    { id: 'api-keys', label: 'My API Keys', category: 'Pages', action: () => router.push('/my-keys') },
-    { id: 'analytics', label: 'Analytics', category: 'Pages', action: () => router.push('/analytics') },
-    { id: 'dashboard', label: 'Dashboard', category: 'Pages', action: () => router.push('/dashboard') },
+    {
+      id: 'my-agents',
+      label: 'My Agents',
+      category: 'Pages',
+      action: () => router.push('/my-agents')
+    },
+    {
+      id: 'workflows',
+      label: 'Workflows',
+      category: 'Pages',
+      action: () => router.push('/platform/workflows')
+    },
+    {
+      id: 'triggers',
+      label: 'Triggers',
+      category: 'Pages',
+      action: () => router.push('/platform/triggers')
+    },
+    {
+      id: 'knowledge',
+      label: 'Knowledge Engine',
+      category: 'Pages',
+      action: () => router.push('/platform/knowledge')
+    },
+    {
+      id: 'api-keys',
+      label: 'My API Keys',
+      category: 'Pages',
+      action: () => router.push('/my-keys')
+    },
+    {
+      id: 'analytics',
+      label: 'Analytics',
+      category: 'Pages',
+      action: () => router.push('/analytics')
+    },
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      category: 'Pages',
+      action: () => router.push('/dashboard')
+    }
   ]
 
   const results = computed<PaletteItem[]>(() => {
@@ -55,7 +90,7 @@ export function useCommandPalette() {
           id: `space-${s.id}`,
           label: s.title,
           category: 'Spaces',
-          action: () => router.push(`/spaces/${s.id}`),
+          action: () => router.push(`/spaces/${s.id}`)
         }))
     } catch {
       apiResults.value = []
@@ -115,6 +150,6 @@ export function useCommandPalette() {
     execute,
     moveUp,
     moveDown,
-    executeSelected,
+    executeSelected
   }
 }

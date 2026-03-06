@@ -19,7 +19,7 @@ const icons: Record<string, string> = {
   router: '⑂',
   merge: '⤵',
   action: '⚡',
-  tool: '🔧',
+  tool: '🔧'
 }
 </script>
 
@@ -31,17 +31,27 @@ const icons: Record<string, string> = {
       'border-error bg-error/10': type === 'end',
       'border-warning bg-warning/10': type === 'router',
       'border-info bg-info/10': type === 'merge' || type === 'action' || type === 'tool',
-      'shadow-lg ring-2 ring-primary animate-pulse': data.isActive,
+      'shadow-lg ring-2 ring-primary animate-pulse': data.isActive
     }"
   >
     <!-- Input handle (not on start) -->
-    <Handle v-if="type !== 'start'" type="target" :position="Position.Top" class="!bg-base-content !w-2.5 !h-2.5" />
+    <Handle
+      v-if="type !== 'start'"
+      type="target"
+      :position="Position.Top"
+      class="!bg-base-content !w-2.5 !h-2.5"
+    />
 
     <div class="text-lg">{{ icons[type] || '◆' }}</div>
     <div class="font-semibold text-xs mt-1">{{ data.label || type.toUpperCase() }}</div>
 
     <!-- Output handle (not on end) -->
-    <Handle v-if="type !== 'end'" type="source" :position="Position.Bottom" class="!bg-base-content !w-2.5 !h-2.5" />
+    <Handle
+      v-if="type !== 'end'"
+      type="source"
+      :position="Position.Bottom"
+      class="!bg-base-content !w-2.5 !h-2.5"
+    />
   </div>
 </template>
 

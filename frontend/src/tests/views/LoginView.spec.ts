@@ -18,8 +18,8 @@ vi.mock('../../composables/useAuth', () => ({
     isImpersonating: { value: false },
     logout: vi.fn(),
     impersonate: vi.fn(),
-    stopImpersonating: vi.fn(),
-  }),
+    stopImpersonating: vi.fn()
+  })
 }))
 
 const i18n = createI18n({ legacy: false, locale: 'en', messages: { en } })
@@ -29,8 +29,8 @@ const createTestRouter = () =>
     history: createMemoryHistory(),
     routes: [
       { path: '/login', component: LoginView },
-      { path: '/', component: { template: '<div />' } },
-    ],
+      { path: '/', component: { template: '<div />' } }
+    ]
   })
 
 describe('LoginView', () => {
@@ -41,7 +41,7 @@ describe('LoginView', () => {
     await router.isReady()
 
     const wrapper = mount(LoginView, {
-      global: { plugins: [createPinia(), router, i18n] },
+      global: { plugins: [createPinia(), router, i18n] }
     })
 
     expect(wrapper.find('form').exists()).toBe(true)
@@ -57,7 +57,7 @@ describe('LoginView', () => {
     await router.isReady()
 
     const wrapper = mount(LoginView, {
-      global: { plugins: [createPinia(), router, i18n] },
+      global: { plugins: [createPinia(), router, i18n] }
     })
 
     expect(wrapper.text()).toContain('Continue with Google')
@@ -70,7 +70,7 @@ describe('LoginView', () => {
     await router.isReady()
 
     const wrapper = mount(LoginView, {
-      global: { plugins: [createPinia(), router, i18n] },
+      global: { plugins: [createPinia(), router, i18n] }
     })
 
     const adminBtn = wrapper.findAll('button').find((b) => b.text().includes('Admin Login'))
@@ -84,7 +84,7 @@ describe('LoginView', () => {
     await router.isReady()
 
     const wrapper = mount(LoginView, {
-      global: { plugins: [createPinia(), router, i18n] },
+      global: { plugins: [createPinia(), router, i18n] }
     })
 
     await wrapper.find('input[type="text"]').setValue('user')

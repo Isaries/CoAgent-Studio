@@ -23,13 +23,13 @@ const edgeTypes = [
   { value: 'evaluate', label: '✅ Evaluate (審核)', desc: 'Target approves or rejects' },
   { value: 'summarize', label: '📝 Summarize (摘要)', desc: 'Target summarises inputs' },
   { value: 'critique', label: '💬 Critique (評論)', desc: 'Target provides feedback' },
-  { value: 'trigger', label: '⚡ Trigger (觸發)', desc: 'Completion triggers target' },
+  { value: 'trigger', label: '⚡ Trigger (觸發)', desc: 'Completion triggers target' }
 ]
 
 const selectedAgent = computed(() => {
   if (props.elementType !== 'node' || !props.selectedElement) return null
   const agentId = props.selectedElement.data?.agentId
-  return props.agents.find(a => a.id === agentId) || null
+  return props.agents.find((a) => a.id === agentId) || null
 })
 </script>
 
@@ -65,7 +65,11 @@ const selectedAgent = computed(() => {
         <input
           class="input input-bordered input-sm"
           :value="selectedElement.data?.label || ''"
-          @input="emit('update:node', selectedElement.id, { label: ($event.target as HTMLInputElement).value })"
+          @input="
+            emit('update:node', selectedElement.id, {
+              label: ($event.target as HTMLInputElement).value
+            })
+          "
         />
       </div>
 
@@ -76,10 +80,14 @@ const selectedAgent = computed(() => {
           <select
             class="select select-bordered select-sm"
             :value="selectedElement.data?.agentId || ''"
-            @change="emit('update:node', selectedElement.id, {
-              agentId: ($event.target as HTMLSelectElement).value,
-              label: agents.find(a => a.id === ($event.target as HTMLSelectElement).value)?.name || 'Agent',
-            })"
+            @change="
+              emit('update:node', selectedElement.id, {
+                agentId: ($event.target as HTMLSelectElement).value,
+                label:
+                  agents.find((a) => a.id === ($event.target as HTMLSelectElement).value)?.name ||
+                  'Agent'
+              })
+            "
           >
             <option value="">-- Select Agent --</option>
             <option v-for="agent in agents" :key="agent.id" :value="agent.id">
@@ -101,9 +109,14 @@ const selectedAgent = computed(() => {
           <select
             class="select select-bordered select-sm"
             :value="selectedElement.data?.config?.output_behavior || 'proposal'"
-            @change="emit('update:node', selectedElement.id, {
-              config: { ...selectedElement.data?.config, output_behavior: ($event.target as HTMLSelectElement).value }
-            })"
+            @change="
+              emit('update:node', selectedElement.id, {
+                config: {
+                  ...selectedElement.data?.config,
+                  output_behavior: ($event.target as HTMLSelectElement).value
+                }
+              })
+            "
           >
             <option value="proposal">Proposal (草稿輸出)</option>
             <option value="evaluation">Evaluation (審核判定)</option>
@@ -115,11 +128,17 @@ const selectedAgent = computed(() => {
       <template v-if="selectedElement.type === 'router'">
         <div class="form-control">
           <label class="label"><span class="label-text font-bold">Condition Type</span></label>
-          <select class="select select-bordered select-sm"
+          <select
+            class="select select-bordered select-sm"
             :value="selectedElement.data?.config?.condition || 'is_approved'"
-            @change="emit('update:node', selectedElement.id, {
-              config: { ...selectedElement.data?.config, condition: ($event.target as HTMLSelectElement).value }
-            })"
+            @change="
+              emit('update:node', selectedElement.id, {
+                config: {
+                  ...selectedElement.data?.config,
+                  condition: ($event.target as HTMLSelectElement).value
+                }
+              })
+            "
           >
             <option value="is_approved">Is Approved? (審核通過?)</option>
             <option value="cycle_limit">Cycle Limit (迴圈上限)</option>
@@ -136,13 +155,17 @@ const selectedAgent = computed(() => {
       </div>
 
       <div class="form-control">
-        <label class="label"><span class="label-text font-bold">Relationship Type (關係類型)</span></label>
+        <label class="label"
+          ><span class="label-text font-bold">Relationship Type (關係類型)</span></label
+        >
         <div class="flex flex-col gap-1">
           <label
             v-for="et in edgeTypes"
             :key="et.value"
             class="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-base-200 transition-colors"
-            :class="{ 'bg-primary/10 border border-primary/30': selectedElement.data?.type === et.value }"
+            :class="{
+              'bg-primary/10 border border-primary/30': selectedElement.data?.type === et.value
+            }"
           >
             <input
               type="radio"
@@ -167,9 +190,15 @@ const selectedAgent = computed(() => {
           class="input input-bordered input-sm"
           placeholder="e.g. approved, rejected, default"
           :value="selectedElement.data?.condition || ''"
-          @input="emit('update:edge', selectedElement.id, { condition: ($event.target as HTMLInputElement).value })"
+          @input="
+            emit('update:edge', selectedElement.id, {
+              condition: ($event.target as HTMLInputElement).value
+            })
+          "
         />
-        <label class="label"><span class="label-text-alt opacity-50">Used by Router nodes for branching</span></label>
+        <label class="label"
+          ><span class="label-text-alt opacity-50">Used by Router nodes for branching</span></label
+        >
       </div>
     </template>
 

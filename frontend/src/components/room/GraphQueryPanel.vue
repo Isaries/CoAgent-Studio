@@ -41,7 +41,7 @@ async function loadStatus() {
 
 // Build polling
 const MAX_POLL_ATTEMPTS = 20
-const POLL_INTERVAL = 3000  // 3 seconds
+const POLL_INTERVAL = 3000 // 3 seconds
 
 let pollCount = 0
 const pollBuildStatus = async () => {
@@ -91,7 +91,7 @@ async function askQuestion() {
     queryResult.value = {
       answer: e?.response?.data?.detail || 'Query failed. Make sure the graph is built.',
       intent: 'local',
-      sources: [],
+      sources: []
     }
   } finally {
     isQuerying.value = false
@@ -124,7 +124,8 @@ onMounted(() => {
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-lg font-bold">🧠 Analytics Agent</h3>
       <div class="text-xs text-slate-400" v-if="status">
-        {{ status.node_count }} entities · {{ status.edge_count }} relations · {{ status.community_count }} communities
+        {{ status.node_count }} entities · {{ status.edge_count }} relations ·
+        {{ status.community_count }} communities
       </div>
     </div>
 
@@ -142,7 +143,8 @@ onMounted(() => {
         </button>
       </div>
       <p class="text-xs text-slate-400">
-        Extracts entities & relationships from all room conversations, then clusters them into knowledge communities.
+        Extracts entities & relationships from all room conversations, then clusters them into
+        knowledge communities.
       </p>
       <div v-if="buildMessage" class="mt-2 text-xs text-green-400">{{ buildMessage }}</div>
     </div>
@@ -171,26 +173,24 @@ onMounted(() => {
     <!-- Query Result -->
     <div v-if="queryResult" class="mb-6 p-4 rounded-lg bg-slate-800 border border-slate-700">
       <div class="flex items-center gap-2 mb-2">
-        <span class="badge badge-sm" :class="queryResult.intent === 'global' ? 'badge-primary' : 'badge-secondary'">
+        <span
+          class="badge badge-sm"
+          :class="queryResult.intent === 'global' ? 'badge-primary' : 'badge-secondary'"
+        >
           {{ queryResult.intent === 'global' ? '🌐 Global Analysis' : '🔎 Local Search' }}
         </span>
       </div>
       <div class="text-sm whitespace-pre-wrap leading-relaxed">{{ queryResult.answer }}</div>
       <div v-if="queryResult.sources.length > 0" class="mt-3 flex flex-wrap gap-1">
-        <span
-          v-for="src in queryResult.sources"
-          :key="src"
-          class="badge badge-outline badge-xs"
-        >{{ src }}</span>
+        <span v-for="src in queryResult.sources" :key="src" class="badge badge-outline badge-xs">{{
+          src
+        }}</span>
       </div>
     </div>
 
     <!-- Communities -->
     <div>
-      <button
-        class="btn btn-sm btn-ghost text-slate-400 mb-2"
-        @click="toggleCommunities"
-      >
+      <button class="btn btn-sm btn-ghost text-slate-400 mb-2" @click="toggleCommunities">
         {{ showCommunities ? '▼' : '►' }} Community Summaries ({{ communities.length || '...' }})
       </button>
 
@@ -208,7 +208,10 @@ onMounted(() => {
         >
           <h5 class="font-semibold text-sm mb-1">{{ c.title }}</h5>
           <p class="text-xs text-slate-300 mb-2">{{ c.summary }}</p>
-          <ul v-if="c.key_findings.length > 0" class="list-disc list-inside text-xs text-slate-400 mb-2">
+          <ul
+            v-if="c.key_findings.length > 0"
+            class="list-disc list-inside text-xs text-slate-400 mb-2"
+          >
             <li v-for="(f, i) in c.key_findings" :key="i">{{ f }}</li>
           </ul>
           <div class="flex flex-wrap gap-1">
@@ -216,7 +219,8 @@ onMounted(() => {
               v-for="entity in c.key_entities"
               :key="entity"
               class="badge badge-outline badge-xs"
-            >{{ entity }}</span>
+              >{{ entity }}</span
+            >
           </div>
         </div>
       </div>

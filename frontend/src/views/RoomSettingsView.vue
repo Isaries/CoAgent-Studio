@@ -38,7 +38,7 @@ const availableModels = [
   { label: 'Claude Sonnet 4 (Balanced)', value: 'claude-sonnet-4-20250514' },
   { label: 'Claude Haiku 4.5 (Fast)', value: 'claude-haiku-4-5-20251001' },
   { label: 'Gemini 2.0 Flash (Fast)', value: 'gemini-2.0-flash' },
-  { label: 'Gemini 1.5 Pro (High Quality)', value: 'gemini-1.5-pro' },
+  { label: 'Gemini 1.5 Pro (High Quality)', value: 'gemini-1.5-pro' }
 ]
 
 // GraphRAG build status
@@ -55,11 +55,31 @@ const enabledTabs = ref<Record<string, boolean>>({
 })
 
 const tabDefinitions = [
-  { key: 'chat', label: 'Chat', description: 'Always enabled -- core communication', alwaysOn: true },
-  { key: 'board', label: 'Board', description: 'Kanban board for task management', alwaysOn: false },
+  {
+    key: 'chat',
+    label: 'Chat',
+    description: 'Always enabled -- core communication',
+    alwaysOn: true
+  },
+  {
+    key: 'board',
+    label: 'Board',
+    description: 'Kanban board for task management',
+    alwaysOn: false
+  },
   { key: 'docs', label: 'Docs', description: 'Shared documents and notes', alwaysOn: false },
-  { key: 'process', label: 'Process', description: 'Workflow process visualization', alwaysOn: false },
-  { key: 'graph', label: 'Knowledge Graph', description: 'GraphRAG knowledge explorer', alwaysOn: false },
+  {
+    key: 'process',
+    label: 'Process',
+    description: 'Workflow process visualization',
+    alwaysOn: false
+  },
+  {
+    key: 'graph',
+    label: 'Knowledge Graph',
+    description: 'GraphRAG knowledge explorer',
+    alwaysOn: false
+  }
 ]
 
 // Agent Assignment State
@@ -86,7 +106,13 @@ const fetchSettings = async () => {
     graphragEnabled.value = !!room.graphrag_enabled
     graphragExtractionModel.value = room.graphrag_extraction_model || 'gpt-4o-mini'
     graphragSummarizationModel.value = room.graphrag_summarization_model || 'gpt-4o-mini'
-    enabledTabs.value = room.enabled_tabs || { chat: true, board: false, docs: true, process: true, graph: false }
+    enabledTabs.value = room.enabled_tabs || {
+      chat: true,
+      board: false,
+      docs: true,
+      process: true,
+      graph: false
+    }
 
     await fetchRoomAgents()
     await fetchAvailableProjects()
@@ -114,7 +140,7 @@ const fetchRoomAgents = async () => {
   try {
     const res = await roomService.getRoomAgents(roomId)
     roomAgents.value = res.data
-  } catch(e) {
+  } catch (e) {
     console.error(e)
   }
 }
@@ -126,10 +152,10 @@ const fetchAvailableProjects = async () => {
     if (availableProjects.value && availableProjects.value.length > 0) {
       selectedProjectId.value = availableProjects.value[0]?.id || ''
       if (selectedProjectId.value) {
-          await fetchProjectAgents()
+        await fetchProjectAgents()
       }
     }
-  } catch(e) {
+  } catch (e) {
     console.error(e)
   }
 }
@@ -140,7 +166,7 @@ const fetchProjectAgents = async () => {
   try {
     const res = await agentService.getAgents(selectedProjectId.value)
     projectAgents.value = res.data
-  } catch(e) {
+  } catch (e) {
     console.error(e)
   } finally {
     isLoading.value = false
@@ -150,27 +176,27 @@ const fetchProjectAgents = async () => {
 const assignAgent = async (agentId: string) => {
   try {
     await roomService.assignAgentToRoom(roomId, agentId)
-    toast.success("Agent assigned to room")
+    toast.success('Agent assigned to room')
     await fetchRoomAgents()
-  } catch(e) {
+  } catch (e) {
     console.error(e)
-    toast.error("Failed to assign agent")
+    toast.error('Failed to assign agent')
   }
 }
 
 const removeAgent = async (agentId: string) => {
   try {
     await roomService.removeAgentFromRoom(roomId, agentId)
-    toast.success("Agent removed from room")
+    toast.success('Agent removed from room')
     await fetchRoomAgents()
-  } catch(e) {
+  } catch (e) {
     console.error(e)
-    toast.error("Failed to remove agent")
+    toast.error('Failed to remove agent')
   }
 }
 
 const isAgentAssigned = (agentId: string) => {
-  return roomAgents.value.some(a => a.id === agentId)
+  return roomAgents.value.some((a) => a.id === agentId)
 }
 
 const saveSettings = async () => {
@@ -244,7 +270,8 @@ onMounted(() => {
           <input type="checkbox" class="toggle toggle-primary" v-model="graphragEnabled" />
         </label>
         <div class="text-xs opacity-70 mt-1">
-          When enabled, the system builds a knowledge graph from room conversations using a 3-tier extraction pipeline (Structural, NLP, LLM).
+          When enabled, the system builds a knowledge graph from room conversations using a 3-tier
+          extraction pipeline (Structural, NLP, LLM).
         </div>
       </div>
 
@@ -297,7 +324,9 @@ onMounted(() => {
           <input type="checkbox" class="checkbox checkbox-primary" v-model="a2aTraceEnabled" />
           <div>
             <span class="label-text font-bold">A2A Debug Trace</span>
-            <div class="text-xs opacity-70 mt-1">Show agent-to-agent communication traces in chat</div>
+            <div class="text-xs opacity-70 mt-1">
+              Show agent-to-agent communication traces in chat
+            </div>
           </div>
         </label>
       </div>
@@ -357,79 +386,127 @@ onMounted(() => {
       <!-- Agent Assignment Panel -->
       <div class="card bg-base-100 shadow p-6 h-fit min-h-[500px]">
         <h2 class="text-xl font-bold mb-2">Assigned Agents</h2>
-        <p class="text-xs opacity-70 mb-4">Select agents from your projects to invite them into this room.</p>
+        <p class="text-xs opacity-70 mb-4">
+          Select agents from your projects to invite them into this room.
+        </p>
 
         <!-- Currently Assigned -->
         <div class="mb-6">
-        <div v-if="isLoading" class="flex justify-center py-8">
-           <span class="loading loading-spinner text-primary"></span>
-        </div>
-        <div v-if="!roomAgents?.length" class="text-sm opacity-50 text-center py-4 bg-base-200 rounded-lg">
+          <div v-if="isLoading" class="flex justify-center py-8">
+            <span class="loading loading-spinner text-primary"></span>
+          </div>
+          <div
+            v-if="!roomAgents?.length"
+            class="text-sm opacity-50 text-center py-4 bg-base-200 rounded-lg"
+          >
             No agents assigned yet.
           </div>
           <div v-else class="flex flex-col gap-3">
-             <div v-for="agent in roomAgents" :key="agent.id" class="collapse collapse-arrow bg-base-200 border border-primary/20 shadow-sm">
-               <input type="checkbox" />
-               <div class="collapse-title flex items-center justify-between font-medium">
-                  <div class="flex items-center gap-3">
-                    <div class="font-bold border-r pr-3 border-base-300">{{ agent.name }}</div>
-                    <div class="text-xs opacity-80 uppercase tracking-widest">{{ agent.type }}</div>
-                  </div>
-               </div>
-               <div class="collapse-content bg-base-100/50 pt-4">
-                 <RoomAgentSettingsPanel :room-id="roomId" :agent-id="agent.id" />
+            <div
+              v-for="agent in roomAgents"
+              :key="agent.id"
+              class="collapse collapse-arrow bg-base-200 border border-primary/20 shadow-sm"
+            >
+              <input type="checkbox" />
+              <div class="collapse-title flex items-center justify-between font-medium">
+                <div class="flex items-center gap-3">
+                  <div class="font-bold border-r pr-3 border-base-300">{{ agent.name }}</div>
+                  <div class="text-xs opacity-80 uppercase tracking-widest">{{ agent.type }}</div>
+                </div>
+              </div>
+              <div class="collapse-content bg-base-100/50 pt-4">
+                <RoomAgentSettingsPanel :room-id="roomId" :agent-id="agent.id" />
 
-                 <div class="divider mt-8 mb-4">Danger Zone</div>
-                 <div class="flex justify-end">
-                   <button class="btn btn-outline btn-error btn-sm" @click="removeAgent(agent.id)">Remove Agent from Room</button>
-                 </div>
-               </div>
-             </div>
+                <div class="divider mt-8 mb-4">Danger Zone</div>
+                <div class="flex justify-end">
+                  <button class="btn btn-outline btn-error btn-sm" @click="removeAgent(agent.id)">
+                    Remove Agent from Room
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Available From Project -->
         <div class="border-t pt-4">
-          <div v-if="availableProjects.length === 0" class="text-center py-6 bg-base-200 rounded-lg">
-             <p class="text-sm opacity-70 mb-3">You don't have any Projects to assign agents from.</p>
-             <router-link to="/agents" class="btn btn-outline btn-sm">Create a Project</router-link>
+          <div
+            v-if="availableProjects.length === 0"
+            class="text-center py-6 bg-base-200 rounded-lg"
+          >
+            <p class="text-sm opacity-70 mb-3">
+              You don't have any Projects to assign agents from.
+            </p>
+            <router-link to="/agents" class="btn btn-outline btn-sm">Create a Project</router-link>
           </div>
           <div v-else>
             <div class="flex justify-between items-center mb-3">
-               <h3 class="font-bold text-sm uppercase tracking-wider opacity-50">Available Agents</h3>
-               <select v-model="selectedProjectId" @change="fetchProjectAgents" class="select select-bordered select-sm max-w-xs">
-                  <option v-for="proj in availableProjects" :key="proj.id" :value="proj.id">
-                     {{ proj.name }}
-                  </option>
-               </select>
+              <h3 class="font-bold text-sm uppercase tracking-wider opacity-50">
+                Available Agents
+              </h3>
+              <select
+                v-model="selectedProjectId"
+                @change="fetchProjectAgents"
+                class="select select-bordered select-sm max-w-xs"
+              >
+                <option v-for="proj in availableProjects" :key="proj.id" :value="proj.id">
+                  {{ proj.name }}
+                </option>
+              </select>
             </div>
 
             <div v-if="isLoading" class="flex justify-center py-8">
-               <span class="loading loading-spinner text-primary"></span>
+              <span class="loading loading-spinner text-primary"></span>
             </div>
-            <div v-else-if="projectAgents.length === 0" class="text-sm text-center py-6 bg-base-200 rounded-lg mt-2">
+            <div
+              v-else-if="projectAgents.length === 0"
+              class="text-sm text-center py-6 bg-base-200 rounded-lg mt-2"
+            >
               <p class="opacity-70 mb-3">No agents found in this project.</p>
-              <router-link to="/agents" class="btn btn-primary btn-sm">Design New Agent</router-link>
+              <router-link to="/agents" class="btn btn-primary btn-sm"
+                >Design New Agent</router-link
+              >
             </div>
             <div v-else class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-2">
-               <div v-for="agent in projectAgents" :key="agent.id" class="flex items-center justify-between p-3 border rounded-lg hover:border-base-300">
-                 <div>
-                    <div class="font-bold text-sm">{{ agent.name }}</div>
-                    <div class="text-xs opacity-60">{{ agent.model_provider }} / {{ agent.model }}</div>
-                 </div>
-                 <button
-                    v-if="!isAgentAssigned(agent.id)"
-                    class="btn btn-primary btn-xs"
-                    @click="assignAgent(agent.id)"
-                 >Assign</button>
-                 <span v-else class="text-xs font-bold text-success flex items-center gap-1">
-                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> Active
-                 </span>
-               </div>
+              <div
+                v-for="agent in projectAgents"
+                :key="agent.id"
+                class="flex items-center justify-between p-3 border rounded-lg hover:border-base-300"
+              >
+                <div>
+                  <div class="font-bold text-sm">{{ agent.name }}</div>
+                  <div class="text-xs opacity-60">
+                    {{ agent.model_provider }} / {{ agent.model }}
+                  </div>
+                </div>
+                <button
+                  v-if="!isAgentAssigned(agent.id)"
+                  class="btn btn-primary btn-xs"
+                  @click="assignAgent(agent.id)"
+                >
+                  Assign
+                </button>
+                <span v-else class="text-xs font-bold text-success flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  Active
+                </span>
+              </div>
             </div>
           </div>
         </div>
-
       </div>
     </div>
   </div>

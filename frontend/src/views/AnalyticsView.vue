@@ -90,9 +90,7 @@ onMounted(() => {
           <div class="flex justify-between w-full mb-4 border-b pb-2">
             <h2 class="card-title text-primary">
               {{
-                report.report_type === 'space_summary'
-                  ? 'Space Summary Report'
-                  : 'Analytics Report'
+                report.report_type === 'space_summary' ? 'Space Summary Report' : 'Analytics Report'
               }}
             </h2>
             <span class="badge badge-ghost">{{ formatDate(report.created_at) }}</span>

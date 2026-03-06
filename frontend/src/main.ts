@@ -17,7 +17,7 @@ const i18n = createI18n({
   fallbackLocale: 'en',
   messages: {
     en,
-    'zh-TW': zhTW,
+    'zh-TW': zhTW
   }
 })
 

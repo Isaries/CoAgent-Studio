@@ -10,9 +10,7 @@ export function useChatSearch(messages: Ref<Message[]>) {
     if (!searchQuery.value.trim()) return messages.value
     const q = searchQuery.value.toLowerCase()
     return messages.value.filter(
-      (m) =>
-        m.content.toLowerCase().includes(q) ||
-        m.sender.toLowerCase().includes(q)
+      (m) => m.content.toLowerCase().includes(q) || m.sender.toLowerCase().includes(q)
     )
   })
 
@@ -33,8 +31,7 @@ export function useChatSearch(messages: Ref<Message[]>) {
 
   const prevMatch = () => {
     if (matchCount.value === 0) return
-    currentMatchIndex.value =
-      (currentMatchIndex.value - 1 + matchCount.value) % matchCount.value
+    currentMatchIndex.value = (currentMatchIndex.value - 1 + matchCount.value) % matchCount.value
   }
 
   const openSearch = () => {
@@ -57,6 +54,6 @@ export function useChatSearch(messages: Ref<Message[]>) {
     nextMatch,
     prevMatch,
     openSearch,
-    closeSearch,
+    closeSearch
   }
 }

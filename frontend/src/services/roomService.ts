@@ -51,5 +51,5 @@ export const roomService = {
 
   async updateEnabledTabs(roomId: string, tabs: Record<string, boolean>) {
     return api.put(`/rooms/${roomId}`, { enabled_tabs: tabs })
-  },
+  }
 }

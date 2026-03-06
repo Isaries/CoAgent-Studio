@@ -8,14 +8,12 @@ export interface DashboardStats {
 
 export const dashboardService = {
   async getStats(isStudent: boolean): Promise<DashboardStats> {
-    const requests: Promise<any>[] = [
-      api.get('/spaces/'),
-    ]
+    const requests: Promise<any>[] = [api.get('/spaces/')]
 
     if (!isStudent) {
       requests.push(
         api.get('/agents/configs/').catch(() => ({ data: [] })),
-        api.get('/workflows/').catch(() => ({ data: [] })),
+        api.get('/workflows/').catch(() => ({ data: [] }))
       )
     }
 
@@ -24,7 +22,7 @@ export const dashboardService = {
     return {
       spaceCount: results[0]?.data?.length ?? 0,
       agentCount: isStudent ? 0 : (results[1]?.data?.length ?? 0),
-      workflowCount: isStudent ? 0 : (results[2]?.data?.length ?? 0),
+      workflowCount: isStudent ? 0 : (results[2]?.data?.length ?? 0)
     }
   },
 
@@ -32,9 +30,11 @@ export const dashboardService = {
     try {
       const spacesRes = await api.get('/spaces/')
       const spaces = spacesRes.data || []
-      const roomPromises = spaces.slice(0, 3).map((space: any) =>
-        api.get(`/spaces/${space.id}/overview`).catch(() => ({ data: { rooms: [] } }))
-      )
+      const roomPromises = spaces
+        .slice(0, 3)
+        .map((space: any) =>
+          api.get(`/spaces/${space.id}/overview`).catch(() => ({ data: { rooms: [] } }))
+        )
       const roomResults = await Promise.all(roomPromises)
       const allRooms: any[] = []
       for (const result of roomResults) {
@@ -45,5 +45,5 @@ export const dashboardService = {
     } catch {
       return []
     }
-  },
+  }
 }

@@ -19,11 +19,16 @@ const emit = defineEmits<{
 
 const columnColors = computed(() => {
   switch (props.column.status) {
-    case 'todo': return 'bg-base-200'
-    case 'in_progress': return 'bg-info/10'
-    case 'review': return 'bg-warning/10'
-    case 'done': return 'bg-success/10'
-    default: return 'bg-base-200'
+    case 'todo':
+      return 'bg-base-200'
+    case 'in_progress':
+      return 'bg-info/10'
+    case 'review':
+      return 'bg-warning/10'
+    case 'done':
+      return 'bg-success/10'
+    default:
+      return 'bg-base-200'
   }
 })
 
@@ -44,7 +49,7 @@ function handleDrop(e: DragEvent) {
 </script>
 
 <template>
-  <div 
+  <div
     class="flex flex-col w-72 min-w-72 rounded-lg p-3"
     :class="columnColors"
     @dragover="handleDragOver"
@@ -56,13 +61,24 @@ function handleDrop(e: DragEvent) {
         {{ column.title }}
         <span class="badge badge-sm ml-2">{{ column.tasks.length }}</span>
       </h3>
-      <button 
+      <button
         v-if="column.status === 'todo'"
         class="btn btn-ghost btn-xs btn-circle"
         @click="emit('add')"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 4v16m8-8H4"
+          />
         </svg>
       </button>
     </div>
@@ -79,7 +95,7 @@ function handleDrop(e: DragEvent) {
       />
 
       <!-- Empty State -->
-      <div 
+      <div
         v-if="column.tasks.length === 0"
         class="flex items-center justify-center h-24 border-2 border-dashed border-base-300 rounded-lg text-base-content/50 text-sm"
       >

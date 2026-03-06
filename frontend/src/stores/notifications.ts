@@ -22,7 +22,7 @@ export const useNotificationStore = defineStore('notifications', () => {
       ...notification,
       id: crypto.randomUUID(),
       read: false,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     })
     if (items.value.length > MAX_NOTIFICATIONS) {
       items.value = items.value.slice(0, MAX_NOTIFICATIONS)

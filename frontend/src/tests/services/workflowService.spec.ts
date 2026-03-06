@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { workflowService } from '@/services/workflowService'
-import type { Workflow, WorkflowGraphData, WorkflowRun, TriggerPolicy } from '@/services/workflowService'
+import type {
+  Workflow,
+  WorkflowGraphData,
+  WorkflowRun,
+  TriggerPolicy
+} from '@/services/workflowService'
 
 // ---------------------------------------------------------------------------
 // Mock the api module
@@ -10,8 +15,8 @@ vi.mock('@/api', () => ({
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
-    delete: vi.fn(),
-  },
+    delete: vi.fn()
+  }
 }))
 
 import api from '@/api'
@@ -29,7 +34,7 @@ const makeWorkflow = (overrides: Partial<Workflow> = {}): Workflow => ({
   graph_data: emptyGraph,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
-  ...overrides,
+  ...overrides
 })
 
 const makeRun = (overrides: Partial<WorkflowRun> = {}): WorkflowRun => ({
@@ -41,7 +46,7 @@ const makeRun = (overrides: Partial<WorkflowRun> = {}): WorkflowRun => ({
   started_at: '2026-01-01T00:00:00Z',
   completed_at: '2026-01-01T00:01:00Z',
   error_message: null,
-  ...overrides,
+  ...overrides
 })
 
 const makeTrigger = (overrides: Partial<TriggerPolicy> = {}): TriggerPolicy => ({
@@ -54,7 +59,7 @@ const makeTrigger = (overrides: Partial<TriggerPolicy> = {}): TriggerPolicy => (
   is_active: true,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
-  ...overrides,
+  ...overrides
 })
 
 // ---------------------------------------------------------------------------
@@ -303,7 +308,7 @@ describe('workflowService', () => {
       const triggerData: Partial<TriggerPolicy> = {
         name: 'On Message',
         event_type: 'user_message',
-        target_workflow_id: 'wf-1',
+        target_workflow_id: 'wf-1'
       }
       vi.mocked(api.post).mockResolvedValue({ data: makeTrigger(triggerData) })
 

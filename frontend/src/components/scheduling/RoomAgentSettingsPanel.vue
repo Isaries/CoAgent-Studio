@@ -43,15 +43,19 @@ const loadSettings = async () => {
     const res = await roomService.getRoomAgentSettings(props.roomId, props.agentId)
     settings.value = res.data
     isActive.value = res.data.is_active
-    scheduleConfig.value = res.data.schedule_config ? JSON.parse(JSON.stringify(res.data.schedule_config)) : null
-    triggerConfig.value = res.data.trigger_config ? JSON.parse(JSON.stringify(res.data.trigger_config)) : null
+    scheduleConfig.value = res.data.schedule_config
+      ? JSON.parse(JSON.stringify(res.data.schedule_config))
+      : null
+    triggerConfig.value = res.data.trigger_config
+      ? JSON.parse(JSON.stringify(res.data.trigger_config))
+      : null
   } catch (e: any) {
     if (e.response?.status === 404) {
       // No settings yet — show defaults
       settings.value = {
         room_id: props.roomId,
         agent_id: props.agentId,
-        is_active: true,
+        is_active: true
       }
     } else {
       error.value = 'Failed to load settings'
@@ -69,10 +73,10 @@ const saveSettings = async () => {
     await roomService.updateRoomAgentSettings(props.roomId, props.agentId, {
       is_active: isActive.value,
       schedule_config: scheduleConfig.value,
-      trigger_config: triggerConfig.value,
+      trigger_config: triggerConfig.value
     })
     successMsg.value = 'Settings saved!'
-    setTimeout(() => successMsg.value = '', 3000)
+    setTimeout(() => (successMsg.value = ''), 3000)
     emit('saved')
     await loadSettings() // Reload
   } catch (e: any) {
@@ -89,7 +93,7 @@ const syncToSpace = async () => {
   try {
     const res = await roomService.syncSettingsToSpace(props.roomId, props.agentId)
     successMsg.value = res.data.message || 'Synced!'
-    setTimeout(() => successMsg.value = '', 3000)
+    setTimeout(() => (successMsg.value = ''), 3000)
   } catch (e: any) {
     error.value = e.response?.data?.detail || 'Sync failed'
   } finally {
@@ -173,7 +177,13 @@ watch([() => props.roomId, () => props.agentId], loadSettings)
   animation: fadeIn 0.3s ease-in-out;
 }
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

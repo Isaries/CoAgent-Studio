@@ -39,7 +39,7 @@ let simEdges: { source: SimNode; target: SimNode; relation: string; evidence: st
 // Entity types for filter dropdown
 const entityTypes = computed(() => {
   if (!graphData.value) return ['ALL']
-  const types = new Set(graphData.value.nodes.map(n => n.type))
+  const types = new Set(graphData.value.nodes.map((n) => n.type))
   return ['ALL', ...Array.from(types).sort()]
 })
 
@@ -48,11 +48,13 @@ const filteredNodes = computed(() => {
   if (!graphData.value) return []
   let nodes = graphData.value.nodes
   if (filterType.value !== 'ALL') {
-    nodes = nodes.filter(n => n.type === filterType.value)
+    nodes = nodes.filter((n) => n.type === filterType.value)
   }
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
-    nodes = nodes.filter(n => n.name.toLowerCase().includes(q) || n.description.toLowerCase().includes(q))
+    nodes = nodes.filter(
+      (n) => n.name.toLowerCase().includes(q) || n.description.toLowerCase().includes(q)
+    )
   }
   return nodes
 })
@@ -61,7 +63,7 @@ const filteredNodes = computed(() => {
 const relatedEdges = computed(() => {
   if (!selectedNode.value || !graphData.value) return []
   const name = selectedNode.value.name
-  return graphData.value.edges.filter(e => e.source === name || e.target === name)
+  return graphData.value.edges.filter((e) => e.source === name || e.target === name)
 })
 
 async function loadGraph() {
@@ -87,19 +89,19 @@ function initSimulation() {
   canvas.height = height
 
   // Create simulation nodes with random positions
-  simNodes = graphData.value.nodes.map(n => ({
+  simNodes = graphData.value.nodes.map((n) => ({
     ...n,
     x: Math.random() * width,
     y: Math.random() * height,
     vx: 0,
     vy: 0,
-    radius: 8,
+    radius: 8
   }))
 
   // Map edges to simulation nodes
-  const nodeMap = new Map(simNodes.map(n => [n.name, n]))
+  const nodeMap = new Map(simNodes.map((n) => [n.name, n]))
   simEdges = graphData.value.edges
-    .map(e => {
+    .map((e) => {
       const source = nodeMap.get(e.source)
       const target = nodeMap.get(e.target)
       if (source && target) {
@@ -211,7 +213,7 @@ function render() {
   }
 
   // Visible names set for filtering
-  const visibleNames = new Set(filteredNodes.value.map(n => n.name))
+  const visibleNames = new Set(filteredNodes.value.map((n) => n.name))
 
   // Draw nodes
   for (const node of simNodes) {
@@ -277,9 +279,12 @@ onUnmounted(() => {
   if (animationId) cancelAnimationFrame(animationId)
 })
 
-watch(() => props.roomId, () => {
-  loadGraph()
-})
+watch(
+  () => props.roomId,
+  () => {
+    loadGraph()
+  }
+)
 </script>
 
 <template>
@@ -311,7 +316,10 @@ watch(() => props.roomId, () => {
 
       <!-- Canvas -->
       <div class="flex-1 relative">
-        <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-slate-900/80 z-10">
+        <div
+          v-if="loading"
+          class="absolute inset-0 flex items-center justify-center bg-slate-900/80 z-10"
+        >
           <span class="loading loading-spinner loading-lg text-primary"></span>
         </div>
         <div v-else-if="error" class="absolute inset-0 flex items-center justify-center">
@@ -320,7 +328,10 @@ watch(() => props.roomId, () => {
             <button class="btn btn-sm btn-outline" @click="loadGraph">Retry</button>
           </div>
         </div>
-        <div v-else-if="graphData && graphData.node_count === 0" class="absolute inset-0 flex items-center justify-center">
+        <div
+          v-else-if="graphData && graphData.node_count === 0"
+          class="absolute inset-0 flex items-center justify-center"
+        >
           <div class="text-center text-slate-400">
             <p class="text-lg mb-2">No graph data yet</p>
             <p class="text-sm">Use the Analytics panel to build the knowledge graph first.</p>
@@ -335,17 +346,17 @@ watch(() => props.roomId, () => {
     </div>
 
     <!-- Detail Sidebar -->
-    <div
-      v-if="selectedNode"
-      class="w-80 border-l border-slate-700 bg-slate-800/80 overflow-y-auto"
-    >
+    <div v-if="selectedNode" class="w-80 border-l border-slate-700 bg-slate-800/80 overflow-y-auto">
       <div class="p-4">
         <div class="flex items-center justify-between mb-3">
           <h4 class="font-bold text-base">{{ selectedNode.name }}</h4>
           <button class="btn btn-ghost btn-xs" @click="selectedNode = null">✕</button>
         </div>
 
-        <div class="badge badge-sm mb-3" :style="{ background: NODE_COLORS[selectedNode.type] || NODE_COLORS.DEFAULT }">
+        <div
+          class="badge badge-sm mb-3"
+          :style="{ background: NODE_COLORS[selectedNode.type] || NODE_COLORS.DEFAULT }"
+        >
           {{ selectedNode.type }}
         </div>
 
@@ -364,7 +375,8 @@ watch(() => props.roomId, () => {
             class="mb-2 p-2 rounded bg-slate-700/50 text-xs"
           >
             <div class="font-medium text-slate-200">
-              {{ edge.source }} → <span class="text-primary">{{ edge.relation }}</span> → {{ edge.target }}
+              {{ edge.source }} → <span class="text-primary">{{ edge.relation }}</span> →
+              {{ edge.target }}
             </div>
             <div class="text-slate-400 mt-1">{{ edge.evidence }}</div>
           </div>

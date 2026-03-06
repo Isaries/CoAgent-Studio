@@ -56,11 +56,7 @@ onMounted(() => {
   <div class="h-full flex flex-col p-6 max-w-2xl mx-auto">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold">Course Settings</h1>
-      <button 
-        class="btn btn-primary" 
-        @click="saveCourse" 
-        :disabled="isSaving || isLoading"
-      >
+      <button class="btn btn-primary" @click="saveCourse" :disabled="isSaving || isLoading">
         <span v-if="isSaving" class="loading loading-spinner loading-sm"></span>
         Save Changes
       </button>
@@ -76,16 +72,14 @@ onMounted(() => {
           <label class="label"><span class="label-text font-bold">Course Title</span></label>
           <input type="text" v-model="course.title" class="input input-bordered w-full" />
         </div>
-        
+
         <div class="form-control w-full">
           <label class="label"><span class="label-text font-bold">Description</span></label>
           <textarea v-model="course.description" class="textarea textarea-bordered h-32"></textarea>
         </div>
       </div>
     </div>
-    
-    <div v-else class="alert alert-error">
-      Course not found.
-    </div>
+
+    <div v-else class="alert alert-error">Course not found.</div>
   </div>
 </template>

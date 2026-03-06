@@ -16,18 +16,18 @@ describe('BreadcrumbNav', () => {
           path: '/',
           meta: { breadcrumb: 'Home' },
           children: [
-            { path: 'spaces', component: { template: '<div />' }, meta: { breadcrumb: 'Spaces' } },
+            { path: 'spaces', component: { template: '<div />' }, meta: { breadcrumb: 'Spaces' } }
           ],
-          component: { template: '<router-view />' },
-        },
-      ],
+          component: { template: '<router-view />' }
+        }
+      ]
     })
 
     await router.push('/spaces')
     await router.isReady()
 
     const wrapper = mount(BreadcrumbNav, {
-      global: { plugins: [router, i18n] },
+      global: { plugins: [router, i18n] }
     })
 
     const items = wrapper.findAll('li')
@@ -37,16 +37,14 @@ describe('BreadcrumbNav', () => {
   it('renders nothing when no breadcrumb meta', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
-      routes: [
-        { path: '/', component: { template: '<div />' } },
-      ],
+      routes: [{ path: '/', component: { template: '<div />' } }]
     })
 
     await router.push('/')
     await router.isReady()
 
     const wrapper = mount(BreadcrumbNav, {
-      global: { plugins: [router, i18n] },
+      global: { plugins: [router, i18n] }
     })
 
     expect(wrapper.find('.breadcrumbs').exists()).toBe(false)

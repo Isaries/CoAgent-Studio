@@ -7,7 +7,13 @@ const makeMessages = (): Message[] => [
   { sender: 'Alice', content: 'Hello world', isSelf: true, timestamp: '2024-01-01' },
   { sender: 'Bot', content: 'Hi there!', isSelf: false, isAi: true, timestamp: '2024-01-01' },
   { sender: 'Alice', content: 'How are you?', isSelf: true, timestamp: '2024-01-01' },
-  { sender: 'Bot', content: 'I am fine, hello again', isSelf: false, isAi: true, timestamp: '2024-01-01' },
+  {
+    sender: 'Bot',
+    content: 'I am fine, hello again',
+    isSelf: false,
+    isAi: true,
+    timestamp: '2024-01-01'
+  }
 ]
 
 describe('useChatSearch', () => {

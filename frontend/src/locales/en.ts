@@ -17,7 +17,7 @@ export default {
     users: 'Users',
     systemAgents: 'System Agents',
     database: 'Database',
-    settings: 'Settings',
+    settings: 'Settings'
   },
   common: {
     save: 'Save',
@@ -35,7 +35,7 @@ export default {
     viewAll: 'View All',
     enter: 'Enter',
     assign: 'Assign',
-    remove: 'Remove',
+    remove: 'Remove'
   },
   login: {
     title: 'CoAgent Studio',
@@ -50,7 +50,7 @@ export default {
     orAccessWithId: 'Or access with ID',
     invalidCredentials: 'Invalid credentials',
     adminTitle: 'Admin Access',
-    adminSubtitle: 'Administrator login',
+    adminSubtitle: 'Administrator login'
   },
   dashboard: {
     welcome: 'Welcome back, {name}',
@@ -66,7 +66,7 @@ export default {
     messagesDesc: 'Total messages sent today',
     noSpaces: 'No spaces yet. Create your first space to get started.',
     quickLinks: 'Quick Links',
-    recentRooms: 'Recent Rooms',
+    recentRooms: 'Recent Rooms'
   },
   room: {
     chat: 'Chat',
@@ -80,19 +80,19 @@ export default {
     noMessages: 'No messages yet',
     debug: 'Debug',
     a2aTrace: 'A2A Debug Trace',
-    a2aTraceDesc: 'Show agent-to-agent communication traces in chat',
+    a2aTraceDesc: 'Show agent-to-agent communication traces in chat'
   },
   space: {
     title: 'Space Title',
     description: 'Description',
     createNew: 'Create New Space',
-    choosePreset: 'Choose a preset and enter your space details.',
+    choosePreset: 'Choose a preset and enter your space details.'
   },
   notifications: {
     title: 'Notifications',
     markAllRead: 'Mark all read',
     noNotifications: 'No notifications',
-    clear: 'Clear all',
+    clear: 'Clear all'
   },
   shortcuts: {
     title: 'Keyboard Shortcuts',
@@ -102,22 +102,22 @@ export default {
     showShortcuts: 'Show Shortcuts',
     goHome: 'Go to Home',
     goSpaces: 'Go to Spaces',
-    closeModal: 'Close Modal',
+    closeModal: 'Close Modal'
   },
   commandPalette: {
     placeholder: 'Search pages, spaces, rooms...',
     noResults: 'No results found',
     pages: 'Pages',
     spaces: 'Spaces',
-    rooms: 'Rooms',
+    rooms: 'Rooms'
   },
   network: {
-    offline: 'You are currently offline. Some features may not work.',
+    offline: 'You are currently offline. Some features may not work.'
   },
   error: {
     title: 'Something went wrong',
     retry: 'Try again',
-    unexpected: 'An unexpected error occurred.',
+    unexpected: 'An unexpected error occurred.'
   },
   profile: {
     editProfile: 'Edit Profile',
@@ -126,13 +126,13 @@ export default {
     avatarUrl: 'Avatar URL (Optional)',
     maxSize: 'Max size 2MB (PNG/JPG)',
     leaveEmpty: 'Leave empty to use default icon',
-    logout: 'Logout',
+    logout: 'Logout'
   },
   validation: {
     required: '{field} is required',
     minLength: '{field} must be at least {min} characters',
     maxLength: '{field} must be at most {max} characters',
     email: 'Please enter a valid email',
-    url: 'Please enter a valid URL',
-  },
+    url: 'Please enter a valid URL'
+  }
 }

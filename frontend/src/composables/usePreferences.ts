@@ -26,6 +26,6 @@ export function usePreferences() {
     sidebarCollapsed,
     toggleTheme,
     setLocale,
-    toggleSidebar,
+    toggleSidebar
   }
 }

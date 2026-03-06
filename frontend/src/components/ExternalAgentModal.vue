@@ -38,7 +38,11 @@ const isFormValid = computed(() => {
     return false
   }
   if (formData.value.auth_type === 'oauth2') {
-    if (!formData.value.oauth_token_url || !formData.value.oauth_client_id || !formData.value.oauth_client_secret) {
+    if (
+      !formData.value.oauth_token_url ||
+      !formData.value.oauth_client_id ||
+      !formData.value.oauth_client_secret
+    ) {
       return false
     }
   }
@@ -72,10 +76,10 @@ const buildExternalConfig = (): ExternalAgentConfig => {
 const testConnection = async () => {
   isTesting.value = true
   testResult.value = null
-  
+
   try {
     const config = buildExternalConfig()
-    
+
     const res = await agentTypesService.testConnectionParams({
       name: formData.value.name || 'test',
       webhook_url: config.webhook_url,
@@ -84,7 +88,7 @@ const testConnection = async () => {
       oauth_config: config.oauth_config,
       timeout_ms: config.timeout_ms
     })
-    
+
     if (res.data.success) {
       testResult.value = {
         success: true,
@@ -107,11 +111,11 @@ const testConnection = async () => {
 
 const submit = async () => {
   if (!isFormValid.value) return
-  
+
   isSubmitting.value = true
   try {
     const config = buildExternalConfig()
-    
+
     await agentTypesService.createExternalAgent({
       name: formData.value.name,
       type: formData.value.type_name,
@@ -137,8 +141,19 @@ const submit = async () => {
 <template>
   <div class="modal-box max-w-2xl">
     <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-5 w-5 text-primary"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+        />
       </svg>
       Connect External Agent
     </h3>
@@ -148,19 +163,19 @@ const submit = async () => {
       <div class="grid grid-cols-2 gap-4">
         <div class="form-control">
           <label class="label"><span class="label-text">Agent Name</span></label>
-          <input 
+          <input
             v-model="formData.name"
-            type="text" 
-            class="input input-bordered" 
+            type="text"
+            class="input input-bordered"
             placeholder="My External Agent"
           />
         </div>
         <div class="form-control">
           <label class="label"><span class="label-text">Type Identifier</span></label>
-          <input 
+          <input
             v-model="formData.type_name"
-            type="text" 
-            class="input input-bordered" 
+            type="text"
+            class="input input-bordered"
             placeholder="external_researcher"
           />
         </div>
@@ -169,10 +184,10 @@ const submit = async () => {
       <!-- Webhook URL -->
       <div class="form-control">
         <label class="label"><span class="label-text">Webhook URL</span></label>
-        <input 
+        <input
           v-model="formData.webhook_url"
-          type="url" 
-          class="input input-bordered" 
+          type="url"
+          class="input input-bordered"
           placeholder="https://api.external-agent.com/a2a/webhook"
         />
       </div>
@@ -190,10 +205,10 @@ const submit = async () => {
       <!-- Bearer Token -->
       <div v-if="formData.auth_type === 'bearer'" class="form-control">
         <label class="label"><span class="label-text">Bearer Token</span></label>
-        <input 
+        <input
           v-model="formData.auth_token"
-          type="password" 
-          class="input input-bordered" 
+          type="password"
+          class="input input-bordered"
           placeholder="Enter token"
         />
       </div>
@@ -202,37 +217,37 @@ const submit = async () => {
       <div v-if="formData.auth_type === 'oauth2'" class="space-y-3 p-4 bg-base-200 rounded-lg">
         <div class="form-control">
           <label class="label"><span class="label-text">Token URL</span></label>
-          <input 
+          <input
             v-model="formData.oauth_token_url"
-            type="url" 
-            class="input input-bordered input-sm" 
+            type="url"
+            class="input input-bordered input-sm"
             placeholder="https://auth.example.com/oauth/token"
           />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div class="form-control">
             <label class="label"><span class="label-text">Client ID</span></label>
-            <input 
+            <input
               v-model="formData.oauth_client_id"
-              type="text" 
-              class="input input-bordered input-sm" 
+              type="text"
+              class="input input-bordered input-sm"
             />
           </div>
           <div class="form-control">
             <label class="label"><span class="label-text">Client Secret</span></label>
-            <input 
+            <input
               v-model="formData.oauth_client_secret"
-              type="password" 
-              class="input input-bordered input-sm" 
+              type="password"
+              class="input input-bordered input-sm"
             />
           </div>
         </div>
         <div class="form-control">
           <label class="label"><span class="label-text">Scope (optional)</span></label>
-          <input 
+          <input
             v-model="formData.oauth_scope"
-            type="text" 
-            class="input input-bordered input-sm" 
+            type="text"
+            class="input input-bordered input-sm"
             placeholder="agent:read agent:write"
           />
         </div>
@@ -245,17 +260,17 @@ const submit = async () => {
         <div class="collapse-content space-y-3">
           <div class="form-control">
             <label class="label"><span class="label-text">Timeout (ms)</span></label>
-            <input 
+            <input
               v-model.number="formData.timeout_ms"
-              type="number" 
-              class="input input-bordered input-sm" 
+              type="number"
+              class="input input-bordered input-sm"
             />
           </div>
           <div class="form-control">
             <label class="label"><span class="label-text">Fallback Message</span></label>
-            <textarea 
+            <textarea
               v-model="formData.fallback_message"
-              class="textarea textarea-bordered textarea-sm" 
+              class="textarea textarea-bordered textarea-sm"
               rows="2"
             ></textarea>
           </div>
@@ -263,20 +278,22 @@ const submit = async () => {
       </div>
 
       <!-- Test Result -->
-      <div v-if="testResult" class="alert" :class="testResult.success ? 'alert-success' : 'alert-error'">
+      <div
+        v-if="testResult"
+        class="alert"
+        :class="testResult.success ? 'alert-success' : 'alert-error'"
+      >
         <span v-if="testResult.success">
           ✓ Connection successful ({{ testResult.latency_ms }}ms)
         </span>
-        <span v-else>
-          ✗ {{ testResult.error }}
-        </span>
+        <span v-else> ✗ {{ testResult.error }} </span>
       </div>
 
       <!-- Actions -->
       <div class="modal-action">
         <button type="button" class="btn btn-ghost" @click="emit('close')">Cancel</button>
-        <button 
-          type="button" 
+        <button
+          type="button"
           class="btn btn-outline"
           :disabled="!formData.webhook_url || isTesting"
           @click="testConnection"
@@ -284,11 +301,7 @@ const submit = async () => {
           <span v-if="isTesting" class="loading loading-spinner loading-sm"></span>
           Test Connection
         </button>
-        <button 
-          type="submit" 
-          class="btn btn-primary"
-          :disabled="!isFormValid || isSubmitting"
-        >
+        <button type="submit" class="btn btn-primary" :disabled="!isFormValid || isSubmitting">
           <span v-if="isSubmitting" class="loading loading-spinner loading-sm"></span>
           Register Agent
         </button>

@@ -12,15 +12,21 @@ const emit = defineEmits<{
 }>()
 
 const shortcuts = [
-  { scope: 'global', items: [
-    { keys: 'Ctrl+K', label: 'commandPalette' },
-    { keys: '?', label: 'showShortcuts' },
-    { keys: 'Escape', label: 'closeModal' },
-  ]},
-  { scope: 'navigation', items: [
-    { keys: 'g then h', label: 'goHome' },
-    { keys: 'g then s', label: 'goSpaces' },
-  ]},
+  {
+    scope: 'global',
+    items: [
+      { keys: 'Ctrl+K', label: 'commandPalette' },
+      { keys: '?', label: 'showShortcuts' },
+      { keys: 'Escape', label: 'closeModal' }
+    ]
+  },
+  {
+    scope: 'navigation',
+    items: [
+      { keys: 'g then h', label: 'goHome' },
+      { keys: 'g then s', label: 'goSpaces' }
+    ]
+  }
 ]
 </script>
 
@@ -40,17 +46,17 @@ const shortcuts = [
           >
             <span class="text-sm">{{ t(`shortcuts.${item.label}`) }}</span>
             <div class="flex gap-1">
-              <kbd
-                v-for="key in item.keys.split(' then ')"
-                :key="key"
-                class="kbd kbd-sm"
-              >{{ key }}</kbd>
+              <kbd v-for="key in item.keys.split(' then ')" :key="key" class="kbd kbd-sm">{{
+                key
+              }}</kbd>
             </div>
           </div>
         </div>
       </div>
       <div class="modal-action">
-        <button class="btn btn-ghost btn-sm" @click="emit('update:modelValue', false)">{{ t('common.close') }}</button>
+        <button class="btn btn-ghost btn-sm" @click="emit('update:modelValue', false)">
+          {{ t('common.close') }}
+        </button>
       </div>
     </div>
     <form method="dialog" class="modal-backdrop">

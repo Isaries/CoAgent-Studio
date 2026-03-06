@@ -12,8 +12,7 @@ export const agentService = {
   getAgents: (projectId: string) =>
     api.get<AgentConfig[]>(`${API_ENDPOINTS.AGENTS.BASE}/${projectId}`),
 
-  getSystemAgents: () =>
-    api.get<AgentConfig[]>(API_ENDPOINTS.AGENTS.SYSTEM),
+  getSystemAgents: () => api.get<AgentConfig[]>(API_ENDPOINTS.AGENTS.SYSTEM),
 
   createAgent: (projectId: string, data: Partial<AgentConfig>) =>
     api.post<AgentConfig>(`${API_ENDPOINTS.AGENTS.BASE}/${projectId}`, data),
@@ -28,16 +27,18 @@ export const agentService = {
   },
 
   getKeys: (agentId: string) =>
-    api.get<Record<string, string>>(`${API_ENDPOINTS.AGENTS.BASE}/${agentId}/keys`).then((res) => res.data),
+    api
+      .get<Record<string, string>>(`${API_ENDPOINTS.AGENTS.BASE}/${agentId}/keys`)
+      .then((res) => res.data),
 
   updateKeys: (agentId: string, keys: Record<string, string | null>) =>
-    api.put<AgentConfig>(`${API_ENDPOINTS.AGENTS.BASE}/${agentId}/keys`, keys).then((res) => res.data),
+    api
+      .put<AgentConfig>(`${API_ENDPOINTS.AGENTS.BASE}/${agentId}/keys`, keys)
+      .then((res) => res.data),
 
-  deleteAgent: (agentId: string) =>
-    api.delete(`${API_ENDPOINTS.AGENTS.BASE}/${agentId}`),
+  deleteAgent: (agentId: string) => api.delete(`${API_ENDPOINTS.AGENTS.BASE}/${agentId}`),
 
-  activateAgent: (agentId: string) =>
-    api.put(`${API_ENDPOINTS.AGENTS.BASE}/${agentId}/activate`),
+  activateAgent: (agentId: string) => api.put(`${API_ENDPOINTS.AGENTS.BASE}/${agentId}/activate`),
 
   generatePrompt: (data: GeneratePromptRequest) =>
     api.post<GeneratePromptResponse>(API_ENDPOINTS.AGENTS.GENERATE, data),
@@ -50,5 +51,7 @@ export const agentService = {
     api.get<AgentConfigVersion[]>(`${API_ENDPOINTS.AGENT_CONFIG.BASE}/${configId}/versions`),
 
   restoreVersion: (configId: string, versionId: string) =>
-    api.post<AgentConfig>(`${API_ENDPOINTS.AGENT_CONFIG.BASE}/${configId}/versions/${versionId}/restore`)
+    api.post<AgentConfig>(
+      `${API_ENDPOINTS.AGENT_CONFIG.BASE}/${configId}/versions/${versionId}/restore`
+    )
 }

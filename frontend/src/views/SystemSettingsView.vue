@@ -43,27 +43,27 @@ const fetchSettings = async () => {
     // Let's assume useDesignAgent works best if we set the config, OR we let it handle it?
     // Looking at useDesignAgent (previous knowledge), it usually takes filters.
     // But here we need to populate `designConfig`.
-    
+
     // We'll stick to fetching manually for now to populate the refs exposed by useDesignAgent
-    await analyticsService.getSystemAnalyticsAgent().then(res => res ? null : null) 
-    
+    await analyticsService.getSystemAnalyticsAgent().then((res) => (res ? null : null))
+
     // Correction: analyticsService.getSystemAnalyticsAgent only gets analytics.
     // We need a way to get the design agent too.
     // Let's use the previous pattern but cleaner.
-    
+
     // Re-implementing fetch cleanly:
     const analytics = await analyticsService.getSystemAnalyticsAgent()
     if (analytics) {
-       analyticsConfig.value.prompt = analytics.system_prompt
-       analyticsConfig.value.provider = analytics.model_provider
-       // apiKey is masked
+      analyticsConfig.value.prompt = analytics.system_prompt
+      analyticsConfig.value.provider = analytics.model_provider
+      // apiKey is masked
     }
-    
+
     // Since we are in system scope, useDesignAgent might need a trigger to load?
     // Previous code: `const res = await api.get('/agents/system')...`
     // We should keep that logic but maybe in a service?
     // Let's just do it directly but cleaner for now, as useDesignAgent expects to be fed or initialized.
-    
+
     // Wait, useDesignAgent('system') might not auto-fetch.
     // Let's manually fetch 'design' agent and set it to designConfig.value
     // We need 'agentService' for that.
@@ -74,7 +74,6 @@ const fetchSettings = async () => {
       designConfig.value = designAgent
       await fetchVersions()
     }
-    
   } catch (e) {
     console.error('Failed to fetch system settings', e)
   } finally {
@@ -99,20 +98,20 @@ const saveAnalyticsAgent = async () => {
 
 // Wrapper for saving current prompt (manual save equivalent)
 const saveCurrentDesignPrompt = async () => {
-   if (!designConfig.value) return
-   
-   try {
-     const { agentService } = await import('../services/agentService')
-     // System agent update
-     await agentService.updateAgent({
-       ...designConfig.value,
-       system_prompt: designConfig.value.system_prompt,
-       model_provider: designConfig.value.model_provider || 'gemini'
-     })
-     toast.success('System Prompt Saved')
-   } catch (e) {
-     toast.error('Failed to save')
-   }
+  if (!designConfig.value) return
+
+  try {
+    const { agentService } = await import('../services/agentService')
+    // System agent update
+    await agentService.updateAgent({
+      ...designConfig.value,
+      system_prompt: designConfig.value.system_prompt,
+      model_provider: designConfig.value.model_provider || 'gemini'
+    })
+    toast.success('System Prompt Saved')
+  } catch (e) {
+    toast.error('Failed to save')
+  }
 }
 
 onMounted(() => {
@@ -125,35 +124,66 @@ onMounted(() => {
     <!-- Header -->
     <div class="mb-6 flex justify-between items-end">
       <div>
-        <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+        <h1
+          class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary"
+        >
           CoAgent Intelligence Hub
         </h1>
         <p class="text-base-content/60 text-sm mt-1">
           Configure global system behaviors and utility agents.
         </p>
       </div>
-      
+
       <!-- Tabs -->
       <div role="tablist" class="tabs tabs-boxed bg-base-200 p-1">
-        <a 
-          role="tab" 
-          class="tab px-6" 
+        <a
+          role="tab"
+          class="tab px-6"
           :class="{ 'tab-active bg-primary text-primary-content': activeTab === 'design' }"
           @click="activeTab = 'design'"
         >
           <span class="flex items-center gap-2 font-bold">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+              ></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
             Design Agent
           </span>
         </a>
-        <a 
-          role="tab" 
+        <a
+          role="tab"
           class="tab px-6"
           :class="{ 'tab-active bg-secondary text-secondary-content': activeTab === 'analytics' }"
           @click="activeTab = 'analytics'"
         >
           <span class="flex items-center gap-2 font-bold">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="20" x2="18" y2="10"></line>
+              <line x1="12" y1="20" x2="12" y2="4"></line>
+              <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
             Analytics Agent
           </span>
         </a>
@@ -169,7 +199,7 @@ onMounted(() => {
       <div v-else>
         <!-- DESIGN AGENT IDE -->
         <div v-show="activeTab === 'design'" class="animate-fade-in">
-           <SystemAgentIDE
+          <SystemAgentIDE
             :design-config="designConfig"
             :design-api-key="designApiKey"
             :loading="designDb.loading"
@@ -179,28 +209,37 @@ onMounted(() => {
             :sandbox="sandbox"
             @update:sandbox="sandbox = $event"
             :versions="versions"
-            
             @update:design-api-key="designApiKey = $event"
             @update:requirement="designDb.requirement = $event"
             @update:context="designDb.context = $event"
             @update:refine-current="designDb.refineCurrent = $event"
-            
             @saveKey="saveDesignAgentKey(fetchSettings)"
-            @clearKey="handleClearDesignKey(async()=>confirm('Clear Key', 'Remove global key?'), fetchSettings)"
-            @generate="generatePrompt(designConfig?.system_prompt || '', designConfig?.model_provider || 'gemini').then(res => { if(res && designConfig) designConfig.system_prompt = res })"
-            
+            @clearKey="
+              handleClearDesignKey(
+                async () => confirm('Clear Key', 'Remove global key?'),
+                fetchSettings
+              )
+            "
+            @generate="
+              generatePrompt(
+                designConfig?.system_prompt || '',
+                designConfig?.model_provider || 'gemini'
+              ).then((res) => {
+                if (res && designConfig) designConfig.system_prompt = res
+              })
+            "
             @createVersion="createVersion"
             @restoreVersion="restoreVersion"
             @fetchVersions="fetchVersions"
             @applySandbox="applySandboxToConfig(fetchSettings)"
-           />
-           
-           <!-- Manual Save Bar (Optional Enhancement) -->
-           <div class="mt-4 flex justify-end" v-if="designConfig">
-              <button @click="saveCurrentDesignPrompt" class="btn btn-primary" :disabled="loading">
-                Save System Design Logic
-              </button>
-           </div>
+          />
+
+          <!-- Manual Save Bar (Optional Enhancement) -->
+          <div class="mt-4 flex justify-end" v-if="designConfig">
+            <button @click="saveCurrentDesignPrompt" class="btn btn-primary" :disabled="loading">
+              Save System Design Logic
+            </button>
+          </div>
         </div>
 
         <!-- ANALYTICS AGENT FORM -->
@@ -213,7 +252,8 @@ onMounted(() => {
                     <span class="text-2xl">📊</span> Analytics Agent
                   </h2>
                   <p class="text-sm opacity-70 mt-1">
-                    This agent analyzes chat logs and provides insights to teachers across the platform.
+                    This agent analyzes chat logs and provides insights to teachers across the
+                    platform.
                   </p>
                 </div>
               </div>
@@ -221,7 +261,9 @@ onMounted(() => {
               <div class="divider"></div>
 
               <div class="form-control mb-4">
-                <label class="label"><span class="label-text font-bold">Global API Key</span></label>
+                <label class="label"
+                  ><span class="label-text font-bold">Global API Key</span></label
+                >
                 <div class="join">
                   <input
                     type="password"
@@ -230,7 +272,11 @@ onMounted(() => {
                     class="input input-bordered join-item w-full"
                   />
                 </div>
-                <label class="label"><span class="label-text-alt opacity-50">Used for all analytics jobs unless overridden.</span></label>
+                <label class="label"
+                  ><span class="label-text-alt opacity-50"
+                    >Used for all analytics jobs unless overridden.</span
+                  ></label
+                >
               </div>
 
               <div class="form-control mb-4">
@@ -262,7 +308,13 @@ onMounted(() => {
   animation: fadeIn 0.3s ease-in-out;
 }
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

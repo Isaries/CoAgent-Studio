@@ -5,22 +5,22 @@ export interface ValidationRule {
 
 export const required = (msg?: string): ValidationRule => ({
   validator: (v: string) => v.trim().length > 0,
-  message: msg || 'This field is required',
+  message: msg || 'This field is required'
 })
 
 export const minLength = (n: number, msg?: string): ValidationRule => ({
   validator: (v: string) => v.length >= n,
-  message: msg || `Must be at least ${n} characters`,
+  message: msg || `Must be at least ${n} characters`
 })
 
 export const maxLength = (n: number, msg?: string): ValidationRule => ({
   validator: (v: string) => v.length <= n,
-  message: msg || `Must be at most ${n} characters`,
+  message: msg || `Must be at most ${n} characters`
 })
 
 export const email = (msg?: string): ValidationRule => ({
   validator: (v: string) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
-  message: msg || 'Please enter a valid email',
+  message: msg || 'Please enter a valid email'
 })
 
 export const url = (msg?: string): ValidationRule => ({
@@ -33,5 +33,5 @@ export const url = (msg?: string): ValidationRule => ({
       return false
     }
   },
-  message: msg || 'Please enter a valid URL',
+  message: msg || 'Please enter a valid URL'
 })

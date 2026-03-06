@@ -85,16 +85,17 @@ export function useDesignAgent(
     }
 
     try {
-      const systemPrompt = sandbox.value.enabled && sandbox.value.systemPrompt
-        ? sandbox.value.systemPrompt
-        : (designDb.value.context || projectTitle?.value || '')
+      const systemPrompt =
+        sandbox.value.enabled && sandbox.value.systemPrompt
+          ? sandbox.value.systemPrompt
+          : designDb.value.context || projectTitle?.value || ''
 
       const payload: Record<string, any> = {
         requirement: req,
         target_agent_type: activeTab?.value || 'teacher', // Default to teacher for system
         project_id: scope === 'project' ? projectId : undefined,
         provider: provider,
-        custom_system_prompt: systemPrompt,
+        custom_system_prompt: systemPrompt
       }
 
       if (sandbox.value.enabled) {

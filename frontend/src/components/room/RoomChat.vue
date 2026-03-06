@@ -24,13 +24,11 @@ const {
   nextMatch,
   prevMatch,
   openSearch,
-  closeSearch,
+  closeSearch
 } = useChatSearch(messagesRef)
 
 const displayMessages = computed(() => {
-  return isSearchOpen.value && searchQuery.value.trim()
-    ? filteredMessages.value
-    : props.messages
+  return isSearchOpen.value && searchQuery.value.trim() ? filteredMessages.value : props.messages
 })
 
 const chatContainer = ref<HTMLElement | null>(null)
@@ -85,13 +83,20 @@ const handleSend = (text: string) => {
     <!-- Input Area -->
     <div class="flex-none p-3 border-t border-base-300 bg-base-100 pb-safe">
       <div class="flex items-center gap-2">
-        <button
-          class="btn btn-ghost btn-sm btn-circle"
-          @click="openSearch"
-          title="Search messages"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        <button class="btn btn-ghost btn-sm btn-circle" @click="openSearch" title="Search messages">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
           </svg>
         </button>
         <div class="flex-1">

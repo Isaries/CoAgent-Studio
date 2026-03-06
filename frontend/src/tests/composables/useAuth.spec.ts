@@ -17,11 +17,11 @@ let mockAuthStore = {
   fetchUser: vi.fn(),
   logout: vi.fn(),
   impersonateUser: vi.fn(),
-  stopImpersonating: vi.fn(),
+  stopImpersonating: vi.fn()
 }
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: vi.fn(() => mockAuthStore),
+  useAuthStore: vi.fn(() => mockAuthStore)
 }))
 
 // storeToRefs() wraps each property in a computed ref so the composable
@@ -37,8 +37,8 @@ vi.mock('pinia', async (importOriginal) => {
       isAdmin: computed(() => store.isAdmin),
       isSuperAdmin: computed(() => store.isSuperAdmin),
       isStudent: computed(() => store.isStudent),
-      isImpersonating: computed(() => store.isImpersonating),
-    })),
+      isImpersonating: computed(() => store.isImpersonating)
+    }))
   }
 })
 
@@ -49,8 +49,8 @@ vi.mock('@/services/authService', () => ({
     logout: vi.fn(),
     refreshToken: vi.fn(),
     impersonateUser: vi.fn(),
-    stopImpersonating: vi.fn(),
-  },
+    stopImpersonating: vi.fn()
+  }
 }))
 
 import { useAuth } from '@/composables/useAuth'
@@ -68,8 +68,8 @@ function makeRouter() {
       { path: '/login', component: { template: '<div />' } },
       { path: '/spaces', component: { template: '<div />' } },
       { path: '/dashboard', component: { template: '<div />' } },
-      { path: '/admin/users', component: { template: '<div />' } },
-    ],
+      { path: '/admin/users', component: { template: '<div />' } }
+    ]
   })
 }
 
@@ -78,7 +78,7 @@ const TestComponent = defineComponent({
     const auth = useAuth()
     return { auth }
   },
-  template: '<div />',
+  template: '<div />'
 })
 
 // ---------------------------------------------------------------------------
@@ -102,7 +102,7 @@ describe('useAuth composable', () => {
       fetchUser: vi.fn(),
       logout: vi.fn(),
       impersonateUser: vi.fn(),
-      stopImpersonating: vi.fn(),
+      stopImpersonating: vi.fn()
     }
 
     vi.clearAllMocks()
@@ -114,7 +114,7 @@ describe('useAuth composable', () => {
 
   it('provides current user as null when not authenticated', () => {
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     // auth.user and auth.isAuthenticated are refs — access .value
@@ -128,7 +128,7 @@ describe('useAuth composable', () => {
     mockAuthStore.isAuthenticated = true
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     expect(wrapper.vm.auth.user.value).toEqual(fakeUser)
@@ -141,7 +141,7 @@ describe('useAuth composable', () => {
     mockAuthStore.isImpersonating = true
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     expect(wrapper.vm.auth.isAdmin.value).toBe(true)
@@ -161,7 +161,7 @@ describe('useAuth composable', () => {
     await router.push('/spaces')
 
     mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     // useAuth has no mount-time guard; current route stays unchanged
@@ -177,7 +177,7 @@ describe('useAuth composable', () => {
     await router.push('/spaces')
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     await wrapper.vm.auth.logout()
@@ -191,7 +191,7 @@ describe('useAuth composable', () => {
     await router.push('/spaces')
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     await wrapper.vm.auth.logout()
@@ -210,7 +210,7 @@ describe('useAuth composable', () => {
     mockAuthStore.isAdmin = false
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     const formData = new FormData()
@@ -229,7 +229,7 @@ describe('useAuth composable', () => {
     mockAuthStore.fetchUser.mockResolvedValue(undefined)
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     await wrapper.vm.auth.login(new FormData())
@@ -246,7 +246,7 @@ describe('useAuth composable', () => {
     await router.push('/login')
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     await wrapper.vm.auth.login(new FormData())
@@ -263,7 +263,7 @@ describe('useAuth composable', () => {
     await router.push('/login')
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     await wrapper.vm.auth.login(new FormData())
@@ -277,7 +277,7 @@ describe('useAuth composable', () => {
     await router.push('/login')
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     const result = await wrapper.vm.auth.login(new FormData())
@@ -297,7 +297,7 @@ describe('useAuth composable', () => {
     await router.push('/')
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     await wrapper.vm.auth.impersonate('user-abc')
@@ -312,7 +312,7 @@ describe('useAuth composable', () => {
     await router.push('/')
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     await wrapper.vm.auth.impersonate('user-abc')
@@ -326,7 +326,7 @@ describe('useAuth composable', () => {
     await router.push('/spaces')
 
     const wrapper = mount(TestComponent, {
-      global: { plugins: [router] },
+      global: { plugins: [router] }
     })
 
     await wrapper.vm.auth.stopImpersonating()

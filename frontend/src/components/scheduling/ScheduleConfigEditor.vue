@@ -21,19 +21,29 @@ const { scheduleConfig, addRule, removeRule, setMode, loadConfig } = useSchedule
 const isLoadingFromParent = ref(false)
 
 // Sync from parent
-watch(() => props.modelValue, (v) => {
-  isLoadingFromParent.value = true
-  loadConfig(v)
-  // Reset flag after next tick to allow the emit watcher to skip this cycle
-  setTimeout(() => { isLoadingFromParent.value = false }, 0)
-}, { deep: true })
+watch(
+  () => props.modelValue,
+  (v) => {
+    isLoadingFromParent.value = true
+    loadConfig(v)
+    // Reset flag after next tick to allow the emit watcher to skip this cycle
+    setTimeout(() => {
+      isLoadingFromParent.value = false
+    }, 0)
+  },
+  { deep: true }
+)
 
 // Emit on change — skip when loading from parent
-watch(scheduleConfig, (v) => {
-  if (!isLoadingFromParent.value) {
-    emit('update:modelValue', v)
-  }
-}, { deep: true })
+watch(
+  scheduleConfig,
+  (v) => {
+    if (!isLoadingFromParent.value) {
+      emit('update:modelValue', v)
+    }
+  },
+  { deep: true }
+)
 
 const dayLabels = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 </script>
@@ -65,16 +75,25 @@ const dayLabels = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
           </button>
         </div>
         <span class="text-xs opacity-50">
-          {{ scheduleConfig.mode === ScheduleMode.WHITELIST ? 'Only allow during these times' : 'Block during these times' }}
+          {{
+            scheduleConfig.mode === ScheduleMode.WHITELIST
+              ? 'Only allow during these times'
+              : 'Block during these times'
+          }}
         </span>
       </div>
 
       <!-- Rules List -->
       <div v-if="scheduleConfig.rules.length === 0" class="text-sm opacity-50 py-2">
-        No rules defined. Agent runs {{ scheduleConfig.mode === ScheduleMode.WHITELIST ? 'never' : 'always' }}.
+        No rules defined. Agent runs
+        {{ scheduleConfig.mode === ScheduleMode.WHITELIST ? 'never' : 'always' }}.
       </div>
 
-      <div v-for="(rule, idx) in scheduleConfig.rules" :key="idx" class="border rounded-lg p-3 bg-base-50 flex flex-col gap-2">
+      <div
+        v-for="(rule, idx) in scheduleConfig.rules"
+        :key="idx"
+        class="border rounded-lg p-3 bg-base-50 flex flex-col gap-2"
+      >
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="badge badge-sm badge-outline">{{ idx + 1 }}</span>
@@ -96,16 +115,12 @@ const dayLabels = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         <!-- Day of Week -->
         <div v-if="rule.type === ScheduleRuleType.DAY_OF_WEEK" class="flex flex-wrap gap-1">
           <label
-            v-for="d in 7" :key="d"
+            v-for="d in 7"
+            :key="d"
             class="btn btn-xs"
             :class="(rule.days || []).includes(d) ? 'btn-primary' : 'btn-ghost'"
           >
-            <input
-              type="checkbox"
-              :value="d"
-              v-model="rule.days"
-              class="hidden"
-            />
+            <input type="checkbox" :value="d" v-model="rule.days" class="hidden" />
             {{ dayLabels[d] }}
           </label>
         </div>
@@ -117,14 +132,26 @@ const dayLabels = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
               type="checkbox"
               class="checkbox checkbox-xs"
               :checked="rule.time_range !== null && rule.time_range !== undefined"
-              @change="rule.time_range = ($event.target as HTMLInputElement).checked ? ['09:00', '17:00'] : null"
+              @change="
+                rule.time_range = ($event.target as HTMLInputElement).checked
+                  ? ['09:00', '17:00']
+                  : null
+              "
             />
             <span class="text-xs">Time range</span>
           </label>
           <template v-if="rule.time_range">
-            <input type="time" v-model="rule.time_range[0]" class="input input-bordered input-xs w-28" />
+            <input
+              type="time"
+              v-model="rule.time_range[0]"
+              class="input input-bordered input-xs w-28"
+            />
             <span class="text-xs opacity-50">to</span>
-            <input type="time" v-model="rule.time_range[1]" class="input input-bordered input-xs w-28" />
+            <input
+              type="time"
+              v-model="rule.time_range[1]"
+              class="input input-bordered input-xs w-28"
+            />
           </template>
           <span v-else class="text-xs opacity-40">All day</span>
         </div>
@@ -132,9 +159,18 @@ const dayLabels = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
       <!-- Add Rule -->
       <div class="flex gap-2">
-        <button class="btn btn-sm btn-outline btn-primary" @click="addRule(ScheduleRuleType.EVERYDAY)">+ Everyday</button>
-        <button class="btn btn-sm btn-outline" @click="addRule(ScheduleRuleType.DAY_OF_WEEK)">+ Weekly</button>
-        <button class="btn btn-sm btn-outline" @click="addRule(ScheduleRuleType.SPECIFIC_DATE)">+ Date</button>
+        <button
+          class="btn btn-sm btn-outline btn-primary"
+          @click="addRule(ScheduleRuleType.EVERYDAY)"
+        >
+          + Everyday
+        </button>
+        <button class="btn btn-sm btn-outline" @click="addRule(ScheduleRuleType.DAY_OF_WEEK)">
+          + Weekly
+        </button>
+        <button class="btn btn-sm btn-outline" @click="addRule(ScheduleRuleType.SPECIFIC_DATE)">
+          + Date
+        </button>
       </div>
     </div>
   </div>

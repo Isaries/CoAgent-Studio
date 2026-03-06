@@ -19,7 +19,7 @@ interface Props {
   requirement: string
   context: string
   refineCurrent: boolean
-  
+
   sandbox: SandboxState
   versions: AgentConfigVersion[]
   scope?: 'space' | 'system'
@@ -37,8 +37,8 @@ const emit = defineEmits([
   'clearKey',
   'generate',
   'createVersion',
-  'restoreVersion', 
-  'fetchVersions', 
+  'restoreVersion',
+  'fetchVersions',
   'applySandbox',
   'update:sandbox'
 ])
@@ -77,26 +77,35 @@ const toggleVersions = () => {
 </script>
 
 <template>
-  <div class="collapse collapse-arrow bg-base-100 mb-6 border border-base-300 shadow-sm overflow-visible">
+  <div
+    class="collapse collapse-arrow bg-base-100 mb-6 border border-base-300 shadow-sm overflow-visible"
+  >
     <input type="checkbox" />
     <div class="collapse-title font-medium flex items-center justify-between pr-10">
       <div class="flex items-center gap-2">
         <span>✨ AI Prompt Designer</span>
-        <span v-if="scope==='space'" class="badge badge-sm badge-ghost">Space</span>
+        <span v-if="scope === 'space'" class="badge badge-sm badge-ghost">Space</span>
       </div>
       <!-- Mode Toggle -->
       <div class="flex items-center gap-2 z-10" @click.stop v-if="canEdit">
         <label class="label cursor-pointer gap-2">
-          <span class="label-text text-xs font-bold" :class="sandbox.enabled ? 'text-primary' : ''">Sandbox Mode</span> 
-          <input 
-            type="checkbox" 
-            class="toggle toggle-primary toggle-sm" 
+          <span class="label-text text-xs font-bold" :class="sandbox.enabled ? 'text-primary' : ''"
+            >Sandbox Mode</span
+          >
+          <input
+            type="checkbox"
+            class="toggle toggle-primary toggle-sm"
             :checked="sandbox.enabled"
-            @change="$emit('update:sandbox', { ...sandbox, enabled: ($event.target as HTMLInputElement).checked })"
+            @change="
+              $emit('update:sandbox', {
+                ...sandbox,
+                enabled: ($event.target as HTMLInputElement).checked
+              })
+            "
           />
         </label>
-        <button 
-          @click="toggleVersions" 
+        <button
+          @click="toggleVersions"
           class="btn btn-xs btn-ghost gap-1"
           :class="{ 'btn-active': showVersions }"
         >
@@ -105,80 +114,96 @@ const toggleVersions = () => {
         </button>
       </div>
     </div>
-    
+
     <div class="collapse-content overflow-visible flex relative min-h-[500px] p-0">
-      
       <!-- Main Content -->
       <div class="flex-1 p-4 flex flex-col gap-6 bg-base-100">
-        
         <!-- Standard Mode Key Manager -->
         <div v-if="!sandbox.enabled" class="flex items-center gap-2 p-2 bg-base-200/50 rounded-lg">
-           <IconKey class="text-gray-500 ml-2 w-4 h-4" />
-           <span class="text-xs font-bold text-gray-500 whitespace-nowrap">API Key ({{ scope === 'system' ? 'System' : 'Space' }})</span>
-           <input
-             type="password"
-             v-model="designApiKeyModel"
-             :placeholder="designConfig?.masked_api_key ? `••••••••` : 'Enter Key...'"
-             class="input input-sm input-ghost w-full max-w-xs text-xs"
-           />
-           <button @click="$emit('saveKey')" class="btn btn-sm btn-ghost btn-square text-primary" :disabled="!designApiKey" title="Save">
-             <IconSave class="w-4 h-4" />
-           </button>
-           <button v-if="designConfig?.masked_api_key" @click="$emit('clearKey')" class="btn btn-sm btn-ghost btn-square text-error" title="Clear">
-             <IconTrash class="w-4 h-4" />
-           </button>
+          <IconKey class="text-gray-500 ml-2 w-4 h-4" />
+          <span class="text-xs font-bold text-gray-500 whitespace-nowrap"
+            >API Key ({{ scope === 'system' ? 'System' : 'Space' }})</span
+          >
+          <input
+            type="password"
+            v-model="designApiKeyModel"
+            :placeholder="designConfig?.masked_api_key ? `••••••••` : 'Enter Key...'"
+            class="input input-sm input-ghost w-full max-w-xs text-xs"
+          />
+          <button
+            @click="$emit('saveKey')"
+            class="btn btn-sm btn-ghost btn-square text-primary"
+            :disabled="!designApiKey"
+            title="Save"
+          >
+            <IconSave class="w-4 h-4" />
+          </button>
+          <button
+            v-if="designConfig?.masked_api_key"
+            @click="$emit('clearKey')"
+            class="btn btn-sm btn-ghost btn-square text-error"
+            title="Clear"
+          >
+            <IconTrash class="w-4 h-4" />
+          </button>
         </div>
 
         <!-- Sandbox Toolbar -->
         <div v-else class="animate-fade-in">
-           <ModernSandboxHeader 
-             :model-value="sandbox"
-             @apply="$emit('applySandbox')"
-             @update:modelValue="e => Object.assign(sandbox, e)"
-           />
+          <ModernSandboxHeader
+            :model-value="sandbox"
+            @apply="$emit('applySandbox')"
+            @update:modelValue="(e) => Object.assign(sandbox, e)"
+          />
         </div>
 
         <!-- Inputs: REUSE MODERN COMPONENT -->
         <div class="flex-1 bg-base-200/30 border border-base-300 rounded-xl overflow-hidden p-4">
-           <ModernRequirementInput
-             v-model:requirement="requirementModel"
-             v-model:context="contextModel"
-             v-model:refine-current="refineCurrentModel"
-             :can-edit="!!editPrompt"
-             :loading="loading"
-             @generate="$emit('generate')"
-           />
+          <ModernRequirementInput
+            v-model:requirement="requirementModel"
+            v-model:context="contextModel"
+            v-model:refine-current="refineCurrentModel"
+            :can-edit="!!editPrompt"
+            :loading="loading"
+            @generate="$emit('generate')"
+          />
         </div>
-        
       </div>
 
       <!-- Version Drawer (Overlay) -->
-      <div v-if="showVersions" class="absolute top-0 right-0 z-20 shadow-2xl bg-base-100 h-full max-h-[1000px] border-l border-base-300 w-[300px] overflow-hidden flex flex-col">
-         <div class="p-2 border-b border-base-200 flex justify-between items-center bg-base-200/50">
-            <span class="text-xs font-bold opacity-50">History</span>
-            <button @click="showVersions = false" class="btn btn-xs btn-ghost btn-circle">✕</button>
-         </div>
-              <div class="form-control">
-                <label class="label pb-0 text-xs">Test Custom API Key</label>
-                <input 
-                  :value="sandbox.customApiKey" 
-                  @input="$emit('update:sandbox', { ...sandbox, customApiKey: ($event.target as HTMLInputElement).value })"
-                  type="password" 
-                  class="input input-xs input-bordered" 
-                  placeholder="Override API Key" 
-                />
-              </div>
-         <div class="flex-1 overflow-y-auto">
-           <VersionHistoryList 
-             :versions="versions" 
-             :loading="loading"
-             @close="showVersions = false"
-             @create="$emit('createVersion', $event)"
-             @restore="$emit('restoreVersion', $event)"
-           />
-         </div>
+      <div
+        v-if="showVersions"
+        class="absolute top-0 right-0 z-20 shadow-2xl bg-base-100 h-full max-h-[1000px] border-l border-base-300 w-[300px] overflow-hidden flex flex-col"
+      >
+        <div class="p-2 border-b border-base-200 flex justify-between items-center bg-base-200/50">
+          <span class="text-xs font-bold opacity-50">History</span>
+          <button @click="showVersions = false" class="btn btn-xs btn-ghost btn-circle">✕</button>
+        </div>
+        <div class="form-control">
+          <label class="label pb-0 text-xs">Test Custom API Key</label>
+          <input
+            :value="sandbox.customApiKey"
+            @input="
+              $emit('update:sandbox', {
+                ...sandbox,
+                customApiKey: ($event.target as HTMLInputElement).value
+              })
+            "
+            type="password"
+            class="input input-xs input-bordered"
+            placeholder="Override API Key"
+          />
+        </div>
+        <div class="flex-1 overflow-y-auto">
+          <VersionHistoryList
+            :versions="versions"
+            :loading="loading"
+            @close="showVersions = false"
+            @create="$emit('createVersion', $event)"
+            @restore="$emit('restoreVersion', $event)"
+          />
+        </div>
       </div>
-
     </div>
   </div>
 </template>
@@ -188,7 +213,13 @@ const toggleVersions = () => {
   animation: fadeIn 0.3s ease-in-out;
 }
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

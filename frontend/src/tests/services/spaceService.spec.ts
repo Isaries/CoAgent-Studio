@@ -11,8 +11,8 @@ vi.mock('@/api', () => ({
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
-    delete: vi.fn(),
-  },
+    delete: vi.fn()
+  }
 }))
 
 import api from '@/api'
@@ -29,8 +29,8 @@ const makeSpace = (overrides: Partial<Space> = {}): Space =>
     preset: 'colearn' as SpacePreset,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
-    ...overrides,
-  } as Space)
+    ...overrides
+  }) as Space
 
 const makeMember = (overrides: Partial<SpaceMember> = {}): SpaceMember =>
   ({
@@ -38,8 +38,8 @@ const makeMember = (overrides: Partial<SpaceMember> = {}): SpaceMember =>
     email: 'alice@test.com',
     full_name: 'Alice',
     role: 'student',
-    ...overrides,
-  } as SpaceMember)
+    ...overrides
+  }) as SpaceMember
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -218,10 +218,7 @@ describe('spaceService', () => {
 
       await spaceService.updateMemberRole('space-1', 'user-2', 'teacher')
 
-      expect(api.put).toHaveBeenCalledWith(
-        '/spaces/space-1/members/user-2',
-        { role: 'teacher' }
-      )
+      expect(api.put).toHaveBeenCalledWith('/spaces/space-1/members/user-2', { role: 'teacher' })
     })
   })
 

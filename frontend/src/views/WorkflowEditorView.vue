@@ -14,8 +14,8 @@ const route = useRoute()
 const router = useRouter()
 
 // Determine which mode we're in
-const workflowId = computed(() => route.params.workflowId as string || '')
-const roomId = computed(() => route.params.id as string || '')
+const workflowId = computed(() => (route.params.workflowId as string) || '')
+const roomId = computed(() => (route.params.id as string) || '')
 const isStudioMode = computed(() => !!workflowId.value)
 </script>
 
@@ -25,7 +25,11 @@ const isStudioMode = computed(() => !!workflowId.value)
       <div class="flex items-center gap-3">
         <button
           class="btn btn-ghost btn-sm"
-          @click="isStudioMode ? router.push('/studio/workflows') : router.push(`/rooms/${roomId}/settings`)"
+          @click="
+            isStudioMode
+              ? router.push('/studio/workflows')
+              : router.push(`/rooms/${roomId}/settings`)
+          "
         >
           ← {{ isStudioMode ? 'All Workflows' : 'Settings' }}
         </button>
@@ -39,13 +43,7 @@ const isStudioMode = computed(() => !!workflowId.value)
     </div>
 
     <!-- Pass workflowId for Studio mode, roomId for legacy mode -->
-    <WorkflowEditor
-      v-if="isStudioMode"
-      :workflow-id="workflowId"
-    />
-    <WorkflowEditor
-      v-else
-      :room-id="roomId"
-    />
+    <WorkflowEditor v-if="isStudioMode" :workflow-id="workflowId" />
+    <WorkflowEditor v-else :room-id="roomId" />
   </div>
 </template>

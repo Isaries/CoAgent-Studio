@@ -3,8 +3,8 @@ import { dashboardService } from '../../services/dashboardService'
 
 vi.mock('../../api', () => ({
   default: {
-    get: vi.fn(),
-  },
+    get: vi.fn()
+  }
 }))
 
 import api from '../../api'
@@ -28,8 +28,7 @@ describe('dashboardService', () => {
     })
 
     it('returns 0 for agents/workflows when student', async () => {
-      vi.mocked(api.get)
-        .mockResolvedValueOnce({ data: [{ id: '1' }] }) // spaces
+      vi.mocked(api.get).mockResolvedValueOnce({ data: [{ id: '1' }] }) // spaces
 
       const stats = await dashboardService.getStats(true)
       expect(stats.spaceCount).toBe(1)

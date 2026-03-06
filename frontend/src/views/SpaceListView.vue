@@ -22,7 +22,7 @@ const newSpace = ref({
 })
 
 const spaceValidation = useFormValidation({
-  title: { rules: [required('Space title is required')] },
+  title: { rules: [required('Space title is required')] }
 })
 
 const presets: { key: SpacePreset; label: string; icon: string; description: string }[] = [
@@ -54,10 +54,14 @@ const presets: { key: SpacePreset; label: string; icon: string; description: str
 
 const presetBadgeClass = (preset: string) => {
   switch (preset) {
-    case 'colearn': return 'badge-primary'
-    case 'support': return 'badge-secondary'
-    case 'research': return 'badge-accent'
-    default: return 'badge-ghost'
+    case 'colearn':
+      return 'badge-primary'
+    case 'support':
+      return 'badge-secondary'
+    case 'research':
+      return 'badge-accent'
+    default:
+      return 'badge-ghost'
   }
 }
 
@@ -162,7 +166,9 @@ onMounted(() => {
             :key="preset.key"
             @click="selectPreset(preset.key)"
             class="card border-2 cursor-pointer transition-all hover:shadow-md p-4"
-            :class="newSpace.preset === preset.key ? 'border-primary bg-primary/5' : 'border-base-300'"
+            :class="
+              newSpace.preset === preset.key ? 'border-primary bg-primary/5' : 'border-base-300'
+            "
           >
             <div class="flex items-center gap-3 mb-2">
               <svg
@@ -189,7 +195,9 @@ onMounted(() => {
             v-model="newSpace.title"
             placeholder="e.g. CS 101 Study Group"
             class="input input-bordered w-full"
-            :class="{ 'input-error': spaceValidation.touched.title && spaceValidation.errors.title }"
+            :class="{
+              'input-error': spaceValidation.touched.title && spaceValidation.errors.title
+            }"
             @blur="spaceValidation.touchField('title', newSpace.title)"
           />
           <label v-if="spaceValidation.touched.title && spaceValidation.errors.title" class="label">

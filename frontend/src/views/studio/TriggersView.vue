@@ -21,7 +21,7 @@ const newTrigger = ref({
   conditions: '{}',
   target_workflow_id: '',
   scope_session_id: '',
-  is_active: true,
+  is_active: true
 })
 
 const fetchData = async () => {
@@ -29,7 +29,7 @@ const fetchData = async () => {
   try {
     const [triggerRes, workflowRes] = await Promise.all([
       workflowService.listTriggers(),
-      workflowService.listWorkflows(),
+      workflowService.listWorkflows()
     ])
     triggers.value = triggerRes.data
     workflows.value = workflowRes.data
@@ -46,7 +46,9 @@ const createTrigger = async () => {
     let conditions = {}
     try {
       conditions = JSON.parse(newTrigger.value.conditions)
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     await workflowService.createTrigger({
       name: newTrigger.value.name || 'Untitled Trigger',
@@ -54,7 +56,7 @@ const createTrigger = async () => {
       conditions,
       target_workflow_id: newTrigger.value.target_workflow_id,
       scope_session_id: newTrigger.value.scope_session_id || undefined,
-      is_active: newTrigger.value.is_active,
+      is_active: newTrigger.value.is_active
     } as any)
     toast.success('Trigger created!')
     showCreateModal.value = false
@@ -65,7 +67,7 @@ const createTrigger = async () => {
       conditions: '{}',
       target_workflow_id: '',
       scope_session_id: '',
-      is_active: true,
+      is_active: true
     }
     await fetchData()
   } catch (e) {
@@ -75,7 +77,8 @@ const createTrigger = async () => {
 }
 
 const deleteTrigger = async (id: string) => {
-  if (!(await confirmDialog('Delete Trigger', 'Are you sure you want to delete this trigger?'))) return
+  if (!(await confirmDialog('Delete Trigger', 'Are you sure you want to delete this trigger?')))
+    return
   try {
     await workflowService.deleteTrigger(id)
     toast.success('Trigger deleted')
@@ -89,7 +92,7 @@ const deleteTrigger = async (id: string) => {
 const toggleActive = async (trigger: TriggerPolicy) => {
   try {
     await workflowService.updateTrigger(trigger.id, {
-      is_active: !trigger.is_active,
+      is_active: !trigger.is_active
     })
     trigger.is_active = !trigger.is_active
   } catch (e) {
@@ -99,7 +102,7 @@ const toggleActive = async (trigger: TriggerPolicy) => {
 }
 
 const getWorkflowName = (id: string) => {
-  const wf = workflows.value.find(w => w.id === id)
+  const wf = workflows.value.find((w) => w.id === id)
   return wf?.name || 'Unknown Workflow'
 }
 
@@ -108,7 +111,7 @@ const eventTypeLabels: Record<string, string> = {
   silence: '🔕 Silence Timeout',
   timer: '⏰ Timer / Cron',
   webhook: '🔗 Webhook',
-  manual: '👆 Manual',
+  manual: '👆 Manual'
 }
 
 onMounted(fetchData)
@@ -119,7 +122,9 @@ onMounted(fetchData)
     <div class="flex justify-between items-center mb-6">
       <div>
         <h1 class="text-2xl font-bold">⚡ Trigger Policies</h1>
-        <p class="text-sm opacity-60 mt-1">Configure when and how workflows are automatically triggered</p>
+        <p class="text-sm opacity-60 mt-1">
+          Configure when and how workflows are automatically triggered
+        </p>
       </div>
       <button class="btn btn-primary" @click="showCreateModal = true">+ New Trigger</button>
     </div>
@@ -130,7 +135,10 @@ onMounted(fetchData)
     </div>
 
     <!-- Empty -->
-    <div v-else-if="!triggers.length" class="text-center py-16 bg-base-100 rounded-2xl border border-base-300">
+    <div
+      v-else-if="!triggers.length"
+      class="text-center py-16 bg-base-100 rounded-2xl border border-base-300"
+    >
       <div class="text-5xl mb-4">⚡</div>
       <h2 class="text-xl font-bold mb-2">No Trigger Policies</h2>
       <p class="opacity-60 mb-4">Create triggers to automatically activate your workflows.</p>
@@ -155,8 +163,12 @@ onMounted(fetchData)
             <div>
               <div class="font-bold">{{ t.name }}</div>
               <div class="flex gap-2 mt-1">
-                <span class="badge badge-sm badge-ghost">{{ eventTypeLabels[t.event_type] || t.event_type }}</span>
-                <span class="badge badge-sm badge-outline">→ {{ getWorkflowName(t.target_workflow_id) }}</span>
+                <span class="badge badge-sm badge-ghost">{{
+                  eventTypeLabels[t.event_type] || t.event_type
+                }}</span>
+                <span class="badge badge-sm badge-outline"
+                  >→ {{ getWorkflowName(t.target_workflow_id) }}</span
+                >
               </div>
             </div>
           </div>
@@ -172,7 +184,11 @@ onMounted(fetchData)
 
         <div class="form-control mb-3">
           <label class="label"><span class="label-text">Name</span></label>
-          <input v-model="newTrigger.name" class="input input-bordered" placeholder="e.g. Silence Alert" />
+          <input
+            v-model="newTrigger.name"
+            class="input input-bordered"
+            placeholder="e.g. Silence Alert"
+          />
         </div>
 
         <div class="form-control mb-3">
@@ -188,7 +204,11 @@ onMounted(fetchData)
 
         <div class="form-control mb-3">
           <label class="label"><span class="label-text">Conditions (JSON)</span></label>
-          <textarea v-model="newTrigger.conditions" class="textarea textarea-bordered h-20" placeholder='{"threshold_mins": 5}' />
+          <textarea
+            v-model="newTrigger.conditions"
+            class="textarea textarea-bordered h-20"
+            placeholder='{"threshold_mins": 5}'
+          />
         </div>
 
         <div class="form-control mb-3">
@@ -200,13 +220,25 @@ onMounted(fetchData)
         </div>
 
         <div class="form-control mb-3">
-          <label class="label"><span class="label-text">Scope (Session/Room ID, optional)</span></label>
-          <input v-model="newTrigger.scope_session_id" class="input input-bordered" placeholder="Leave empty for global" />
+          <label class="label"
+            ><span class="label-text">Scope (Session/Room ID, optional)</span></label
+          >
+          <input
+            v-model="newTrigger.scope_session_id"
+            class="input input-bordered"
+            placeholder="Leave empty for global"
+          />
         </div>
 
         <div class="modal-action">
           <button class="btn btn-ghost" @click="showCreateModal = false">Cancel</button>
-          <button class="btn btn-primary" @click="createTrigger" :disabled="!newTrigger.target_workflow_id">Create</button>
+          <button
+            class="btn btn-primary"
+            @click="createTrigger"
+            :disabled="!newTrigger.target_workflow_id"
+          >
+            Create
+          </button>
         </div>
       </div>
     </dialog>

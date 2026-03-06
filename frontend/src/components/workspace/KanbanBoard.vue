@@ -23,11 +23,14 @@ const showEditModal = ref(false)
 const editingTaskId = ref<string | null>(null)
 const editingTitle = ref('')
 
-watch(() => props.roomId, (newId) => {
-  if (newId && store.currentRoomId !== newId) {
-    store.loadArtifacts(newId)
+watch(
+  () => props.roomId,
+  (newId) => {
+    if (newId && store.currentRoomId !== newId) {
+      store.loadArtifacts(newId)
+    }
   }
-})
+)
 
 async function handleDrop({ taskId, newStatus }: { taskId: string; newStatus: string }) {
   await store.moveTask(taskId, newStatus as TaskContent['status'])
@@ -35,7 +38,7 @@ async function handleDrop({ taskId, newStatus }: { taskId: string; newStatus: st
 
 async function handleAddTask() {
   if (!newTaskTitle.value.trim()) return
-  
+
   addingTask.value = true
   await store.createTask(newTaskTitle.value.trim())
   newTaskTitle.value = ''
@@ -44,7 +47,7 @@ async function handleAddTask() {
 }
 
 function openEditModal(taskId: string) {
-  const task = store.artifacts.find(a => a.id === taskId)
+  const task = store.artifacts.find((a) => a.id === taskId)
   if (task) {
     editingTaskId.value = taskId
     editingTitle.value = task.title
@@ -54,7 +57,7 @@ function openEditModal(taskId: string) {
 
 async function handleEditTask() {
   if (!editingTaskId.value || !editingTitle.value.trim()) return
-  
+
   await store.updateTask(editingTaskId.value, { title: editingTitle.value.trim() })
   showEditModal.value = false
   editingTaskId.value = null
@@ -73,17 +76,23 @@ async function handleDeleteTask(taskId: string) {
     <!-- Header -->
     <div class="flex items-center justify-between p-4 border-b border-base-200">
       <h2 class="text-lg font-semibold flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
+          />
         </svg>
         看板
       </h2>
-      <button 
-        class="btn btn-primary btn-sm"
-        @click="showAddModal = true"
-      >
-        + 新增任務
-      </button>
+      <button class="btn btn-primary btn-sm" @click="showAddModal = true">+ 新增任務</button>
     </div>
 
     <!-- Loading -->
@@ -110,10 +119,10 @@ async function handleDeleteTask(taskId: string) {
     </div>
 
     <!-- Add Task Modal -->
-    <dialog :class="{ 'modal modal-open': showAddModal, 'modal': !showAddModal }">
+    <dialog :class="{ 'modal modal-open': showAddModal, modal: !showAddModal }">
       <div class="modal-box">
         <h3 class="font-bold text-lg mb-4">新增任務</h3>
-        <input 
+        <input
           v-model="newTaskTitle"
           type="text"
           placeholder="任務標題"
@@ -122,7 +131,7 @@ async function handleDeleteTask(taskId: string) {
         />
         <div class="modal-action">
           <button class="btn btn-ghost" @click="showAddModal = false">取消</button>
-          <button 
+          <button
             class="btn btn-primary"
             :disabled="!newTaskTitle.trim() || addingTask"
             @click="handleAddTask"
@@ -138,10 +147,10 @@ async function handleDeleteTask(taskId: string) {
     </dialog>
 
     <!-- Edit Task Modal -->
-    <dialog :class="{ 'modal modal-open': showEditModal, 'modal': !showEditModal }">
+    <dialog :class="{ 'modal modal-open': showEditModal, modal: !showEditModal }">
       <div class="modal-box">
         <h3 class="font-bold text-lg mb-4">編輯任務</h3>
-        <input 
+        <input
           v-model="editingTitle"
           type="text"
           placeholder="任務標題"
@@ -150,11 +159,7 @@ async function handleDeleteTask(taskId: string) {
         />
         <div class="modal-action">
           <button class="btn btn-ghost" @click="showEditModal = false">取消</button>
-          <button 
-            class="btn btn-primary"
-            :disabled="!editingTitle.trim()"
-            @click="handleEditTask"
-          >
+          <button class="btn btn-primary" :disabled="!editingTitle.trim()" @click="handleEditTask">
             儲存
           </button>
         </div>

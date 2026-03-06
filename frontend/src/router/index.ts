@@ -150,11 +150,17 @@ const router = createRouter({
         { path: 'courses', redirect: '/spaces' },
         { path: 'courses/:id', redirect: (to: any) => `/spaces/${to.params.id}` },
         { path: 'courses/:id/settings', redirect: (to: any) => `/spaces/${to.params.id}/settings` },
-        { path: 'courses/:id/analytics', redirect: (to: any) => `/spaces/${to.params.id}/analytics` },
+        {
+          path: 'courses/:id/analytics',
+          redirect: (to: any) => `/spaces/${to.params.id}/analytics`
+        },
         { path: 'workspace', redirect: '/agents' },
         { path: 'studio/workflows', redirect: '/platform/workflows' },
-        { path: 'studio/workflows/:workflowId', redirect: (to: any) => `/platform/workflows/${to.params.workflowId}` },
-        { path: 'studio/triggers', redirect: '/platform/triggers' },
+        {
+          path: 'studio/workflows/:workflowId',
+          redirect: (to: any) => `/platform/workflows/${to.params.workflowId}`
+        },
+        { path: 'studio/triggers', redirect: '/platform/triggers' }
       ]
     },
     {

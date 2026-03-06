@@ -1,7 +1,10 @@
 import api from '@/api'
 import type { KnowledgeBase, KBCreate, KBUpdate } from '@/types/knowledge'
 
-export async function listKBs(params?: { space_id?: string; room_id?: string }): Promise<KnowledgeBase[]> {
+export async function listKBs(params?: {
+  space_id?: string
+  room_id?: string
+}): Promise<KnowledgeBase[]> {
   const { data } = await api.get('/knowledge/', { params })
   return data
 }
@@ -30,7 +33,9 @@ export async function buildKB(kbId: string): Promise<{ status: string }> {
   return data
 }
 
-export async function getKBStatus(kbId: string): Promise<{ build_status: string; node_count: number; edge_count: number }> {
+export async function getKBStatus(
+  kbId: string
+): Promise<{ build_status: string; node_count: number; edge_count: number }> {
   const { data } = await api.get(`/knowledge/${kbId}/status`)
   return data
 }
@@ -48,6 +53,6 @@ export async function uploadDocument(kbId: string, file: File): Promise<void> {
   const formData = new FormData()
   formData.append('file', file)
   await api.post(`/knowledge/${kbId}/documents`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: { 'Content-Type': 'multipart/form-data' }
   })
 }

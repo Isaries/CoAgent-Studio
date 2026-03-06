@@ -6,7 +6,7 @@ export {
   deleteSpace as deleteCourse,
   getMembers,
   updateMemberRole,
-  removeMember,
+  removeMember
 } from './spaceService'
 
 export { spaceService as courseService } from './spaceService'

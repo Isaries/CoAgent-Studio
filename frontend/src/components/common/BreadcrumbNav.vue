@@ -10,9 +10,7 @@ interface Crumb {
 }
 
 const crumbs = computed<Crumb[]>(() => {
-  const matched = route.matched.filter(
-    (r) => r.meta?.breadcrumb
-  )
+  const matched = route.matched.filter((r) => r.meta?.breadcrumb)
   return matched.map((record: RouteLocationMatched, idx: number) => {
     const bc = record.meta.breadcrumb
     const label = typeof bc === 'function' ? bc(route) : String(bc)
@@ -22,7 +20,7 @@ const crumbs = computed<Crumb[]>(() => {
         const key = param.slice(1)
         return String(route.params[key] || param)
       }),
-      isLast: idx === matched.length - 1,
+      isLast: idx === matched.length - 1
     }
   })
 })

@@ -9,8 +9,8 @@ vi.mock('@/api', () => ({
     get: vi.fn(),
     post: vi.fn(),
     put: vi.fn(),
-    delete: vi.fn(),
-  },
+    delete: vi.fn()
+  }
 }))
 
 // API_ENDPOINTS used by agentService — replicate exact values from constants/api.ts
@@ -21,24 +21,24 @@ vi.mock('@/constants/api', () => ({
     AGENTS: {
       BASE: '/agents',
       SYSTEM: '/agents/system',
-      GENERATE: '/agents/generate',
+      GENERATE: '/agents/generate'
     },
     AGENT_CONFIG: {
-      BASE: '/agent-config',
+      BASE: '/agent-config'
     },
     AGENT_TYPES: {
       BASE: '/agent-types',
-      SCHEMA: (typeName: string) => `/agent-types/${typeName}/schema`,
+      SCHEMA: (typeName: string) => `/agent-types/${typeName}/schema`
     },
     A2A: { WEBHOOK: '/a2a/webhook', HEALTH: '/a2a/health' },
     ORGANIZATIONS: { BASE: '/organizations' },
     PROJECTS: { BASE: '/projects' },
     THREADS: {
       BASE: '/threads',
-      STATELESS: (agentId: string) => `/threads/stateless/${agentId}`,
-    },
+      STATELESS: (agentId: string) => `/threads/stateless/${agentId}`
+    }
   },
-  HTTP_STATUS: { UNAUTHORIZED: 401, FORBIDDEN: 403, SERVER_ERROR: 500 },
+  HTTP_STATUS: { UNAUTHORIZED: 401, FORBIDDEN: 403, SERVER_ERROR: 500 }
 }))
 
 import api from '@/api'
@@ -57,8 +57,8 @@ const makeAgent = (overrides: Partial<AgentConfig> = {}): AgentConfig =>
     project_id: 'project-1',
     system_prompt: '',
     is_active: true,
-    ...overrides,
-  } as AgentConfig)
+    ...overrides
+  }) as AgentConfig
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -292,9 +292,7 @@ describe('agentService', () => {
 
       await agentService.restoreVersion('config-1', 'version-42')
 
-      expect(api.post).toHaveBeenCalledWith(
-        '/agent-config/config-1/versions/version-42/restore'
-      )
+      expect(api.post).toHaveBeenCalledWith('/agent-config/config-1/versions/version-42/restore')
     })
   })
 })

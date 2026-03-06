@@ -5,7 +5,7 @@ import { required, minLength } from '../../utils/validators'
 describe('useFormValidation', () => {
   it('initializes with empty errors and untouched fields', () => {
     const { errors, touched } = useFormValidation({
-      name: { rules: [required()] },
+      name: { rules: [required()] }
     })
     expect(errors.name).toBe('')
     expect(touched.name).toBe(false)
@@ -13,7 +13,7 @@ describe('useFormValidation', () => {
 
   it('validates a single field on touch', () => {
     const { errors, touched, touchField } = useFormValidation({
-      name: { rules: [required('Name is required')] },
+      name: { rules: [required('Name is required')] }
     })
     touchField('name', '')
     expect(touched.name).toBe(true)
@@ -22,7 +22,7 @@ describe('useFormValidation', () => {
 
   it('clears error when valid', () => {
     const { errors, touchField } = useFormValidation({
-      name: { rules: [required()] },
+      name: { rules: [required()] }
     })
     touchField('name', '')
     expect(errors.name).not.toBe('')
@@ -33,7 +33,7 @@ describe('useFormValidation', () => {
   it('validateAll checks all fields', () => {
     const { validateAll, errors } = useFormValidation({
       name: { rules: [required('Required')] },
-      password: { rules: [minLength(4, 'Too short')] },
+      password: { rules: [minLength(4, 'Too short')] }
     })
     const valid = validateAll({ name: '', password: 'ab' })
     expect(valid).toBe(false)
@@ -43,14 +43,14 @@ describe('useFormValidation', () => {
 
   it('validateAll returns true when valid', () => {
     const { validateAll } = useFormValidation({
-      name: { rules: [required()] },
+      name: { rules: [required()] }
     })
     expect(validateAll({ name: 'Alice' })).toBe(true)
   })
 
   it('reset clears all errors and touched state', () => {
     const { touchField, errors, touched, reset } = useFormValidation({
-      name: { rules: [required('Required')] },
+      name: { rules: [required('Required')] }
     })
     touchField('name', '')
     expect(errors.name).toBe('Required')

@@ -8,8 +8,8 @@ vi.mock('@/services/agentTypesService', () => ({
   agentTypesService: {
     list: vi.fn(),
     create: vi.fn(),
-    delete: vi.fn(),
-  },
+    delete: vi.fn()
+  }
 }))
 
 function makeType(overrides: Partial<AgentTypeMetadata> = {}): AgentTypeMetadata {
@@ -19,7 +19,7 @@ function makeType(overrides: Partial<AgentTypeMetadata> = {}): AgentTypeMetadata
     category: AgentCategory.INSTRUCTOR,
     default_model_provider: 'openai',
     is_system: true,
-    ...overrides,
+    ...overrides
   } as AgentTypeMetadata
 }
 
@@ -49,7 +49,10 @@ describe('AgentTypes Store', () => {
   describe('fetchTypes', () => {
     it('loads agent types from API', async () => {
       const { agentTypesService } = await import('@/services/agentTypesService')
-      const mockTypes = [makeType({ type_name: 'teacher' }), makeType({ type_name: 'student', category: AgentCategory.PARTICIPANT })]
+      const mockTypes = [
+        makeType({ type_name: 'teacher' }),
+        makeType({ type_name: 'student', category: AgentCategory.PARTICIPANT })
+      ]
       vi.mocked(agentTypesService.list).mockResolvedValueOnce({ data: mockTypes } as any)
 
       const store = useAgentTypesStore()
@@ -111,18 +114,18 @@ describe('AgentTypes Store', () => {
       store.types = [
         makeType({ type_name: 'teacher', category: AgentCategory.INSTRUCTOR }),
         makeType({ type_name: 'student', category: AgentCategory.PARTICIPANT }),
-        makeType({ type_name: 'tutor', category: AgentCategory.INSTRUCTOR }),
+        makeType({ type_name: 'tutor', category: AgentCategory.INSTRUCTOR })
       ]
 
       expect(store.instructorTypes).toHaveLength(2)
-      expect(store.instructorTypes.every(t => t.category === AgentCategory.INSTRUCTOR)).toBe(true)
+      expect(store.instructorTypes.every((t) => t.category === AgentCategory.INSTRUCTOR)).toBe(true)
     })
 
     it('participantTypes filters by PARTICIPANT category', () => {
       const store = useAgentTypesStore()
       store.types = [
         makeType({ type_name: 'student', category: AgentCategory.PARTICIPANT }),
-        makeType({ type_name: 'teacher', category: AgentCategory.INSTRUCTOR }),
+        makeType({ type_name: 'teacher', category: AgentCategory.INSTRUCTOR })
       ]
 
       expect(store.participantTypes).toHaveLength(1)
@@ -133,7 +136,7 @@ describe('AgentTypes Store', () => {
       const store = useAgentTypesStore()
       store.types = [
         makeType({ type_name: 'helper', category: AgentCategory.UTILITY }),
-        makeType({ type_name: 'teacher', category: AgentCategory.INSTRUCTOR }),
+        makeType({ type_name: 'teacher', category: AgentCategory.INSTRUCTOR })
       ]
 
       expect(store.utilityTypes).toHaveLength(1)
@@ -143,7 +146,7 @@ describe('AgentTypes Store', () => {
       const store = useAgentTypesStore()
       store.types = [
         makeType({ type_name: 'external-bot', category: AgentCategory.EXTERNAL }),
-        makeType({ type_name: 'teacher', category: AgentCategory.INSTRUCTOR }),
+        makeType({ type_name: 'teacher', category: AgentCategory.INSTRUCTOR })
       ]
 
       expect(store.externalTypes).toHaveLength(1)
@@ -153,7 +156,7 @@ describe('AgentTypes Store', () => {
       const store = useAgentTypesStore()
       store.types = [
         makeType({ type_name: 'sys', is_system: true }),
-        makeType({ type_name: 'custom', is_system: false }),
+        makeType({ type_name: 'custom', is_system: false })
       ]
 
       expect(store.systemTypes).toHaveLength(1)
@@ -164,7 +167,7 @@ describe('AgentTypes Store', () => {
       const store = useAgentTypesStore()
       store.types = [
         makeType({ type_name: 'sys', is_system: true }),
-        makeType({ type_name: 'custom', is_system: false }),
+        makeType({ type_name: 'custom', is_system: false })
       ]
 
       expect(store.customTypes).toHaveLength(1)
@@ -200,7 +203,7 @@ describe('AgentTypes Store', () => {
         type_name: 'my-custom',
         display_name: 'My Custom',
         category: AgentCategory.UTILITY,
-        default_model_provider: 'openai',
+        default_model_provider: 'openai'
       } as any)
 
       expect(result).toEqual(newType)
@@ -215,10 +218,7 @@ describe('AgentTypes Store', () => {
       vi.mocked(agentTypesService.delete).mockResolvedValueOnce(undefined as any)
 
       const store = useAgentTypesStore()
-      store.types = [
-        makeType({ type_name: 'keep-me' }),
-        makeType({ type_name: 'delete-me' }),
-      ]
+      store.types = [makeType({ type_name: 'keep-me' }), makeType({ type_name: 'delete-me' })]
 
       await store.deleteType('delete-me')
 

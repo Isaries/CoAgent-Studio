@@ -36,7 +36,7 @@ const createWorkflow = async () => {
     const res = await workflowService.createWorkflow({
       name: 'New Workflow',
       graph_data: { nodes: [], edges: [] },
-      is_active: true,
+      is_active: true
     })
     toast.success('Workflow created!')
     router.push(`/studio/workflows/${res.data.id}`)
@@ -49,7 +49,8 @@ const createWorkflow = async () => {
 }
 
 const deleteWorkflow = async (id: string) => {
-  if (!(await confirmDialog('Delete Workflow', 'Are you sure you want to delete this workflow?'))) return
+  if (!(await confirmDialog('Delete Workflow', 'Are you sure you want to delete this workflow?')))
+    return
   try {
     await workflowService.deleteWorkflowById(id)
     toast.success('Workflow deleted')
@@ -70,11 +71,7 @@ onMounted(fetchWorkflows)
         <h1 class="text-2xl font-bold">🔀 Workflow Studio</h1>
         <p class="text-sm opacity-60 mt-1">Design, manage, and deploy multi-agent workflows</p>
       </div>
-      <button
-        class="btn btn-primary"
-        :disabled="isCreating"
-        @click="createWorkflow"
-      >
+      <button class="btn btn-primary" :disabled="isCreating" @click="createWorkflow">
         <span v-if="isCreating" class="loading loading-spinner loading-sm"></span>
         + New Workflow
       </button>
@@ -86,7 +83,10 @@ onMounted(fetchWorkflows)
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="!workflows.length" class="text-center py-16 bg-base-100 rounded-2xl border border-base-300">
+    <div
+      v-else-if="!workflows.length"
+      class="text-center py-16 bg-base-100 rounded-2xl border border-base-300"
+    >
       <div class="text-5xl mb-4">🔀</div>
       <h2 class="text-xl font-bold mb-2">No Workflows Yet</h2>
       <p class="opacity-60 mb-4">Create your first multi-agent workflow to get started.</p>
@@ -106,7 +106,10 @@ onMounted(fetchWorkflows)
             <div>
               <h3 class="font-bold text-lg">{{ wf.name }}</h3>
               <div class="flex gap-2 mt-1">
-                <span class="badge badge-sm" :class="wf.is_active ? 'badge-success' : 'badge-ghost'">
+                <span
+                  class="badge badge-sm"
+                  :class="wf.is_active ? 'badge-success' : 'badge-ghost'"
+                >
                   {{ wf.is_active ? 'Active' : 'Inactive' }}
                 </span>
                 <span class="badge badge-sm badge-ghost">
@@ -114,10 +117,7 @@ onMounted(fetchWorkflows)
                 </span>
               </div>
             </div>
-            <button
-              class="btn btn-ghost btn-xs text-error"
-              @click.stop="deleteWorkflow(wf.id)"
-            >
+            <button class="btn btn-ghost btn-xs text-error" @click.stop="deleteWorkflow(wf.id)">
               🗑
             </button>
           </div>

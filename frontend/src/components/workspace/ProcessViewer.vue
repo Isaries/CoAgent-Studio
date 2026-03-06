@@ -9,7 +9,7 @@ import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
 
 const props = defineProps<{
-  artifact: Artifact,
+  artifact: Artifact
   editable?: boolean
 }>()
 
@@ -20,15 +20,15 @@ const emit = defineEmits<{
 // Convert Artifact content to Vue Flow format
 // We need to map our ProcessNode to Vue Flow Node
 const initialContent = props.artifact.content as ProcessContent
-const nodes = ref<Node[]>(initialContent.nodes?.map(n => ({...n, data: n.data || {}})) || [])
-const edges = ref<Edge[]>(initialContent.edges?.map(e => ({...e})) || [])
+const nodes = ref<Node[]>(initialContent.nodes?.map((n) => ({ ...n, data: n.data || {} })) || [])
+const edges = ref<Edge[]>(initialContent.edges?.map((e) => ({ ...e })) || [])
 
 const { onNodeDragStop, onConnect, addEdges } = useVueFlow()
 
 // Handle node drag stop - save position
 onNodeDragStop((e) => {
   // Update internal state
-  const targetNode = nodes.value.find(n => n.id === e.node.id)
+  const targetNode = nodes.value.find((n) => n.id === e.node.id)
   if (targetNode) {
     targetNode.position = e.node.position
   }
@@ -43,14 +43,14 @@ onConnect((params) => {
 
 function emitUpdate() {
   emit('update', {
-    nodes: nodes.value.map(n => ({
+    nodes: nodes.value.map((n) => ({
       id: n.id,
       position: n.position,
       label: n.label as string, // Vue Flow uses 'label' or 'data.label'
       type: n.type,
       data: n.data
     })),
-    edges: edges.value.map(e => ({
+    edges: edges.value.map((e) => ({
       id: e.id,
       source: e.source,
       target: e.target,
@@ -61,31 +61,37 @@ function emitUpdate() {
 
 // Watch for external updates
 // Watch for external updates
-watch(() => props.artifact.content, (newContent) => {
-  const content = newContent as ProcessContent
-  
-  // Deep compare to avoid unnecessary re-renders or loops
-  // We compare the incoming content with our local state
-  const currentNodesJson = JSON.stringify(nodes.value.map(n => ({
-      id: n.id,
-      type: n.type,
-      position: n.position,
-      data: n.data,
-      label: n.label
-  })))
-  const newNodesJson = JSON.stringify(content.nodes || [])
-  
-  if (currentNodesJson !== newNodesJson) {
-      nodes.value = (content.nodes || []).map(n => ({...n, data: n.data || {}}))
-  }
+watch(
+  () => props.artifact.content,
+  (newContent) => {
+    const content = newContent as ProcessContent
 
-  const currentEdgesJson = JSON.stringify(edges.value)
-  const newEdgesJson = JSON.stringify(content.edges || [])
+    // Deep compare to avoid unnecessary re-renders or loops
+    // We compare the incoming content with our local state
+    const currentNodesJson = JSON.stringify(
+      nodes.value.map((n) => ({
+        id: n.id,
+        type: n.type,
+        position: n.position,
+        data: n.data,
+        label: n.label
+      }))
+    )
+    const newNodesJson = JSON.stringify(content.nodes || [])
 
-  if (currentEdgesJson !== newEdgesJson) {
-      edges.value = (content.edges || []).map(e => ({...e}))
-  }
-}, { deep: true })
+    if (currentNodesJson !== newNodesJson) {
+      nodes.value = (content.nodes || []).map((n) => ({ ...n, data: n.data || {} }))
+    }
+
+    const currentEdgesJson = JSON.stringify(edges.value)
+    const newEdgesJson = JSON.stringify(content.edges || [])
+
+    if (currentEdgesJson !== newEdgesJson) {
+      edges.value = (content.edges || []).map((e) => ({ ...e }))
+    }
+  },
+  { deep: true }
+)
 
 let nodeCounter = 0
 
@@ -101,7 +107,6 @@ function addNode() {
   nodes.value.push(newNode)
   emitUpdate()
 }
-
 </script>
 
 <template>

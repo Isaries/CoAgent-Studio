@@ -1,4 +1,14 @@
-import { AgentType, CalendarMode, TriggerType, ScheduleMode, ScheduleRuleType, TriggerLogic, TriggerCondition, CloseStrategy, ContextStrategyType } from './enums'
+import {
+  AgentType,
+  CalendarMode,
+  TriggerType,
+  ScheduleMode,
+  ScheduleRuleType,
+  TriggerLogic,
+  TriggerCondition,
+  CloseStrategy,
+  ContextStrategyType
+} from './enums'
 
 // ============================================================
 // Legacy Types (kept for backward compatibility during migration)
@@ -17,7 +27,12 @@ export interface LegacyScheduleRule {
 
 export interface LegacyScheduleConfig {
   specific: { date: string; start: string; end: string }[]
-  general: { mode: CalendarMode; start_date?: string; end_date?: string; rules: LegacyScheduleRule[] }
+  general: {
+    mode: CalendarMode
+    start_date?: string
+    end_date?: string
+    rules: LegacyScheduleRule[]
+  }
 }
 
 // ============================================================
@@ -26,9 +41,9 @@ export interface LegacyScheduleConfig {
 
 export interface ScheduleRule {
   type: ScheduleRuleType
-  date?: string        // YYYY-MM-DD for specific_date
-  days?: number[]      // 1=Mon..7=Sun for day_of_week
-  time_range?: [string, string] | null  // ["HH:MM","HH:MM"] or null for all-day
+  date?: string // YYYY-MM-DD for specific_date
+  days?: number[] // 1=Mon..7=Sun for day_of_week
+  time_range?: [string, string] | null // ["HH:MM","HH:MM"] or null for all-day
 }
 
 export interface ScheduleConfig {
@@ -61,14 +76,14 @@ export interface CloseRule {
 }
 
 export interface SelfModification {
-  duration_hours: number  // 0=disabled, >0=temp, -1=permanent
+  duration_hours: number // 0=disabled, >0=temp, -1=permanent
   bounds?: Record<string, TriggerBounds> | null
 }
 
 export interface StateReset {
   enabled: boolean
   interval_days: number
-  reset_time: string  // "HH:MM"
+  reset_time: string // "HH:MM"
 }
 
 export interface TriggerConfig {
@@ -150,7 +165,7 @@ export interface ExternalAgentConfig {
   timeout_ms?: number
   fallback_message?: string
   callback_token?: string
-  default_room_id?: string  // Auto-bind agent to this room for broadcast
+  default_room_id?: string // Auto-bind agent to this room for broadcast
 }
 
 export interface AgentConfigCreate {

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
-  lines?: number
-  showAction?: boolean
-}>(), {
-  lines: 3,
-  showAction: false,
-})
+withDefaults(
+  defineProps<{
+    lines?: number
+    showAction?: boolean
+  }>(),
+  {
+    lines: 3,
+    showAction: false
+  }
+)
 </script>
 
 <template>

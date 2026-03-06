@@ -55,55 +55,67 @@ const systemPromptModel = computed({
 <template>
   <div class="flex-1 overflow-hidden relative">
     <ResizableSplitPane :initial-left-width="500" :min-left-width="300" :min-right-width="400">
-      
       <!-- Left Pane: DESIGN AGENT CONFIG -->
       <template #left>
-          <div class="flex flex-col h-full bg-[#141414] relative">
-             <div class="absolute top-0 left-0 w-full h-[200px] bg-gradient-to-b from-purple-500/5 to-transparent pointer-events-none"></div>
+        <div class="flex flex-col h-full bg-[#141414] relative">
+          <div
+            class="absolute top-0 left-0 w-full h-[200px] bg-gradient-to-b from-purple-500/5 to-transparent pointer-events-none"
+          ></div>
 
-             <!-- Header Label -->
-             <div class="px-5 py-3 border-b border-white/5 bg-[#141414] flex items-center justify-between relative z-20 flex-shrink-0">
-                <span class="text-xs font-bold text-gray-400">DESIGN AGENT SYSTEM PROMPT</span>
-                <div class="flex items-center gap-2">
-                   <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" v-if="!sandbox.enabled" title="Live"></span>
-                   <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" v-else title="Sandbox Mode"></span>
-                </div>
-             </div>
-
-             <div class="flex-1 flex flex-col overflow-hidden relative z-10">
-                <!-- Sandbox Config -->
-                <div v-if="sandbox.enabled" class="p-4 border-b border-white/5 bg-[#161616]">
-                    <ModernSandboxHeader 
-                      :model-value="sandbox" 
-                      @apply="$emit('applySandbox')"
-                      @update:modelValue="val => $emit('update:sandbox', Object.assign({}, sandbox, val))"
-                    />
-                </div>
-
-                <!-- The Prompt Editor -->
-                <PromptEditor 
-                   v-model="systemPromptModel"
-                   class="flex-1 border-none rounded-none w-full h-full text-sm font-mono"
-                />
-             </div>
+          <!-- Header Label -->
+          <div
+            class="px-5 py-3 border-b border-white/5 bg-[#141414] flex items-center justify-between relative z-20 flex-shrink-0"
+          >
+            <span class="text-xs font-bold text-gray-400">DESIGN AGENT SYSTEM PROMPT</span>
+            <div class="flex items-center gap-2">
+              <span
+                class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"
+                v-if="!sandbox.enabled"
+                title="Live"
+              ></span>
+              <span
+                class="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"
+                v-else
+                title="Sandbox Mode"
+              ></span>
+            </div>
           </div>
+
+          <div class="flex-1 flex flex-col overflow-hidden relative z-10">
+            <!-- Sandbox Config -->
+            <div v-if="sandbox.enabled" class="p-4 border-b border-white/5 bg-[#161616]">
+              <ModernSandboxHeader
+                :model-value="sandbox"
+                @apply="$emit('applySandbox')"
+                @update:modelValue="
+                  (val) => $emit('update:sandbox', Object.assign({}, sandbox, val))
+                "
+              />
+            </div>
+
+            <!-- The Prompt Editor -->
+            <PromptEditor
+              v-model="systemPromptModel"
+              class="flex-1 border-none rounded-none w-full h-full text-sm font-mono"
+            />
+          </div>
+        </div>
       </template>
-      
+
       <!-- Right Pane: SIMULATION PLAYGROUND -->
       <template #right>
-          <div class="flex flex-col h-full bg-[#1e1e1e] relative">
-             <SimulationPanel
-               v-model:requirement="requirementModel"
-               v-model:context="contextModel"
-               v-model:refine-current="refineCurrentModel"
-               :loading="loading || isSimulating"
-               :simulation-output="simulationOutput"
-               @generate="$emit('generate')"
-               @clearOutput="$emit('clearOutput')"
-             />
-          </div>
+        <div class="flex flex-col h-full bg-[#1e1e1e] relative">
+          <SimulationPanel
+            v-model:requirement="requirementModel"
+            v-model:context="contextModel"
+            v-model:refine-current="refineCurrentModel"
+            :loading="loading || isSimulating"
+            :simulation-output="simulationOutput"
+            @generate="$emit('generate')"
+            @clearOutput="$emit('clearOutput')"
+          />
+        </div>
       </template>
-
     </ResizableSplitPane>
   </div>
 </template>
