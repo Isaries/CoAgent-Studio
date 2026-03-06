@@ -8,9 +8,11 @@ import { useRouter } from 'vue-router'
 import { workflowService } from '../../services/workflowService'
 import type { Workflow } from '../../services/workflowService'
 import { useToastStore } from '../../stores/toast'
+import { useConfirm } from '../../composables/useConfirm'
 
 const router = useRouter()
 const toast = useToastStore()
+const { confirm: confirmDialog } = useConfirm()
 const workflows = ref<Workflow[]>([])
 const isLoading = ref(true)
 const isCreating = ref(false)
@@ -47,7 +49,7 @@ const createWorkflow = async () => {
 }
 
 const deleteWorkflow = async (id: string) => {
-  if (!confirm('Are you sure you want to delete this workflow?')) return
+  if (!(await confirmDialog('Delete Workflow', 'Are you sure you want to delete this workflow?'))) return
   try {
     await workflowService.deleteWorkflowById(id)
     toast.success('Workflow deleted')

@@ -14,6 +14,7 @@ const isOpen = ref(false)
 const query = ref('')
 const selectedIndex = ref(0)
 const apiResults = ref<PaletteItem[]>([])
+let watcherRegistered = false
 // ────────────────────────────────────────────────────────────────────────────
 
 export function useCommandPalette() {
@@ -61,14 +62,16 @@ export function useCommandPalette() {
     }
   }
 
-  const stopWatch = watch(query, (val) => {
-    selectedIndex.value = 0
-    if (debounceTimer) clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => searchApi(val), 300)
-  })
+  if (!watcherRegistered) {
+    watch(query, (val) => {
+      selectedIndex.value = 0
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => searchApi(val), 300)
+    })
+    watcherRegistered = true
+  }
 
   onUnmounted(() => {
-    stopWatch()
     if (debounceTimer) clearTimeout(debounceTimer)
   })
 

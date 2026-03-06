@@ -1,6 +1,6 @@
 /**
  * Workspace Store - Pinia store for managing artifacts in a workspace.
- * 
+ *
  * Handles:
  * - Loading artifacts from API
  * - Real-time updates via WebSocket
@@ -19,6 +19,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const loading = ref(false)
     const error = ref<string | null>(null)
     const currentRoomId = ref<string | null>(null)
+
+    // Track which roomId is currently being loaded to handle race conditions
+    let loadingForRoom: string | null = null
 
     // Computed: Kanban columns with tasks
     const kanbanColumns = computed<KanbanColumn[]>(() => {
@@ -51,19 +54,30 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
     // Actions
     async function loadArtifacts(roomId: string) {
-        if (loading.value) return
+        // If already loading for a different room, let the new request take over
+        // If loading for the same room, skip
+        if (loading.value && loadingForRoom === roomId) return
 
+        loadingForRoom = roomId
         loading.value = true
         error.value = null
         currentRoomId.value = roomId
 
         try {
-            artifacts.value = await artifactService.listArtifacts(roomId)
+            const result = await artifactService.listArtifacts(roomId)
+            // Check if a newer request has superseded this one
+            if (loadingForRoom !== roomId) return
+            artifacts.value = result
         } catch (e) {
+            // Check if a newer request has superseded this one
+            if (loadingForRoom !== roomId) return
             error.value = (e as Error).message
             console.error('[WorkspaceStore] Failed to load artifacts:', e)
         } finally {
-            loading.value = false
+            // Only clear loading if this is still the active request
+            if (loadingForRoom === roomId) {
+                loading.value = false
+            }
         }
     }
 
@@ -174,7 +188,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         const contentUpdates = { ...updates }
         delete contentUpdates.title
         if (Object.keys(contentUpdates).length > 0) {
-            // We need to fetch current content to merge? 
+            // We need to fetch current content to merge?
             // Actually updateArtifact merges it optimistically, but the API expects partial content update?
             // The API (artifactService.updateArtifact) takes ArtifactUpdate which has content?: Record<string, any>
             // So we can just pass the partial content.
@@ -239,6 +253,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         loading.value = false
         error.value = null
         currentRoomId.value = null
+        loadingForRoom = null
     }
 
     return {

@@ -74,8 +74,8 @@ class TriggerPolicyRead(SQLModel):
     target_workflow_id: UUID
     scope_session_id: Optional[str]
     is_active: bool
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class TriggerPolicyUpdate(SQLModel):

@@ -12,15 +12,24 @@ const isHelpOpen = ref(false)
 let listenerCount = 0
 
 export function useKeyboardShortcuts() {
+  // Track shortcuts registered by this instance so they can be cleaned up
+  const instanceKeys: string[] = []
+
   const register = (shortcut: Shortcut) => {
     // Avoid duplicates
     if (!shortcuts.value.find((s) => s.keys === shortcut.keys)) {
       shortcuts.value.push(shortcut)
     }
+    // Track this key for cleanup even if it was already registered (ownership)
+    if (!instanceKeys.includes(shortcut.keys)) {
+      instanceKeys.push(shortcut.keys)
+    }
   }
 
   const unregister = (keys: string) => {
     shortcuts.value = shortcuts.value.filter((s) => s.keys !== keys)
+    const idx = instanceKeys.indexOf(keys)
+    if (idx !== -1) instanceKeys.splice(idx, 1)
   }
 
   const handleKeydown = (e: KeyboardEvent) => {
@@ -83,6 +92,12 @@ export function useKeyboardShortcuts() {
   })
 
   onUnmounted(() => {
+    // Remove shortcuts registered by this instance
+    for (const key of instanceKeys) {
+      shortcuts.value = shortcuts.value.filter((s) => s.keys !== key)
+    }
+    instanceKeys.length = 0
+
     listenerCount--
     if (listenerCount === 0) {
       document.removeEventListener('keydown', handleKeydown)

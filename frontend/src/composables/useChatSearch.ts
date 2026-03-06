@@ -1,4 +1,4 @@
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, watch, type Ref } from 'vue'
 import type { Message } from '../types/chat'
 
 export function useChatSearch(messages: Ref<Message[]>) {
@@ -19,6 +19,11 @@ export function useChatSearch(messages: Ref<Message[]>) {
   const matchCount = computed(() => {
     if (!searchQuery.value.trim()) return 0
     return filteredMessages.value.length
+  })
+
+  // Reset currentMatchIndex when searchQuery changes
+  watch(searchQuery, () => {
+    currentMatchIndex.value = 0
   })
 
   const nextMatch = () => {

@@ -94,8 +94,13 @@ def _legacy_check(schedule: Dict) -> bool:
             try:
                 start = datetime.strptime(rule["start"], "%H:%M").time()
                 end = datetime.strptime(rule["end"], "%H:%M").time()
-                if start <= current_time <= end:
-                    return True
+                if start <= end:
+                    if start <= current_time <= end:
+                        return True
+                else:
+                    # Midnight-crossing schedule (e.g. 23:00 to 01:00)
+                    if current_time >= start or current_time <= end:
+                        return True
             except Exception:
                 continue
         # If specific rules exist for today but none matched → blocked

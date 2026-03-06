@@ -57,7 +57,7 @@ onMounted(() => {
     <div class="flex justify-between items-center mb-6">
       <div>
         <h1 class="text-3xl font-bold">Space Analytics</h1>
-        <p class="text-gray-500">AI-driven insights for your space rooms.</p>
+        <p class="text-base-content/60">AI-driven insights for your space rooms.</p>
       </div>
       <div class="flex gap-2" v-if="spaceId">
         <router-link :to="`/spaces/${spaceId}`" class="btn btn-ghost">Back to Space</router-link>

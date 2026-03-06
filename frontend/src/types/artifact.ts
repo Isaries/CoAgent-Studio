@@ -1,6 +1,6 @@
 /**
  * Artifact Types - TypeScript interfaces for workspace artifacts.
- * 
+ *
  * Supports:
  * - Task artifacts (Kanban cards)
  * - Doc artifacts (Collaborative documents)
@@ -82,8 +82,8 @@ export interface KanbanColumn {
 }
 
 export const DEFAULT_KANBAN_COLUMNS: Omit<KanbanColumn, 'tasks'>[] = [
-    { id: 'todo', title: '待辦', status: 'todo' },
-    { id: 'in_progress', title: '進行中', status: 'in_progress' },
-    { id: 'review', title: '審核', status: 'review' },
-    { id: 'done', title: '完成', status: 'done' },
+    { id: 'todo', title: 'To Do', status: 'todo' },
+    { id: 'in_progress', title: 'In Progress', status: 'in_progress' },
+    { id: 'review', title: 'Review', status: 'review' },
+    { id: 'done', title: 'Done', status: 'done' },
 ]

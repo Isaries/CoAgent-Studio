@@ -103,5 +103,5 @@ class ArtifactRead(SQLModel):
     version: int
     created_by: UUID
     last_modified_by: Optional[UUID] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

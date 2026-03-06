@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useUsers } from '../composables/useUsers'
 import { usePermissions } from '../composables/usePermissions'
+import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 
 // Components
 import UserCreateModal from '../components/user/UserCreateModal.vue'
@@ -14,6 +16,8 @@ import type { User } from '../types/user'
 const { impersonate } = useAuth()
 const { users, loading, fetchUsers, deleteUser } = useUsers()
 const { canEditUser, canDeleteUser, isSuperAdmin, currentUser } = usePermissions()
+const toast = useToastStore()
+const { confirm: confirmDialog } = useConfirm()
 
 
 // Modal Refs
@@ -28,15 +32,16 @@ const handleEditUser = (user: User) => {
 }
 
 const handleImpersonateKey = async (user: User) => {
-  if (confirm(`Impersonate ${user.username}?`)) {
+  if (await confirmDialog('Impersonate User', `Impersonate ${user.username}?`)) {
     await impersonate(user.id)
   }
 }
 const handleDelete = async (user: User) => {
   if (!canDeleteUser(user)) {
-    alert('You do not have permission to delete this user.')
+    toast.error('You do not have permission to delete this user.')
     return
   }
+  if (!(await confirmDialog('Delete User', `Are you sure you want to delete ${user.username}?`))) return
   await deleteUser(user.id)
 }
 

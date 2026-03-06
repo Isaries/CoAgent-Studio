@@ -43,7 +43,6 @@ const roomName = computed(() => room.value?.name || `Room ${roomId}`)
 // Use the Chat Composable
 const {
   messages,
-  showA2ATrace,
   connect,
   disconnect,
   fetchHistory,
@@ -139,7 +138,6 @@ onUnmounted(() => {
     <RoomChat
       v-show="activeTab === 'chat'"
       :messages="messages"
-      :show-a2-a-trace="showA2ATrace"
       @send="handleSend"
     />
 

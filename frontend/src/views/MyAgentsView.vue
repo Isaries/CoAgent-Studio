@@ -2,10 +2,12 @@
 import { ref, onMounted } from 'vue'
 import { AgentType } from '../types/enums'
 import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 import type { AgentConfig, AgentConfigCreate } from '../types/agent'
 import api from '../api'
 
 const toast = useToastStore()
+const { confirm: confirmDialog } = useConfirm()
 
 // State
 const agents = ref<AgentConfig[]>([])
@@ -86,7 +88,7 @@ const updateAgent = async () => {
 }
 
 const deleteAgent = async (agent: AgentConfig) => {
-  if (!confirm(`Delete agent "${agent.name}"?`)) return
+  if (!(await confirmDialog('Delete Agent', `Are you sure you want to delete "${agent.name}"?`))) return
   try {
     await api.delete(`/agents/${agent.id}`)
     toast.success('Agent deleted')

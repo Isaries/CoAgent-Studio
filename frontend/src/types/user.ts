@@ -9,9 +9,9 @@ export interface User {
 }
 
 export interface CreateUserPayload {
-  email?: string
+  email: string
   username?: string
-  password?: string
+  password: string
   full_name: string
   role: string
 }

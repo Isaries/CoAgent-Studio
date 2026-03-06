@@ -34,7 +34,7 @@ class A2AWebhookPayload(BaseModel):
     recipient_id: str = "broadcast"
     content: Any
     correlation_id: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = {}
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class A2AWebhookResponse(BaseModel):

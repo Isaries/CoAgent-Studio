@@ -2,6 +2,7 @@ import { ref, type Ref } from 'vue'
 import { agentService } from '../services/agentService'
 import type { AgentConfig, DesignDbState, AgentConfigVersion } from '../types/agent'
 import { useToastStore } from '../stores/toast'
+import { useConfirm } from './useConfirm'
 
 export function useDesignAgent(
   scope: 'project' | 'system',
@@ -10,6 +11,7 @@ export function useDesignAgent(
   activeTab?: Ref<string>
 ) {
   const toast = useToastStore()
+  const { confirm } = useConfirm()
 
   const designConfig = ref<AgentConfig | null>(null)
   const designApiKey = ref('')
@@ -56,7 +58,11 @@ export function useDesignAgent(
 
   const restoreVersion = async (version: AgentConfigVersion, callback?: () => void) => {
     if (!designConfig.value) return
-    if (!confirm(`Restoring version "${version.version_label}". Current unsaved changes will be lost. Continue?`)) return
+    const confirmed = await confirm(
+      'Restore Version',
+      `Restoring version "${version.version_label}". Current unsaved changes will be lost. Continue?`
+    )
+    if (!confirmed) return
 
     try {
       const res = await agentService.restoreVersion(designConfig.value.id, version.id)
@@ -79,20 +85,25 @@ export function useDesignAgent(
     }
 
     try {
-      const res = await agentService.generatePrompt({
+      const systemPrompt = sandbox.value.enabled && sandbox.value.systemPrompt
+        ? sandbox.value.systemPrompt
+        : (designDb.value.context || projectTitle?.value || '')
+
+      const payload: Record<string, any> = {
         requirement: req,
         target_agent_type: activeTab?.value || 'teacher', // Default to teacher for system
         project_id: scope === 'project' ? projectId : undefined,
         provider: provider,
-        // Optional sandbox context/overrides
-        custom_system_prompt: designDb.value.context || projectTitle?.value || '',
-        ...(sandbox.value.enabled ? {
-          custom_system_prompt: sandbox.value.systemPrompt || undefined,
-          custom_api_key: sandbox.value.customApiKey || undefined,
-          custom_provider: sandbox.value.customProvider || undefined,
-          custom_model: sandbox.value.customModel || undefined
-        } : {})
-      })
+        custom_system_prompt: systemPrompt,
+      }
+
+      if (sandbox.value.enabled) {
+        if (sandbox.value.customApiKey) payload.custom_api_key = sandbox.value.customApiKey
+        if (sandbox.value.customProvider) payload.custom_provider = sandbox.value.customProvider
+        if (sandbox.value.customModel) payload.custom_model = sandbox.value.customModel
+      }
+
+      const res = await agentService.generatePrompt(payload)
       return res.data.generated_prompt
     } catch (e: any) {
       if (e.response && e.response.status === 400 && e.response.data.detail) {

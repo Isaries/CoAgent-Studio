@@ -8,7 +8,7 @@ Provides persistence for A2A messages, enabling:
 """
 
 import structlog
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -36,7 +36,7 @@ class A2AMessageRecord(SQLModel, table=True):
     recipient_id: str
     content: str  # JSON-serialized content
     room_id: Optional[str] = Field(default=None, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     @classmethod
     def from_a2a_message(cls, msg: A2AMessage) -> "A2AMessageRecord":

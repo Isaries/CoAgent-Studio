@@ -1,46 +1,46 @@
 <template>
   <div class="user-keys-view max-w-4xl mx-auto py-8 px-4">
     <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold text-gray-800">My API Keys</h1>
-      <button 
+      <h1 class="text-2xl font-bold text-base-content">My API Keys</h1>
+      <button
         @click="showAddModal = true"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+        class="btn btn-primary flex items-center gap-2"
       >
         <span>+ Add Key</span>
       </button>
     </div>
 
     <!-- Key List -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div v-if="loading" class="p-8 text-center text-gray-500">
+    <div class="bg-base-100 rounded-xl shadow-sm border border-base-300 overflow-hidden">
+      <div v-if="loading" class="p-8 text-center text-base-content/60">
         Loading keys...
       </div>
-      
+
       <div v-else-if="keys.length === 0" class="p-12 text-center">
-        <div class="text-gray-400 mb-2 text-4xl">🔑</div>
-        <h3 class="text-lg font-medium text-gray-900">No API Keys Found</h3>
-        <p class="text-gray-500 mt-1">Add your OpenAI or Gemini keys to use them in your agents.</p>
-        <button 
+        <div class="text-base-content/40 mb-2 text-4xl">🔑</div>
+        <h3 class="text-lg font-medium text-base-content">No API Keys Found</h3>
+        <p class="text-base-content/60 mt-1">Add your OpenAI or Gemini keys to use them in your agents.</p>
+        <button
           @click="showAddModal = true"
-          class="mt-4 text-blue-600 hover:text-blue-800 font-medium"
+          class="mt-4 text-primary hover:text-primary-focus font-medium"
         >
           Add your first key
         </button>
       </div>
 
       <table v-else class="w-full text-left border-collapse">
-        <thead class="bg-gray-50 border-b border-gray-100">
+        <thead class="bg-base-200 border-b border-base-300">
           <tr>
-            <th class="py-3 px-4 font-semibold text-gray-600 text-sm">Alias</th>
-            <th class="py-3 px-4 font-semibold text-gray-600 text-sm">Provider</th>
-            <th class="py-3 px-4 font-semibold text-gray-600 text-sm">Key Preview</th>
-            <th class="py-3 px-4 font-semibold text-gray-600 text-sm">Created</th>
-            <th class="py-3 px-4 font-semibold text-gray-600 text-sm text-right">Actions</th>
+            <th class="py-3 px-4 font-semibold text-base-content/70 text-sm">Alias</th>
+            <th class="py-3 px-4 font-semibold text-base-content/70 text-sm">Provider</th>
+            <th class="py-3 px-4 font-semibold text-base-content/70 text-sm">Key Preview</th>
+            <th class="py-3 px-4 font-semibold text-base-content/70 text-sm">Created</th>
+            <th class="py-3 px-4 font-semibold text-base-content/70 text-sm text-right">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
-          <tr v-for="key in keys" :key="key.id" class="hover:bg-gray-50 transition-colors">
-            <td class="py-3 px-4 text-gray-900 font-medium">{{ key.alias }}</td>
+        <tbody class="divide-y divide-base-200">
+          <tr v-for="key in keys" :key="key.id" class="hover:bg-base-200 transition-colors">
+            <td class="py-3 px-4 text-base-content font-medium">{{ key.alias }}</td>
             <td class="py-3 px-4">
               <span 
                 class="px-2 py-1 rounded-full text-xs font-medium capitalize"
@@ -53,8 +53,8 @@
                 {{ key.provider }}
               </span>
             </td>
-            <td class="py-3 px-4 font-mono text-sm text-gray-500">{{ key.masked_key }}</td>
-            <td class="py-3 px-4 text-sm text-gray-500">
+            <td class="py-3 px-4 font-mono text-sm text-base-content/60">{{ key.masked_key }}</td>
+            <td class="py-3 px-4 text-sm text-base-content/60">
               {{ new Date(key.created_at).toLocaleDateString() }}
             </td>
             <td class="py-3 px-4 text-right">
@@ -75,16 +75,16 @@
 
     <!-- Add Modal -->
     <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <h2 class="text-xl font-bold mb-4 text-gray-800">Add New API Key</h2>
+      <div class="bg-base-100 rounded-xl shadow-xl w-full max-w-md p-6">
+        <h2 class="text-xl font-bold mb-4 text-base-content">Add New API Key</h2>
         
         <form @submit.prevent="submitKey">
           <div class="space-y-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+              <label class="block text-sm font-medium text-base-content/70 mb-1">Provider</label>
               <select 
                 v-model="newKey.provider"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                class="w-full input input-bordered w-full focus:border-blue-500 outline-none"
               >
                 <option value="openai">OpenAI</option>
                 <option value="gemini">Google Gemini</option>
@@ -92,24 +92,24 @@
             </div>
             
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Alias (Name)</label>
+              <label class="block text-sm font-medium text-base-content/70 mb-1">Alias (Name)</label>
               <input 
                 v-model="newKey.alias" 
                 type="text" 
                 placeholder="e.g. Personal OpenAI Key"
                 required
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                class="w-full input input-bordered w-full outline-none"
               />
             </div>
             
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+              <label class="block text-sm font-medium text-base-content/70 mb-1">API Key</label>
               <input 
                 v-model="newKey.api_key" 
                 type="password" 
                 placeholder="sk-..."
                 required
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                class="w-full input input-bordered w-full outline-none"
               />
               <p class="text-xs text-gray-500 mt-1">
                 Keys are encrypted at rest. We never display the full key back to you.
@@ -117,11 +117,11 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+              <label class="block text-sm font-medium text-base-content/70 mb-1">Description (Optional)</label>
               <textarea 
                 v-model="newKey.description" 
                 rows="2"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                class="w-full input input-bordered w-full outline-none"
               ></textarea>
             </div>
           </div>
@@ -130,13 +130,13 @@
             <button 
               type="button" 
               @click="showAddModal = false"
-              class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              class="btn btn-ghost"
             >
               Cancel
             </button>
             <button 
               type="submit" 
-              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition-colors"
+              class="btn btn-primary disabled:opacity-50"
               :disabled="submitting"
             >
               {{ submitting ? 'Adding...' : 'Save Key' }}
@@ -152,8 +152,10 @@
 import { ref, onMounted } from 'vue';
 import { userKeyService, type UserAPIKey } from '../services/userKeyService';
 import { useToastStore } from '../stores/toast';
+import { useConfirm } from '../composables/useConfirm';
 
 const toast = useToastStore();
+const { confirm: confirmDialog } = useConfirm();
 
 const keys = ref<UserAPIKey[]>([]);
 const loading = ref(true);
@@ -209,7 +211,8 @@ async function submitKey() {
 }
 
 async function deleteKey(id: string) {
-  if (!confirm('Are you sure you want to delete this key? This action cannot be undone.')) return;
+  const confirmed = await confirmDialog('Delete Key', 'Are you sure you want to delete this key? This action cannot be undone.')
+  if (!confirmed) return;
   
   try {
     await userKeyService.deleteKey(id);

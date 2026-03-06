@@ -9,6 +9,7 @@ Contains ARQ-callable tasks for:
 """
 
 import hashlib
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
@@ -201,7 +202,7 @@ async def extract_entities_task(
 
         points = []
         for (name, node), vector in zip(unique_nodes.items(), vectors):
-            point_id = hashlib.md5(f"{room_id}:{name}".encode()).hexdigest()
+            point_id = str(uuid.UUID(hashlib.md5(f"{room_id}:{name}".encode()).hexdigest()))
             points.append({
                 "id": point_id,
                 "vector": vector,
@@ -230,7 +231,7 @@ async def extract_entities_task(
         chunk_vectors = await embedding_service.get_embeddings_batch(chunks)
         chunk_points = []
         for i, (chunk_text, vector) in enumerate(zip(chunks, chunk_vectors)):
-            chunk_id = hashlib.md5(f"{room_id}:chunk:{i}".encode()).hexdigest()
+            chunk_id = str(uuid.UUID(hashlib.md5(f"{room_id}:chunk:{i}".encode()).hexdigest()))
             chunk_points.append({
                 "id": chunk_id,
                 "vector": vector,

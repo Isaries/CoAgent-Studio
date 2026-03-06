@@ -7,6 +7,7 @@ import { useCommandPalette } from '../composables/useCommandPalette'
 import { useFormValidation } from '../composables/useFormValidation'
 import { required, url as urlRule } from '../utils/validators'
 import { useI18n } from 'vue-i18n'
+import { useToastStore } from '../stores/toast'
 import iconUser from '../assets/iconUser.png'
 import api from '../api'
 
@@ -23,6 +24,7 @@ import ErrorBoundary from '../components/common/ErrorBoundary.vue'
 import NetworkStatus from '../components/common/NetworkStatus.vue'
 
 const { t } = useI18n()
+const toast = useToastStore()
 const { user, logout, isImpersonating, stopImpersonating, isAdmin, isStudent } = useAuth()
 const route = useRoute()
 
@@ -63,11 +65,11 @@ const handleAvatarUpload = async (event: Event) => {
   if (input.files && input.files[0]) {
     const file = input.files[0]
     if (file.size > 2 * 1024 * 1024) {
-      alert('File size exceeds 2MB limit.')
+      toast.error('File size exceeds 2MB limit.')
       return
     }
     if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-      alert('Only JPG and PNG files are allowed.')
+      toast.error('Only JPG and PNG files are allowed.')
       return
     }
 
@@ -85,7 +87,7 @@ const handleAvatarUpload = async (event: Event) => {
       }
     } catch (e) {
       console.error(e)
-      alert('Failed to upload avatar')
+      toast.error('Failed to upload avatar')
     } finally {
       editLoading.value = false
     }
@@ -111,7 +113,7 @@ const updateProfile = async () => {
     }
     showProfileModal.value = false
   } catch (e) {
-    alert('Failed to update profile')
+    toast.error('Failed to update profile')
   } finally {
     editLoading.value = false
   }
@@ -307,7 +309,7 @@ export default {
 
           <!-- Home -->
           <li>
-            <router-link to="/spaces" active-class="active">{{ t('nav.home') }}</router-link>
+            <router-link to="/" active-class="active">{{ t('nav.home') }}</router-link>
           </li>
 
           <!-- PLATFORM section (non-students only) -->

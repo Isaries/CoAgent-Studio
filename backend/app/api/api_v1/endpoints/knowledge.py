@@ -8,8 +8,8 @@ from pydantic import BaseModel
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import get_current_user, get_session
-from app.models.user import User
+from app.api.deps import get_current_user, get_session, require_role
+from app.models.user import User, UserRole
 from app.models.knowledge_base import KnowledgeBase, KBCreate, KBRead, KBUpdate
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ async def list_knowledge_bases(
 @router.post("/", response_model=KBRead)
 async def create_knowledge_base(
     kb_in: KBCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
     session: AsyncSession = Depends(get_session),
 ):
     kb = KnowledgeBase(**kb_in.model_dump())
@@ -58,7 +58,7 @@ async def get_knowledge_base(
 async def update_knowledge_base(
     kb_id: UUID,
     kb_in: KBUpdate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
     session: AsyncSession = Depends(get_session),
 ):
     kb = await session.get(KnowledgeBase, kb_id)
@@ -75,7 +75,7 @@ async def update_knowledge_base(
 @router.delete("/{kb_id}")
 async def delete_knowledge_base(
     kb_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
     session: AsyncSession = Depends(get_session),
 ):
     kb = await session.get(KnowledgeBase, kb_id)
@@ -100,7 +100,7 @@ class QueryRequest(BaseModel):
 @router.post("/{kb_id}/build")
 async def build_knowledge_base(
     kb_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
     session: AsyncSession = Depends(get_session),
 ) -> Any:
     """Trigger a KB build. Delegates to graphrag_service if available."""
@@ -121,7 +121,7 @@ async def build_knowledge_base(
         from arq import create_pool
         from arq.connections import RedisSettings
 
-        redis_pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+        redis_pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
         await redis_pool.enqueue_job(
             "build_knowledge_graph",
             str(kb_id),
@@ -162,7 +162,7 @@ async def get_knowledge_base_status(
 async def merge_knowledge_bases(
     kb_id: UUID,
     body: MergeRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
     session: AsyncSession = Depends(get_session),
 ) -> Any:
     """Merge a source KB into the target KB."""
@@ -223,7 +223,7 @@ async def query_knowledge_base(
 async def upload_document_to_kb(
     kb_id: UUID,
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
     session: AsyncSession = Depends(get_session),
 ) -> Any:
     """Upload a document to a KB for extraction."""

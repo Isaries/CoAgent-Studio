@@ -107,8 +107,8 @@ class WorkflowCreate(WorkflowBase):
 class WorkflowRead(WorkflowBase):
     id: UUID
     graph_data: Dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class WorkflowUpdate(SQLModel):

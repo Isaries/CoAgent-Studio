@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToastStore } from '../stores/toast'
+import { useConfirm } from '../composables/useConfirm'
 import { useKnowledgeBase } from '../composables/useKnowledgeBase'
 import * as knowledgeService from '../services/knowledgeService'
 import type { KnowledgeBase, KBUpdate } from '../types/knowledge'
@@ -10,6 +11,7 @@ import CreateKBModal from '../components/knowledge/CreateKBModal.vue'
 
 const route = useRoute()
 const toast = useToastStore()
+const { confirm: confirmDialog } = useConfirm()
 
 const {
   knowledgeBases,
@@ -85,7 +87,7 @@ async function handleBuildKB(kb: KnowledgeBase) {
 }
 
 async function handleDeleteKB(kb: KnowledgeBase) {
-  if (!confirm(`Are you sure you want to delete "${kb.name}"? This action cannot be undone.`)) return
+  if (!(await confirmDialog('Delete Knowledge Base', `Are you sure you want to delete "${kb.name}"? This action cannot be undone.`))) return
   const success = await deleteKB(kb.id)
   if (success) {
     toast.success(`"${kb.name}" deleted`)

@@ -1,17 +1,24 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useWorkspaceStore } from '../stores/workspace'
 import { useWebSocket } from './useWebSocket'
 import api from '../api'
 import type { Message, SocketMessage } from '../types/chat'
 
+const A2A_TRACE_STORAGE_KEY = 'coagent:a2aTraceEnabled'
+
 export function useRoomChat(roomId: string) {
     const authStore = useAuthStore()
     const workspaceStore = useWorkspaceStore()
     const messages = ref<Message[]>([])
-    const showA2ATrace = ref(false)
+    const showA2ATrace = ref(localStorage.getItem(A2A_TRACE_STORAGE_KEY) === 'true')
     const isConnected = ref(false)
     const activeWorkflowNodeId = ref<string | null>(null)  // For v2 workflow live tracing
+
+    // Persist showA2ATrace changes to localStorage
+    watch(showA2ATrace, (val) => {
+        localStorage.setItem(A2A_TRACE_STORAGE_KEY, String(val))
+    })
 
     // Integrate useWebSocket
     // We initialize with empty URL, connect() will set it.
@@ -75,6 +82,10 @@ export function useRoomChat(roomId: string) {
             return
         }
         wsSend(text)
+    }
+
+    const setShowA2ATrace = (value: boolean) => {
+        showA2ATrace.value = value
     }
 
     // --- Helpers ---
@@ -197,6 +208,7 @@ export function useRoomChat(roomId: string) {
         connect,
         disconnect,
         fetchHistory,
-        sendMessage
+        sendMessage,
+        setShowA2ATrace
     }
 }

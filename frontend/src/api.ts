@@ -15,7 +15,14 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     // Access store inside interceptor to avoid circular dependency during init
-    const toast = useToastStore()
+    // Wrap in try/catch to handle case where Pinia is not yet initialized
+    let toast: ReturnType<typeof useToastStore> | null = null
+    try {
+      toast = useToastStore()
+    } catch {
+      // Pinia not initialized yet — fall back to console
+    }
+
     const originalRequest = error.config
 
     if (!originalRequest) {
@@ -33,12 +40,20 @@ api.interceptors.response.use(
       const message = detail
         ? `Server Error: ${detail}`
         : `Server Error: ${error.response.statusText || 'Internal Server Error'}`
-      toast.error(message)
+      if (toast) {
+        toast.error(message)
+      } else {
+        console.error(message)
+      }
     }
 
     // Handle 403 Forbidden (Permission)
     if (error.response?.status === HTTP_STATUS.FORBIDDEN) {
-      toast.warning('Access Denied: You do not have permission.')
+      if (toast) {
+        toast.warning('Access Denied: You do not have permission.')
+      } else {
+        console.error('Access Denied: You do not have permission.')
+      }
     }
 
     // Handle 401 Unauthorized (Token Expiry)
@@ -53,7 +68,11 @@ api.interceptors.response.use(
         const currentPath = router.currentRoute.value.path
 
         if (currentPath !== API_ENDPOINTS.LOGIN) {
-          toast.info('Session expired, please login again.')
+          if (toast) {
+            toast.info('Session expired, please login again.')
+          } else {
+            console.error('Session expired, please login again.')
+          }
           await router.push(API_ENDPOINTS.LOGIN)
         }
         return Promise.reject(refreshError)

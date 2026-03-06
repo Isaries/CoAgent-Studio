@@ -6,7 +6,7 @@ Based on A2A Protocol specifications (https://a2a-protocol.org).
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -53,7 +53,7 @@ class A2AMessage:
     id: UUID = field(default_factory=uuid4)
     correlation_id: Optional[UUID] = None
     metadata: dict = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def reply(
         self,

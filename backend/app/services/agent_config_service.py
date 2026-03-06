@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.security import encrypt_api_key
 from app.models.agent_config import AgentConfig, AgentConfigCreate, AgentConfigVersion
 from app.models.agent_key import AgentKey
 from app.models.project import Project, UserProjectLink
@@ -51,7 +52,7 @@ class AgentConfigService:
                 system_prompt=config_in.system_prompt,
                 model_provider=config_in.model_provider,
                 model=config_in.model,
-                encrypted_api_key=config_in.api_key,
+                encrypted_api_key=encrypt_api_key(config_in.api_key) if config_in.api_key else None,
                 settings=config_in.settings,
             )
             self.session.add(new_config)
@@ -168,7 +169,7 @@ class AgentConfigService:
                 type=agent_type,
                 system_prompt=config_in.system_prompt,
                 model_provider=config_in.model_provider,
-                encrypted_api_key=config_in.api_key,
+                encrypted_api_key=encrypt_api_key(config_in.api_key) if config_in.api_key else None,
                 settings=config_in.settings,
             )
             self.session.add(new_config)
@@ -212,7 +213,7 @@ class AgentConfigService:
             if config_in.api_key == "":
                 agent_config.encrypted_api_key = None
             else:
-                agent_config.encrypted_api_key = config_in.api_key
+                agent_config.encrypted_api_key = encrypt_api_key(config_in.api_key)
 
         if config_in.settings is not None:
             agent_config.settings = config_in.settings

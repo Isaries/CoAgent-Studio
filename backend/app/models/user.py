@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, TYPE_CHECKING, List
 from uuid import UUID, uuid4
@@ -23,7 +23,7 @@ class UserRole(str, Enum):
 
 
 class UserBase(SQLModel):
-    email: str = Field(index=True)
+    email: str = Field(index=True, unique=True)
     username: Optional[str] = Field(
         default=None, index=True, unique=True, description="For non-email login"
     )
@@ -37,7 +37,7 @@ class User(UserBase, table=True):
     hashed_password: Optional[str] = None
     google_sub: Optional[str] = Field(default=None, index=True)  # Google Unique ID
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     api_keys: List["UserAPIKey"] = Relationship(

@@ -57,7 +57,7 @@ class RoomMonitor:
             except Exception as e:
                 logger.error("room_monitor_loop_error", error=str(e))
 
-            await asyncio.sleep(1)  # Check every 1 second
+            await asyncio.sleep(30)  # Check every 30 seconds (reduces DB load)
 
 
 room_monitor = RoomMonitor()

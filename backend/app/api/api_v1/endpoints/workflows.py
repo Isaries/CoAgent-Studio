@@ -21,8 +21,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 import uuid
 
 from app.api import deps
+from app.api.deps import require_role
 from app.core.db import get_session
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.workflow import (
     Workflow,
     WorkflowCreate,
@@ -80,7 +81,7 @@ async def get_workflow(
 async def create_workflow(
     payload: WorkflowCreate,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
 ):
     workflow = Workflow(
         name=payload.name,
@@ -104,7 +105,7 @@ async def update_workflow(
     workflow_id: UUID,
     payload: WorkflowUpdate,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
 ):
     workflow = await session.get(Workflow, workflow_id)
     if not workflow:
@@ -133,7 +134,7 @@ async def update_workflow(
 async def delete_workflow(
     workflow_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
 ):
     workflow = await session.get(Workflow, workflow_id)
     if not workflow:
@@ -152,7 +153,7 @@ async def execute_workflow_endpoint(
     workflow_id: UUID,
     payload: Optional[dict] = None,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
 ):
     """
     Manually trigger a workflow.  The request body is passed as the

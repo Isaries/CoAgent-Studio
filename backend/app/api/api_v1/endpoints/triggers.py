@@ -15,8 +15,9 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
+from app.api.deps import require_role
 from app.core.db import get_session
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.trigger import (
     TriggerPolicy,
     TriggerPolicyCreate,
@@ -66,7 +67,7 @@ async def get_trigger(
 async def create_trigger(
     payload: TriggerPolicyCreate,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
 ):
     trigger = TriggerPolicy(
         name=payload.name,
@@ -93,7 +94,7 @@ async def update_trigger(
     trigger_id: UUID,
     payload: TriggerPolicyUpdate,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
 ):
     trigger = await session.get(TriggerPolicy, trigger_id)
     if not trigger:
@@ -119,7 +120,7 @@ async def update_trigger(
 async def delete_trigger(
     trigger_id: UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(deps.get_current_user),
+    current_user: User = Depends(require_role([UserRole.ADMIN, UserRole.TEACHER])),
 ):
     trigger = await session.get(TriggerPolicy, trigger_id)
     if not trigger:

@@ -44,5 +44,5 @@ class UserAPIKeyRead(UserAPIKeyBase):
     masked_key: str
     is_active: bool = True
     schedule_config: Optional[Dict[str, Any]] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

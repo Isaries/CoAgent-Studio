@@ -89,7 +89,7 @@ async def publish_a2a_trace(
     """
     import json
 
-    ts = datetime.now(timezone.utc).isoformat() + "Z"
+    ts = datetime.now(timezone.utc).isoformat()
 
     # v1 legacy format (backward compat)
     payload_v1 = json.dumps({
@@ -216,6 +216,7 @@ async def execute_workflow(
             "shared_memory": {"session_id": session_id},
             "_cycle_count": 0,
             "_active_node_id": None,
+            "_action_registry": {"broadcast": broadcast_action},
         }
 
         # Publish trace: workflow started
@@ -373,7 +374,7 @@ async def _save_and_broadcast(session, redis, content, session_id, agent_type, p
     session.add(msg)
     await session.commit()
     await session.refresh(msg)
-    timestamp = msg.created_at.isoformat() + "Z"
+    timestamp = msg.created_at.isoformat()
 
     # Broadcast via Redis Pub/Sub as JSON matching SocketMessage
     import json
@@ -459,7 +460,7 @@ async def check_and_process_time_triggers(room_id: str, session: AsyncSession, a
     if arq_pool:
         if teacher_action:
             await arq_pool.enqueue_job("run_agent_time_task", room_id, "teacher")
-        elif student_action:
+        if student_action:
             await arq_pool.enqueue_job("run_agent_time_task", room_id, "student")
     else:
         logger.warning("time_trigger_skipped", reason="no_arq_pool")

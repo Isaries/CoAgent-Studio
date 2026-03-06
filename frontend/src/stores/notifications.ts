@@ -10,6 +10,8 @@ export interface Notification {
   timestamp: string
 }
 
+const MAX_NOTIFICATIONS = 100
+
 export const useNotificationStore = defineStore('notifications', () => {
   const items = ref<Notification[]>([])
 
@@ -22,6 +24,9 @@ export const useNotificationStore = defineStore('notifications', () => {
       read: false,
       timestamp: new Date().toISOString(),
     })
+    if (items.value.length > MAX_NOTIFICATIONS) {
+      items.value = items.value.slice(0, MAX_NOTIFICATIONS)
+    }
   }
 
   const markRead = (id: string) => {

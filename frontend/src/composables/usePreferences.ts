@@ -1,8 +1,10 @@
 import { usePreferencesStore, type LocaleCode } from '../stores/preferences'
+import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 
 export function usePreferences() {
   const store = usePreferencesStore()
+  const { theme, locale, sidebarCollapsed } = storeToRefs(store)
   const { locale: i18nLocale } = useI18n()
 
   const toggleTheme = () => {
@@ -19,9 +21,9 @@ export function usePreferences() {
   }
 
   return {
-    theme: store.theme,
-    locale: store.locale,
-    sidebarCollapsed: store.sidebarCollapsed,
+    theme,
+    locale,
+    sidebarCollapsed,
     toggleTheme,
     setLocale,
     toggleSidebar,

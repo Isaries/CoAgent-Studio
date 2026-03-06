@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 
 const md = new MarkdownIt()
+const { locale } = useI18n()
 
 const props = defineProps<{
   sender: string
@@ -35,7 +37,7 @@ const formattedTime = computed(() => {
   if (!props.timestamp) return ''
   try {
     const date = new Date(props.timestamp)
-    return date.toLocaleString('zh-TW', {
+    return date.toLocaleString(locale.value, {
       month: 'numeric',
       day: 'numeric',
       hour: '2-digit',

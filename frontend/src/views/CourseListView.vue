@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { useToastStore } from '../stores/toast'
 import { courseService } from '../services/courseService'
 import type { Course } from '../types/course'
 
 const authStore = useAuthStore()
+const toast = useToastStore()
 
 const courses = ref<Course[]>([])
 const loading = ref(true)
@@ -50,7 +52,7 @@ const createCourse = async () => {
     await fetchCourses() // Refresh list
   } catch (e: any) {
     console.error(e)
-    alert('Failed to create course: ' + (e.response?.data?.detail || e.message))
+    toast.error('Failed to create course: ' + (e.response?.data?.detail || e.message))
   } finally {
     newCourse.value.loading = false
   }
@@ -82,12 +84,12 @@ onMounted(() => {
             <div>{{ new Date(course.created_at).toLocaleDateString() }}</div>
           </div>
           <div class="card-actions justify-end">
-            <router-link :to="`/courses/${course.id}`" class="btn btn-sm btn-ghost"
+            <router-link :to="`/spaces/${course.id}`" class="btn btn-sm btn-ghost"
               >Enter</router-link
             >
             <router-link
               v-if="!authStore.isStudent"
-              :to="`/courses/${course.id}`"
+              :to="`/spaces/${course.id}/settings`"
               class="btn btn-sm btn-primary"
               >Manage</router-link
             >

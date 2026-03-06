@@ -98,7 +98,7 @@ async def refresh_token(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token type",
             )
-        user_id = payload.get("sub")
+        user_id_str = payload.get("sub")
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -106,6 +106,10 @@ async def refresh_token(
         ) from None
 
     # Check if user exists/active
+    try:
+        user_id = UUID(user_id_str) if user_id_str else None
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject") from None
     user = await session.get(User, user_id)  # type: ignore[func-returns-value]
     if not user or not user.is_active:
         raise HTTPException(
@@ -131,8 +135,7 @@ async def refresh_token(
 
 
 @router.post("/login/logout")
-async def logout() -> Any:
-    response = Response()
+async def logout(response: Response) -> Any:
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token", path=f"{settings.API_V1_STR}/login/refresh")
     return {"message": "Logged out successfully"}
@@ -234,9 +237,13 @@ async def stop_impersonate(
     # Validate the original token before restoring it
     try:
         payload = jwt.decode(original_token, settings.SECRET_KEY, algorithms=[security.ALGORITHM])
-        user_id = payload.get("sub")
-        if not user_id:
+        user_id_str = payload.get("sub")
+        if not user_id_str:
             raise HTTPException(status_code=400, detail="Invalid original token")
+        try:
+            user_id = UUID(user_id_str)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid original token") from None
         user = await session.get(User, user_id)  # type: ignore[func-returns-value]
         if not user or not user.is_active or user.role != UserRole.SUPER_ADMIN:
             raise HTTPException(status_code=400, detail="Invalid original token: not a super admin")

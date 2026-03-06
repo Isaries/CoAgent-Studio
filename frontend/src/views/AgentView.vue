@@ -61,8 +61,10 @@ const saveAgent = async () => {
   }
 }
 
-watch(currentAgentConfig, (val) => {
-    if (val) hasUnsavedChanges.value = true
+let isInitialLoad = true
+watch(currentAgentConfig, () => {
+    if (isInitialLoad) { isInitialLoad = false; return }
+    hasUnsavedChanges.value = true
 }, { deep: true })
 
 onMounted(() => {

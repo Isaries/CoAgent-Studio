@@ -128,7 +128,7 @@ onMounted(() => {
         <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
           CoAgent Intelligence Hub
         </h1>
-        <p class="text-gray-500 text-sm mt-1">
+        <p class="text-base-content/60 text-sm mt-1">
           Configure global system behaviors and utility agents.
         </p>
       </div>

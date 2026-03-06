@@ -8,12 +8,10 @@ import type { Message } from '@/types/chat'
 
 const props = defineProps<{
   messages: Message[]
-  showA2ATrace: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'send', text: string): void
-  (e: 'update:showA2ATrace', value: boolean): void
 }>()
 
 const messagesRef = computed(() => props.messages)

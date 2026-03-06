@@ -55,6 +55,9 @@ async def create_user_key(
     """
     Add a new API key to wallet.
     """
+    if len(data.api_key) < 8:
+        raise HTTPException(status_code=400, detail="API key is too short")
+
     service = UserKeyService(session)
     new_key = await service.create_key(data, current_user.id)
     

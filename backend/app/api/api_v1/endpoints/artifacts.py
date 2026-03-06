@@ -94,10 +94,15 @@ async def get_artifact(
     """Get a single artifact by ID."""
     service = ArtifactService(session, socket_manager=manager)
     artifact = await service.get_artifact(artifact_id)
-    
+
     if not artifact or artifact.is_deleted:
         raise HTTPException(status_code=404, detail="Artifact not found")
-    
+
+    # Verify user has access to the artifact's room
+    room = await session.get(Room, artifact.room_id)
+    if room and not await permission_service.check(current_user, "read", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     return artifact
 
 
@@ -115,12 +120,17 @@ async def update_artifact(
     If provided, update will fail if current version doesn't match.
     """
     service = ArtifactService(session, socket_manager=manager)
-    
+
     # Check exists
     existing = await service.get_artifact(artifact_id)
     if not existing or existing.is_deleted:
         raise HTTPException(status_code=404, detail="Artifact not found")
-    
+
+    # Verify user has access to the artifact's room
+    room = await session.get(Room, existing.room_id)
+    if room and not await permission_service.check(current_user, "write", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     artifact = await service.update_artifact(artifact_id, data, modified_by=current_user.id)
     
     if artifact is None:
@@ -146,12 +156,17 @@ async def delete_artifact(
     Use hard_delete=true for permanent removal (requires admin privileges).
     """
     service = ArtifactService(session, socket_manager=manager)
-    
+
     # Check exists
     existing = await service.get_artifact(artifact_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Artifact not found")
-    
+
+    # Verify user has access to the artifact's room
+    room = await session.get(Room, existing.room_id)
+    if room and not await permission_service.check(current_user, "write", room, session):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
     # Hard delete requires admin privileges
     if hard_delete and current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
         raise HTTPException(status_code=403, detail="Only admins can permanently delete artifacts")

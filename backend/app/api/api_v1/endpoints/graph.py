@@ -100,13 +100,15 @@ async def build_room_graph(
     # Store build status in Redis
     try:
         redis_client = aioredis.from_url(settings.redis_url)
-        await redis_client.set(f"graphrag:build_status:{room_id}", "building", ex=3600)
-        await redis_client.set(
-            f"graphrag:build_started:{room_id}",
-            datetime.now(timezone.utc).isoformat(),
-            ex=3600,
-        )
-        await redis_client.close()
+        try:
+            await redis_client.set(f"graphrag:build_status:{room_id}", "building", ex=3600)
+            await redis_client.set(
+                f"graphrag:build_started:{room_id}",
+                datetime.now(timezone.utc).isoformat(),
+                ex=3600,
+            )
+        finally:
+            await redis_client.close()
     except Exception as e:
         logger.warning("graphrag_redis_status_write_failed", error=str(e))
 
@@ -254,20 +256,21 @@ async def get_graph_status(
     last_updated_str = None
     try:
         redis_client = aioredis.from_url(settings.redis_url)
-        is_building_raw = await redis_client.get(f"graphrag:build_status:{room_id}")
-        last_started = await redis_client.get(f"graphrag:build_started:{room_id}")
-        # Also check completed timestamp for last_updated
-        last_completed = await redis_client.get(f"graphrag:build_completed:{room_id}")
-        await redis_client.close()
+        try:
+            is_building_raw = await redis_client.get(f"graphrag:build_status:{room_id}")
+            last_started = await redis_client.get(f"graphrag:build_started:{room_id}")
+            last_completed = await redis_client.get(f"graphrag:build_completed:{room_id}")
 
-        is_building = is_building_raw == b"building" if is_building_raw else False
-        last_updated_str = (
-            last_completed.decode() if last_completed
-            else last_started.decode() if last_started
-            else None
-        )
+            is_building = is_building_raw == b"building" if is_building_raw else False
+            last_updated_str = (
+                last_completed.decode() if last_completed
+                else last_started.decode() if last_started
+                else None
+            )
+        finally:
+            await redis_client.close()
     except Exception as e:
-        logger.warning("graphrag_redis_status_read_failed", error=str(e))
+        logger.warning("graphrap_redis_status_read_failed", error=str(e))
 
     return GraphStatusResponse(
         room_id=str(room_id),

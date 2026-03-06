@@ -70,7 +70,7 @@ const handleDeleteCourse = async () => {
   try {
     await deleteCourse()
     toast.success('Course deleted successfully')
-    router.push('/courses')
+    router.push('/spaces')
   } catch (e: any) {
     toast.error(e.response?.data?.detail || 'Failed to delete course')
   }
@@ -118,12 +118,12 @@ onMounted(() => {
       <div class="mb-8 flex justify-between items-start">
         <div>
           <h1 class="text-3xl font-bold">{{ course.title }}</h1>
-          <p class="text-gray-600 mt-2">{{ course.description }}</p>
+          <p class="text-base-content/70 mt-2">{{ course.description }}</p>
         </div>
         <div class="flex gap-2">
           <router-link
             v-if="!isStudent"
-            :to="`/courses/${course.id}/settings`"
+            :to="`/spaces/${course.id}/settings`"
             class="btn btn-outline gap-2"
           >
             <svg
@@ -146,7 +146,7 @@ onMounted(() => {
           </router-link>
           <router-link
             v-if="!isStudent"
-            :to="`/courses/${course.id}/analytics`"
+            :to="`/spaces/${course.id}/analytics`"
             class="btn btn-outline gap-2"
           >
             <svg

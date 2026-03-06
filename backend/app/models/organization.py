@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID, uuid4
 
@@ -23,7 +23,7 @@ class OrganizationBase(SQLModel):
 class Organization(OrganizationBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     owner_id: UUID = Field(foreign_key="user.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     projects: List["Project"] = Relationship(

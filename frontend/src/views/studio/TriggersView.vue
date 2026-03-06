@@ -6,8 +6,10 @@ import { ref, onMounted } from 'vue'
 import { workflowService } from '../../services/workflowService'
 import type { TriggerPolicy, Workflow } from '../../services/workflowService'
 import { useToastStore } from '../../stores/toast'
+import { useConfirm } from '../../composables/useConfirm'
 
 const toast = useToastStore()
+const { confirm: confirmDialog } = useConfirm()
 const triggers = ref<TriggerPolicy[]>([])
 const workflows = ref<Workflow[]>([])
 const isLoading = ref(true)
@@ -73,7 +75,7 @@ const createTrigger = async () => {
 }
 
 const deleteTrigger = async (id: string) => {
-  if (!confirm('Delete this trigger?')) return
+  if (!(await confirmDialog('Delete Trigger', 'Are you sure you want to delete this trigger?'))) return
   try {
     await workflowService.deleteTrigger(id)
     toast.success('Trigger deleted')

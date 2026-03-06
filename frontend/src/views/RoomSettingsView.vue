@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
 import { roomService } from '../services/roomService'
@@ -11,6 +11,8 @@ import type { Project } from '../types/workspace'
 import type { AgentConfig } from '../types/agent'
 import type { Workflow } from '../services/workflowService'
 import RoomAgentSettingsPanel from '../components/scheduling/RoomAgentSettingsPanel.vue'
+
+const A2A_TRACE_STORAGE_KEY = 'coagent:a2aTraceEnabled'
 
 const route = useRoute()
 const router = useRouter()
@@ -66,7 +68,12 @@ const availableProjects = ref<Project[]>([])
 const selectedProjectId = ref<string>('')
 const projectAgents = ref<AgentConfig[]>([])
 const isLoading = ref(false)
-const a2aTraceEnabled = ref(false)
+const a2aTraceEnabled = ref(localStorage.getItem(A2A_TRACE_STORAGE_KEY) === 'true')
+
+// Persist a2aTraceEnabled changes to localStorage so useRoomChat picks it up
+watch(a2aTraceEnabled, (val) => {
+  localStorage.setItem(A2A_TRACE_STORAGE_KEY, String(val))
+})
 
 const fetchSettings = async () => {
   try {
@@ -351,7 +358,7 @@ onMounted(() => {
       <div class="card bg-base-100 shadow p-6 h-fit min-h-[500px]">
         <h2 class="text-xl font-bold mb-2">Assigned Agents</h2>
         <p class="text-xs opacity-70 mb-4">Select agents from your projects to invite them into this room.</p>
-        
+
         <!-- Currently Assigned -->
         <div class="mb-6">
         <div v-if="isLoading" class="flex justify-center py-8">
@@ -362,7 +369,7 @@ onMounted(() => {
           </div>
           <div v-else class="flex flex-col gap-3">
              <div v-for="agent in roomAgents" :key="agent.id" class="collapse collapse-arrow bg-base-200 border border-primary/20 shadow-sm">
-               <input type="checkbox" /> 
+               <input type="checkbox" />
                <div class="collapse-title flex items-center justify-between font-medium">
                   <div class="flex items-center gap-3">
                     <div class="font-bold border-r pr-3 border-base-300">{{ agent.name }}</div>
@@ -371,7 +378,7 @@ onMounted(() => {
                </div>
                <div class="collapse-content bg-base-100/50 pt-4">
                  <RoomAgentSettingsPanel :room-id="roomId" :agent-id="agent.id" />
-                 
+
                  <div class="divider mt-8 mb-4">Danger Zone</div>
                  <div class="flex justify-end">
                    <button class="btn btn-outline btn-error btn-sm" @click="removeAgent(agent.id)">Remove Agent from Room</button>
@@ -410,9 +417,9 @@ onMounted(() => {
                     <div class="font-bold text-sm">{{ agent.name }}</div>
                     <div class="text-xs opacity-60">{{ agent.model_provider }} / {{ agent.model }}</div>
                  </div>
-                 <button 
-                    v-if="!isAgentAssigned(agent.id)" 
-                    class="btn btn-primary btn-xs" 
+                 <button
+                    v-if="!isAgentAssigned(agent.id)"
+                    class="btn btn-primary btn-xs"
                     @click="assignAgent(agent.id)"
                  >Assign</button>
                  <span v-else class="text-xs font-bold text-success flex items-center gap-1">

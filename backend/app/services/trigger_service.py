@@ -114,7 +114,7 @@ class TriggerDispatcher:
                     else await self._get_all_active_sessions()
                 )
 
-                threshold_mins = policy.conditions.get("threshold_mins", 5)
+                threshold_mins = (policy.conditions or {}).get("threshold_mins", 5)
                 lock_secs = max(int(threshold_mins * 60) // 2, 30)
 
                 for sid in sessions_to_check:
@@ -143,7 +143,7 @@ class TriggerDispatcher:
                                 )
 
             elif policy.event_type in ("timer", "cron"):
-                interval_mins = policy.conditions.get("interval_mins")
+                interval_mins = (policy.conditions or {}).get("interval_mins")
                 if not interval_mins:
                     continue
 
@@ -172,6 +172,8 @@ class TriggerDispatcher:
 
     def _evaluate_conditions(self, conditions: dict, payload: dict) -> bool:
         """Condition matching with keyword, regex, and field comparison support."""
+        if not conditions:
+            return True
         keyword = conditions.get("keyword")
         if keyword and "content" in payload:
             if keyword.lower() not in payload["content"].lower():
@@ -181,7 +183,10 @@ class TriggerDispatcher:
         pattern = conditions.get("pattern")
         if pattern and "content" in payload:
             import re
-            if not re.search(pattern, payload["content"], re.IGNORECASE):
+            try:
+                if not re.search(pattern, payload["content"], re.IGNORECASE):
+                    return False
+            except re.error:
                 return False
 
         # Field value comparison
@@ -230,7 +235,13 @@ class TriggerDispatcher:
         """Scan Redis for all rooms with recent activity."""
         if not self.redis:
             return []
-        keys = await self.redis.keys("room_activity:*")
+        keys = []
+        cursor = 0
+        while True:
+            cursor, batch = await self.redis.scan(cursor, match="room_activity:*", count=100)
+            keys.extend(batch)
+            if cursor == 0:
+                break
         sessions = []
         for k in keys:
             key_str = k.decode("utf-8") if isinstance(k, bytes) else k

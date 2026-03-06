@@ -24,7 +24,7 @@ export interface SpaceMember {
   email: string
   full_name?: string
   avatar_url?: string
-  role: 'student' | 'ta'
+  role: 'guest' | 'student' | 'ta' | 'teacher' | 'admin' | 'super_admin'
 }
 
 export interface Announcement {
