@@ -3,6 +3,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID, uuid4
 
+from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -37,7 +38,9 @@ class User(UserBase, table=True):
     hashed_password: Optional[str] = None
     google_sub: Optional[str] = Field(default=None, index=True)  # Google Unique ID
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    )
 
     # Relationships
     api_keys: List["UserAPIKey"] = Relationship(
