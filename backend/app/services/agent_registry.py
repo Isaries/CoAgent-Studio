@@ -161,7 +161,7 @@ class AgentRegistry:
         project_id: Optional[UUID] = None,
     ) -> List[AgentConfig]:
         """Get all external agents (for A2A routing)."""
-        query = select(AgentConfig).where(AgentConfig.is_external is True)
+        query = select(AgentConfig).where(AgentConfig.is_external == True)  # noqa: E712
 
         if project_id:
             query = query.where(AgentConfig.project_id == project_id)

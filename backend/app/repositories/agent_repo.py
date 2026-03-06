@@ -91,8 +91,8 @@ class AgentConfigRepository:
             .join(RoomAgentLink, RoomAgentLink.agent_id == AgentConfig.id)
             .where(
                 RoomAgentLink.room_id == room_id,
-                AgentConfig.is_external is True,
-                AgentConfig.is_active is True,
+                AgentConfig.is_external == True,  # noqa: E712
+                AgentConfig.is_active == True,  # noqa: E712
             )
         )
         result = await self.session.exec(query)
@@ -121,7 +121,7 @@ class AgentConfigRepository:
             .join(RoomAgentLink, RoomAgentLink.agent_id == AgentConfig.id)
             .where(
                 RoomAgentLink.room_id == room_id,
-                RoomAgentLink.is_active is True,
+                RoomAgentLink.is_active == True,  # noqa: E712
             )
             .order_by(col(AgentConfig.updated_at).desc())
         )

@@ -547,7 +547,7 @@ class AgentConfigService:
 
     async def list_external_agents(self, current_user: User) -> List[AgentConfig]:
         """List all external agents visible to the current user."""
-        query = select(AgentConfig).where(AgentConfig.is_external is True)
+        query = select(AgentConfig).where(AgentConfig.is_external == True)  # noqa: E712
 
         if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             query = query.where(AgentConfig.created_by == current_user.id)

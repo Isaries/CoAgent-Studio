@@ -72,7 +72,7 @@ async def receive_external_agent_message(
     # Validate agent exists and is external
     query = select(AgentConfig).where(
         AgentConfig.id == agent_uuid,
-        AgentConfig.is_external is True,
+        AgentConfig.is_external == True,  # noqa: E712
     )
     result = await session.exec(query)
     agent_config = result.first()

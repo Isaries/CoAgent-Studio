@@ -47,7 +47,7 @@ class ArtifactService:
             query = query.where(Artifact.type == artifact_type)
 
         if not include_deleted:
-            query = query.where(Artifact.is_deleted is False)
+            query = query.where(Artifact.is_deleted == False)  # noqa: E712
 
         query = query.order_by(Artifact.created_at.desc())
 
