@@ -5,10 +5,12 @@ on:
     branches: [ "main" ]
     paths:
       - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
 
 defaults:
   run:
@@ -73,7 +75,7 @@ jobs:
         POSTGRES_DB: test_db
         DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
         SECRET_KEY: "test_secret_key_for_ci_pipeline_only"
-        ENCRYPTION_KEY: "test_encryption_key_for_ci_pipeline_only"
+        ENCRYPTION_KEY: "IsjOJ48aoHIpN0yav1AlxrP-biL284elRBPuAQkg620="
         # Mock API Keys
         OPENAI_API_KEY: "mock_openai_key"
         GEMINI_API_KEY: "mock_gemini_key"
