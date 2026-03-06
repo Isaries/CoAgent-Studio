@@ -26,8 +26,9 @@ ignore = [
 [tool.mypy]
 python_version = "3.12"
 plugins = ["pydantic.mypy"]
-exclude = ["alembic", "migrations"]
+exclude = ["alembic", "migrations", "tests"]
 strict_optional = true
+explicit_package_bases = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"
