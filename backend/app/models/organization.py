@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -24,7 +23,7 @@ class Organization(OrganizationBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     owner_id: UUID = Field(foreign_key="user.id")
     created_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # Relationships

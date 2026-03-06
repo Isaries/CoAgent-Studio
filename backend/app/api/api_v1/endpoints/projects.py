@@ -2,10 +2,11 @@ from typing import Any, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
-from app.models.project import ProjectCreate, ProjectRead, ProjectUpdate
+from app.models.project import ProjectCreate, ProjectRead, ProjectUpdate, UserProjectLink
 from app.models.user import User, UserRole
 from app.services.project_service import ProjectService
 
@@ -93,14 +94,19 @@ async def delete_project(
     # Verify access (will raise 403 if not a member)
     project = await service.get_project(project_id, current_user)
 
-    # Only project owner or admin can delete
-    if project.owner_id != current_user.id and current_user.role not in [
-        UserRole.ADMIN,
-        UserRole.SUPER_ADMIN,
-    ]:
-        raise HTTPException(
-            status_code=403, detail="Only the project owner or admin can delete this project"
+    # Only platform admin/super_admin or project members with admin role can delete
+    if current_user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+        link = await session.execute(
+            select(UserProjectLink).where(
+                UserProjectLink.user_id == current_user.id,
+                UserProjectLink.project_id == project_id,
+                UserProjectLink.role == "admin",
+            )
         )
+        if not link.scalar_one_or_none():
+            raise HTTPException(
+                status_code=403, detail="Only a project admin can delete this project"
+            )
 
     await session.delete(project)
     await session.commit()

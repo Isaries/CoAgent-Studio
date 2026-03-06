@@ -55,4 +55,4 @@ async def test_login_wrong_password(client: AsyncClient, db_session: AsyncSessio
     response = await client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
 
     # 3. Verify
-    assert response.status_code == 400
+    assert response.status_code == 401

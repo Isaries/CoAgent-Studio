@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -20,10 +19,10 @@ class AgentThread(AgentThreadBase, table=True):
     agent_id: UUID = Field(foreign_key="agentconfig.id", index=True)
     user_id: UUID = Field(foreign_key="user.id", index=True)
     created_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
     updated_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     # Relationships
@@ -67,7 +66,7 @@ class ThreadMessage(ThreadMessageBase, table=True):
     id: Optional[UUID] = Field(default_factory=uuid4, primary_key=True)
     thread_id: UUID = Field(foreign_key="agentthread.id", index=True)
     created_at: datetime = Field(
-        sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
     thread: AgentThread = Relationship(back_populates="messages")

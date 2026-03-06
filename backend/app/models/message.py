@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime
 from sqlmodel import Field, SQLModel
 
 
@@ -16,9 +15,7 @@ class Message(MessageBase, table=True):
     sender_id: Optional[UUID] = Field(foreign_key="user.id", nullable=True)  # Null if AI
     agent_type: Optional[str] = None  # 'teacher', 'student', 'analytics' if AI
     created_at: datetime = Field(
-        sa_column=Column(
-            DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
-        ),
+        default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None), index=True
     )
 
     # Relationships need to be defined in User/Room if we want ORM access
