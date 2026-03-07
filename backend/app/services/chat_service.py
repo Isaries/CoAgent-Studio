@@ -51,18 +51,13 @@ class ChatService:
 
         # Publish GraphRAG ingestion event (non-fatal)
         try:
-            import redis.asyncio as aioredis
+            from app.core.cache import cache
 
-            from app.core.config import settings
-
-            r = aioredis.from_url(
-                f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}", decode_responses=True
-            )
-            await r.xadd(
-                "graphrag:events",
-                {"type": "message", "room_id": room_id, "msg_id": str(msg.id)},
-            )
-            await r.aclose()
+            if cache.redis:
+                await cache.redis.xadd(
+                    "graphrag:events",
+                    {"type": "message", "room_id": room_id, "msg_id": str(msg.id)},
+                )
         except Exception as e:
             logger.debug("graphrag_event_publish_skipped", error=str(e))
 

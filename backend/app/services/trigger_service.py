@@ -319,26 +319,7 @@ async def evaluate_time_triggers_cron(ctx: dict) -> None:
 
     async with session_factory() as session:
         redis = ctx.get("redis")
+        arq_pool = ctx.get("redis")  # Reuse the ARQ worker's own Redis connection
 
-        # Create a temporary ARQ pool for enqueueing follow-up jobs
-        from arq import create_pool
-        from arq.connections import RedisSettings
-
-        from app.core.config import settings
-
-        try:
-            arq_pool = await create_pool(
-                RedisSettings(host=settings.REDIS_HOST, port=settings.REDIS_PORT)
-            )
-        except Exception as e:
-            logger.error("evaluate_time_triggers_cron: failed to create arq pool", error=str(e))
-            # Fall back to direct execution (no pool)
-            dispatcher = TriggerDispatcher(session, redis)
-            await dispatcher.evaluate_time_triggers(arq_pool=None)
-            return
-
-        try:
-            dispatcher = TriggerDispatcher(session, redis)
-            await dispatcher.evaluate_time_triggers(arq_pool=arq_pool)
-        finally:
-            await arq_pool.close()
+        dispatcher = TriggerDispatcher(session, redis)
+        await dispatcher.evaluate_time_triggers(arq_pool=arq_pool)

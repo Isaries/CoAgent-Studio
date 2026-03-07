@@ -1,3 +1,4 @@
+import hashlib
 import json
 from functools import wraps
 from typing import Any, Callable, Optional
@@ -55,10 +56,10 @@ class CacheService:
                 if key_builder:
                     cache_key = key_builder(*args, **kwargs)
                 else:
-                    # Simple default key builder (caution: might not be unique enough)
                     func_name = func.__name__
-                    args_str = "-".join([str(a) for a in args])
-                    cache_key = f"cache:{func_name}:{args_str}"
+                    raw = "-".join([str(a) for a in args])
+                    args_hash = hashlib.sha256(raw.encode()).hexdigest()[:16]
+                    cache_key = f"cache:{func_name}:{args_hash}"
 
                 # Try Cache
                 cached_val = await self.get_json(cache_key)

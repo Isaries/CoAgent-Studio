@@ -8,12 +8,12 @@ Contains ARQ-callable tasks for:
 3. Community summarization
 """
 
+import asyncio
 import hashlib
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-import redis.asyncio as aioredis
 import structlog
 import tiktoken
 from sqlmodel import select
@@ -33,6 +33,7 @@ from app.models.graph_schemas import (
     GraphChunk,
 )
 from app.models.message import Message
+from app.models.room import Room
 from app.services.extractors import (
     extract_concepts_from_chunk,
     extract_nlp_facts,
@@ -130,9 +131,15 @@ async def extract_entities_task(
         logger.error("graphrag_no_api_key")
         return {"error": "No API key configured"}
 
-    # ── Fetch messages ──
+    # ── Fetch messages (incremental: only new since last sync) ──
     async with session_factory() as session:
-        query = select(Message).where(Message.room_id == room_id).order_by(Message.created_at.asc())
+        room = await session.get(Room, room_id)
+        last_synced = room.graphrag_last_synced_at if room else None
+
+        query = select(Message).where(Message.room_id == room_id)
+        if last_synced:
+            query = query.where(Message.created_at > last_synced)
+        query = query.order_by(Message.created_at.asc())
         result = await session.exec(query)
         db_messages = list(result.all())
 
@@ -169,16 +176,22 @@ async def extract_entities_task(
     tier3_nodes: List[EntityNode] = []
     tier3_edges: List[EntityRelationship] = []
 
-    for chunk_text in chunks:
-        try:
-            graph_chunk = await extract_concepts_from_chunk(
+    semaphore = asyncio.Semaphore(3)
+
+    async def _extract_chunk(chunk_text: str) -> GraphChunk:
+        async with semaphore:
+            return await extract_concepts_from_chunk(
                 chunk_text, known_nodes, api_key, model=extraction_model
             )
-            tier3_nodes.extend(graph_chunk.nodes)
-            tier3_edges.extend(graph_chunk.edges)
-        except Exception as e:
-            logger.warning("graphrag_tier3_extraction_failed", error=str(e))
+
+    tasks = [_extract_chunk(ct) for ct in chunks]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for r in results:
+        if isinstance(r, Exception):
+            logger.warning("graphrag_tier3_extraction_failed", error=str(r))
             continue
+        tier3_nodes.extend(r.nodes)
+        tier3_edges.extend(r.edges)
 
     tier3_chunk = GraphChunk(nodes=tier3_nodes, edges=tier3_edges)
     logger.info("graphrag_tier3_complete", nodes=len(tier3_nodes), edges=len(tier3_edges))
@@ -278,16 +291,28 @@ async def extract_entities_task(
         tier3_nodes=len(tier3_nodes),
     )
 
+    # Update incremental sync watermark
+    try:
+        async with session_factory() as session:
+            room = await session.get(Room, room_id)
+            if room:
+                room.graphrag_last_synced_at = datetime.now(timezone.utc)
+                session.add(room)
+                await session.commit()
+    except Exception as e:
+        logger.warning("graphrag_sync_watermark_update_failed", room_id=room_id, error=str(e))
+
     # Clear build status when done
     try:
-        redis_client = aioredis.from_url(settings.redis_url)
-        await redis_client.set(f"graphrag:build_status:{room_id}", "idle", ex=3600)
-        await redis_client.set(
-            f"graphrag:build_completed:{room_id}",
-            datetime.now(timezone.utc).isoformat(),
-            ex=86400,
-        )
-        await redis_client.close()
+        from app.core.cache import cache
+
+        if cache.redis:
+            await cache.redis.set(f"graphrag:build_status:{room_id}", "idle", ex=3600)
+            await cache.redis.set(
+                f"graphrag:build_completed:{room_id}",
+                datetime.now(timezone.utc).isoformat(),
+                ex=86400,
+            )
     except Exception as e:
         logger.debug("graphrag_timestamp_update_failed", room_id=room_id, error=str(e))
 
@@ -407,7 +432,15 @@ async def full_graph_rebuild_task(
         summarization_model=summarization_model,
     )
 
-    # ── Step 0: Wipe old graph data for idempotent rebuilds ──
+    # ── Step 0: Wipe old graph data + reset sync watermark for full rebuild ──
+    session_factory = ctx["session_factory"]
+    async with session_factory() as session:
+        room = await session.get(Room, room_id)
+        if room:
+            room.graphrag_last_synced_at = None
+            session.add(room)
+            await session.commit()
+
     deleted = await neo4j_client.delete_room_graph(room_id)
     await vector_store.delete_by_room(ENTITY_COLLECTION, room_id)
     await vector_store.delete_by_room(CHUNK_COLLECTION, room_id)

@@ -415,3 +415,91 @@ def test_trigger_policy_default_is_active():
         target_workflow_id=uuid4(),
     )
     assert policy.is_active is True
+
+
+# ---------------------------------------------------------------------------
+# evaluate_time_triggers_cron — Bug 8 fix: reuses ctx["redis"] not new pool
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio()
+async def test_evaluate_time_triggers_cron_uses_ctx_redis_not_new_pool():
+    """
+    evaluate_time_triggers_cron must NOT call arq.create_pool().
+    It should reuse ctx['redis'] directly.
+    """
+    from contextlib import asynccontextmanager
+    from unittest.mock import patch
+
+    from app.services.trigger_service import evaluate_time_triggers_cron
+
+    # Build a minimal ctx dict matching what ARQ provides
+    mock_session = AsyncMock()
+    mock_result = Mock()
+    mock_result.all.return_value = []
+    mock_session.exec.return_value = mock_result
+    mock_session.get = AsyncMock(return_value=None)
+
+    @asynccontextmanager
+    async def session_factory():
+        yield mock_session
+
+    mock_redis = AsyncMock()
+
+    ctx = {
+        "session_factory": session_factory,
+        "redis": mock_redis,
+    }
+
+    with patch("arq.create_pool") as mock_create_pool:
+        await evaluate_time_triggers_cron(ctx)
+        mock_create_pool.assert_not_called()
+
+
+@pytest.mark.asyncio()
+async def test_evaluate_time_triggers_cron_passes_redis_to_dispatcher():
+    """
+    evaluate_time_triggers_cron must pass ctx['redis'] as arq_pool to
+    TriggerDispatcher.evaluate_time_triggers.
+    """
+    from contextlib import asynccontextmanager
+    from unittest.mock import patch
+
+    from app.services.trigger_service import evaluate_time_triggers_cron
+
+    mock_session = AsyncMock()
+    mock_result = Mock()
+    mock_result.all.return_value = []
+    mock_session.exec.return_value = mock_result
+    mock_session.get = AsyncMock(return_value=None)
+
+    @asynccontextmanager
+    async def session_factory():
+        yield mock_session
+
+    mock_redis = AsyncMock()
+    ctx = {"session_factory": session_factory, "redis": mock_redis}
+
+    mock_evaluate = AsyncMock()
+
+    with patch.object(
+        __import__(
+            "app.services.trigger_service", fromlist=["TriggerDispatcher"]
+        ).TriggerDispatcher,
+        "evaluate_time_triggers",
+        new=mock_evaluate,
+    ):
+        await evaluate_time_triggers_cron(ctx)
+
+    mock_evaluate.assert_awaited_once()
+    _, kwargs = mock_evaluate.call_args
+    assert kwargs.get("arq_pool") is mock_redis
+
+
+@pytest.mark.asyncio()
+async def test_evaluate_time_triggers_cron_no_session_factory_returns_early():
+    """If session_factory is missing from ctx, cron must exit gracefully."""
+    from app.services.trigger_service import evaluate_time_triggers_cron
+
+    # Should not raise
+    await evaluate_time_triggers_cron({})

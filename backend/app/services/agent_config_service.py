@@ -73,7 +73,7 @@ class AgentConfigService:
             if not link:
                 raise HTTPException(status_code=403, detail="Not enough permissions")
 
-        query = select(AgentConfig).where(AgentConfig.project_id == project_id)
+        query = select(AgentConfig).where(AgentConfig.project_id == project_id).limit(500)
         result = await self.session.exec(query)
         return result.all()
 

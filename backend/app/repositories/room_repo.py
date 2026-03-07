@@ -17,8 +17,10 @@ from app.repositories.base_repo import BaseRepository
 
 
 class RepositoryRoom(BaseRepository[Room, RoomCreate, RoomUpdate]):
-    async def get_multi_by_space(self, session: AsyncSession, *, space_id: UUID) -> List[Room]:
-        query = select(Room).where(Room.space_id == space_id)
+    async def get_multi_by_space(
+        self, session: AsyncSession, *, space_id: UUID, limit: int = 500
+    ) -> List[Room]:
+        query = select(Room).where(Room.space_id == space_id).limit(limit)
         result = await session.exec(query)
         return result.all()
 

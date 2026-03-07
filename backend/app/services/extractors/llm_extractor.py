@@ -49,7 +49,7 @@ async def extract_concepts_from_chunk(
     Returns:
         GraphChunk with new CONCEPT nodes and relationships.
     """
-    client = instructor.from_openai(AsyncOpenAI(api_key=api_key))
+    client = instructor.from_openai(AsyncOpenAI(api_key=api_key, timeout=60.0))
 
     known_list = "\n".join(f"- {n.name} ({n.type})" for n in known_nodes) if known_nodes else "None"
 
@@ -69,6 +69,7 @@ Extract NEW concepts and relationships from this conversation:
             {"role": "user", "content": user_prompt},
         ],
         max_retries=2,
+        max_tokens=2048,
     )
 
     # Validate the response
@@ -119,7 +120,7 @@ async def generate_community_report(
     level: int = 0,
 ) -> CommunityReport:
     """Generate a structured community report using instructor with configurable model."""
-    client = instructor.from_openai(AsyncOpenAI(api_key=api_key))
+    client = instructor.from_openai(AsyncOpenAI(api_key=api_key, timeout=60.0))
 
     prompt = f"""Community #{community_id} contains these entities and relationships:
 
@@ -139,6 +140,7 @@ Generate a comprehensive analytical report for this community."""
             {"role": "user", "content": prompt},
         ],
         max_retries=2,
+        max_tokens=2048,
     )
     result.community_id = community_id
     result.level = level

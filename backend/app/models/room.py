@@ -81,6 +81,12 @@ class Room(RoomBase, table=True):
     # Knowledge Base reference
     room_kb_id: Optional[UUID] = Field(default=None, foreign_key="knowledge_base.id")
 
+    # GraphRAG incremental sync watermark
+    graphrag_last_synced_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True)),
+    )
+
     space: "Space" = Relationship(back_populates="rooms")
 
     # Backward compat property

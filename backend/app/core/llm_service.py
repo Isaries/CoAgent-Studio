@@ -133,11 +133,11 @@ class GeminiService(BaseLLMService):
                 if converted:
                     gemini_tools.append(converted)
 
-        config = types.GenerateContentConfig(tools=gemini_tools, system_instruction=system_prompt)
-
-        # Gemini SDK doesn't use the standard OpenAI exceptions naturally,
-        # but resilient wrapper might normalize or we catch raw exceptions.
-        # We allow exceptions to propagate to BaseLLMService loop.
+        config = types.GenerateContentConfig(
+            tools=gemini_tools,
+            system_instruction=system_prompt,
+            max_output_tokens=4096,
+        )
 
         async with genai.Client(api_key=api_key) as client:
             response = await client.aio.models.generate_content(
@@ -201,11 +201,12 @@ class OpenAIService(BaseLLMService):
         if tools:
             openai_tools = [cast(ChatCompletionToolParam, t) for t in tools]
 
-        async with AsyncOpenAI(api_key=api_key) as client:
+        async with AsyncOpenAI(api_key=api_key, timeout=30.0) as client:
             response = await client.chat.completions.create(
                 model=model_name,
                 messages=cast(Any, messages),
                 tools=openai_tools or NOT_GIVEN,
+                max_tokens=4096,
             )
 
         message = response.choices[0].message

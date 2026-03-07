@@ -96,6 +96,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("shutdown_graphrag_error", error=str(e))
 
+    # Database engine cleanup
+    try:
+        from app.core.db import engine
+
+        await engine.dispose()
+    except Exception as e:
+        logger.warning("shutdown_db_engine_error", error=str(e))
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
