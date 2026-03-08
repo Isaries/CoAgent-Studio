@@ -36,7 +36,7 @@ class UserAPIKey(UserAPIKeyBase, table=True):
         sa_column=Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
     )
 
-    user: "User" = Relationship(back_populates="api_keys")
+    user: "User" = Relationship(back_populates="api_keys", sa_relationship_kwargs={"lazy": "selectin"})
 
 
 class UserAPIKeyCreate(UserAPIKeyBase):

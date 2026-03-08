@@ -29,6 +29,7 @@ class AgentThread(AgentThreadBase, table=True):
     messages: List["ThreadMessage"] = Relationship(
         back_populates="thread",
         sa_relationship_kwargs={
+            "lazy": "selectin",
             "cascade": "all, delete-orphan",
             "order_by": "ThreadMessage.created_at",
         },
@@ -69,7 +70,7 @@ class ThreadMessage(ThreadMessageBase, table=True):
         default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )
 
-    thread: AgentThread = Relationship(back_populates="messages")
+    thread: AgentThread = Relationship(back_populates="messages", sa_relationship_kwargs={"lazy": "selectin"})
 
 
 class ThreadMessageCreate(ThreadMessageBase):

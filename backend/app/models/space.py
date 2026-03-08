@@ -33,13 +33,13 @@ class Space(SpaceBase, table=True):
 
     # Relationships
     rooms: List["Room"] = Relationship(
-        back_populates="space", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="space", sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
     user_links: List["UserSpaceLink"] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
     announcements: List["Announcement"] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
 
 

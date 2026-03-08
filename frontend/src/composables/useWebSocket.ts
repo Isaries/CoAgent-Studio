@@ -34,6 +34,10 @@ export function useWebSocket(initialUrl: string, options: UseWebSocketOptions = 
     }
 
     if (ws.value) {
+      ws.value.onopen = null
+      ws.value.onmessage = null
+      ws.value.onclose = null
+      ws.value.onerror = null
       ws.value.close()
     }
 

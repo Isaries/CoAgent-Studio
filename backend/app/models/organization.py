@@ -28,10 +28,10 @@ class Organization(OrganizationBase, table=True):
 
     # Relationships
     projects: List["Project"] = Relationship(
-        back_populates="organization", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="organization", sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
     user_links: List["UserOrganizationLink"] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
 
 

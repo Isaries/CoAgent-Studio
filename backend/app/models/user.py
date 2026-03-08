@@ -43,21 +43,21 @@ class User(UserBase, table=True):
 
     # Relationships
     api_keys: List["UserAPIKey"] = Relationship(
-        back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="user", sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
 
     # Relationships will be added later (enrollments, messages, etc.)
     organization_links: List["UserOrganizationLink"] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
     project_links: List["UserProjectLink"] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
     space_links: List["UserSpaceLink"] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
     room_links: List["UserRoomLink"] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
 
 

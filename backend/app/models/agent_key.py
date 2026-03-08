@@ -17,4 +17,4 @@ class AgentKey(SQLModel, table=True):
     description: Optional[str] = None
 
     # Relationship
-    agent_config: "AgentConfig" = Relationship(back_populates="keys")
+    agent_config: "AgentConfig" = Relationship(back_populates="keys", sa_relationship_kwargs={"lazy": "selectin"})

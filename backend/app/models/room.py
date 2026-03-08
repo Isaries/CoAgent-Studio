@@ -87,7 +87,7 @@ class Room(RoomBase, table=True):
         sa_column=Column(DateTime(timezone=True)),
     )
 
-    space: "Space" = Relationship(back_populates="rooms")
+    space: "Space" = Relationship(back_populates="rooms", sa_relationship_kwargs={"lazy": "selectin"})
 
     # Backward compat property
     @property

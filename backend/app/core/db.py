@@ -23,11 +23,15 @@ _async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_com
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI Depends() compatible generator."""
+    """FastAPI Depends() compatible generator.
+
+    Callers (endpoints / services) are responsible for calling
+    ``await session.commit()`` when they perform writes.
+    Read-only requests incur no transaction overhead.
+    """
     async with _async_session_factory() as session:
         try:
             yield session
-            await session.commit()
         except Exception:
             await session.rollback()
             raise
@@ -37,6 +41,10 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
     """
     Async context manager for non-DI scenarios (WebSocket handlers, background tasks).
+
+    Callers are responsible for calling ``await session.commit()``
+    when they perform writes.
+
     Usage:
         async with get_session_context() as session:
             ...
@@ -44,7 +52,6 @@ async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
     async with _async_session_factory() as session:
         try:
             yield session
-            await session.commit()
         except Exception:
             await session.rollback()
             raise

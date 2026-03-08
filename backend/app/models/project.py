@@ -28,13 +28,13 @@ class Project(ProjectBase, table=True):
     )
 
     # Relationships
-    organization: "Organization" = Relationship(back_populates="projects")
+    organization: "Organization" = Relationship(back_populates="projects", sa_relationship_kwargs={"lazy": "selectin"})
 
     agent_configs: List["AgentConfig"] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
     user_links: List["UserProjectLink"] = Relationship(
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
 
 

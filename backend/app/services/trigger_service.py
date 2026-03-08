@@ -224,16 +224,13 @@ class TriggerDispatcher:
         return True
 
     async def _is_locked(self, policy_id: UUID, session_id: str, lock_time: int = 10) -> bool:
-        """Redis SETNX-based debounce lock."""
+        """Redis SET NX EX-based atomic debounce lock."""
         if not self.redis:
             return False
 
         key = f"trigger_lock:{policy_id}:{session_id}"
-        acquired = await self.redis.setnx(key, "locked")
-        if acquired:
-            await self.redis.expire(key, lock_time)
-            return False  # Lock was free → NOT locked
-        return True  # Lock already held → IS locked
+        acquired = await self.redis.set(key, "locked", nx=True, ex=lock_time)
+        return not acquired
 
     async def _get_last_activity(self, session_id: str) -> Optional[float]:
         if not self.redis:

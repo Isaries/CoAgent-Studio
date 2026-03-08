@@ -83,14 +83,14 @@ class AgentConfig(AgentConfigBase, table=True):
         return bool(self.encrypted_api_key)
 
     keys: List["AgentKey"] = Relationship(
-        back_populates="agent_config", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="agent_config", sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )  # Auto-delete keys when config is deleted
 
     versions: List["AgentConfigVersion"] = Relationship(
-        back_populates="agent_config", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="agent_config", sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"}
     )
 
-    project: Optional["Project"] = Relationship(back_populates="agent_configs")
+    project: Optional["Project"] = Relationship(back_populates="agent_configs", sa_relationship_kwargs={"lazy": "selectin"})
 
 
 class AgentConfigVersion(SQLModel, table=True):
@@ -111,7 +111,7 @@ class AgentConfigVersion(SQLModel, table=True):
     )
     created_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
-    agent_config: "AgentConfig" = Relationship(back_populates="versions")
+    agent_config: "AgentConfig" = Relationship(back_populates="versions", sa_relationship_kwargs={"lazy": "selectin"})
 
 
 class AgentConfigCreate(AgentConfigBase):
