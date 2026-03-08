@@ -4,7 +4,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError as JWTError  # migrated from python-jose
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 

@@ -4,8 +4,8 @@ import structlog
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.security.utils import get_authorization_scheme_param  # Moved up
-from jose import jwt
-from jose.exceptions import JWTError  # explicit import
+import jwt
+from jwt.exceptions import PyJWTError as JWTError  # migrated from python-jose
 from pydantic import ValidationError
 from sqlmodel.ext.asyncio.session import AsyncSession
 

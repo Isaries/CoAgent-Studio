@@ -3,7 +3,7 @@ from typing import Any, Optional, Union
 
 import structlog
 from cryptography.fernet import Fernet, InvalidToken
-from jose import jwt
+import jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings

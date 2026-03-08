@@ -5,7 +5,8 @@ from uuid import UUID
 
 # Process agents is now run_agent_cycle_task in worker, handled via arq
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError as JWTError  # migrated from python-jose
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api import deps
