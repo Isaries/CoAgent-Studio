@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
 import { useToastStore } from '../stores/toast'
+import AppCard from '../components/common/AppCard.vue'
 
 const route = useRoute()
 const toast = useToastStore()
@@ -85,7 +86,7 @@ onMounted(() => {
     </div>
 
     <div v-else class="space-y-8">
-      <div v-for="report in reports" :key="report.id" class="card bg-base-100 shadow-xl">
+      <AppCard v-for="report in reports" :key="report.id">
         <div class="card-body">
           <div class="flex justify-between w-full mb-4 border-b pb-2">
             <h2 class="card-title text-primary">
@@ -101,7 +102,7 @@ onMounted(() => {
             {{ report.content }}
           </div>
         </div>
-      </div>
+      </AppCard>
     </div>
   </div>
 </template>

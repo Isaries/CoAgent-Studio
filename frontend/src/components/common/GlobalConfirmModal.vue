@@ -1,28 +1,23 @@
 <script setup lang="ts">
 import { useConfirm } from '../../composables/useConfirm'
+import AppModal from './AppModal.vue'
 
 const { isVisible, title, message, onConfirm, onCancel } = useConfirm()
 </script>
 
 <template>
-  <dialog
-    class="modal"
-    :class="{ 'modal-open': isVisible }"
-    role="alertdialog"
-    aria-modal="true"
-    :aria-labelledby="'confirm-modal-title'"
-    :aria-describedby="'confirm-modal-desc'"
+  <AppModal
+    :model-value="isVisible"
+    :title="title"
+    size="md"
+    :closable="true"
+    @update:model-value="(v: boolean) => { if (!v) onCancel() }"
+    @close="onCancel"
   >
-    <div class="modal-box">
-      <h3 id="confirm-modal-title" class="font-bold text-lg text-warning">{{ title }}</h3>
-      <p id="confirm-modal-desc" class="py-4">{{ message }}</p>
-      <div class="modal-action">
-        <button class="btn" @click="onCancel">Cancel</button>
-        <button class="btn btn-error" @click="onConfirm">Confirm</button>
-      </div>
-    </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="onCancel">close</button>
-    </form>
-  </dialog>
+    <p class="py-4">{{ message }}</p>
+    <template #actions>
+      <button class="btn" @click="onCancel">Cancel</button>
+      <button class="btn btn-error" @click="onConfirm">Confirm</button>
+    </template>
+  </AppModal>
 </template>

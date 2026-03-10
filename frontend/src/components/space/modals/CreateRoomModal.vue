@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import api from '../../../api'
 import { AxiosError } from 'axios'
 import { useToastStore } from '../../../stores/toast'
+import AppModal from '../../common/AppModal.vue'
 
 const props = defineProps<{
   spaceId: string
@@ -12,7 +13,7 @@ const emit = defineEmits<{
   (e: 'created'): void
 }>()
 
-const dialogRef = ref<HTMLDialogElement | null>(null)
+const show = ref(false)
 const name = ref('')
 const loading = ref(false)
 const toast = useToastStore()
@@ -20,11 +21,11 @@ const toast = useToastStore()
 const open = () => {
   name.value = ''
   loading.value = false
-  dialogRef.value?.showModal()
+  show.value = true
 }
 
 const close = () => {
-  dialogRef.value?.close()
+  show.value = false
 }
 
 const createRoom = async () => {
@@ -56,23 +57,20 @@ defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog ref="dialogRef" class="modal">
-    <div class="modal-box">
-      <h3 class="font-bold text-lg">Create New Room</h3>
-      <p class="py-4">Create a new discussion space.</p>
-      <div class="form-control w-full mb-4">
-        <label class="label"><span class="label-text">Room Name</span></label>
-        <input
-          type="text"
-          v-model="name"
-          placeholder="e.g. Group A Discussion"
-          class="input input-bordered w-full"
-        />
-      </div>
-      <div class="modal-action">
-        <form method="dialog"><button class="btn btn-ghost mr-2">Cancel</button></form>
-        <button @click="createRoom" class="btn btn-primary" :disabled="loading">Create</button>
-      </div>
+  <AppModal v-model="show" title="Create New Room" size="md">
+    <p class="py-4">Create a new discussion space.</p>
+    <div class="form-control w-full mb-4">
+      <label class="label"><span class="label-text">Room Name</span></label>
+      <input
+        type="text"
+        v-model="name"
+        placeholder="e.g. Group A Discussion"
+        class="input input-bordered w-full"
+      />
     </div>
-  </dialog>
+    <template #actions>
+      <button class="btn btn-ghost mr-2" @click="close">Cancel</button>
+      <button @click="createRoom" class="btn btn-primary" :disabled="loading">Create</button>
+    </template>
+  </AppModal>
 </template>

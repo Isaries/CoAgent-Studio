@@ -6,6 +6,8 @@ import { useFormValidation } from '../composables/useFormValidation'
 import { required } from '../utils/validators'
 import type { Space } from '../types/space'
 import type { SpacePreset } from '../types/enums'
+import AppModal from '../components/common/AppModal.vue'
+import AppCard from '../components/common/AppCard.vue'
 
 const toast = useToastStore()
 
@@ -13,7 +15,7 @@ const spaces = ref<Space[]>([])
 const loading = ref(true)
 
 // Create Modal State
-const createModal = ref<HTMLDialogElement | null>(null)
+const showCreateModal = ref(false)
 const newSpace = ref({
   title: '',
   description: '',
@@ -80,7 +82,7 @@ const fetchSpaces = async () => {
 const openCreateModal = () => {
   newSpace.value = { title: '', description: '', preset: 'custom', loading: false }
   spaceValidation.reset()
-  createModal.value?.showModal()
+  showCreateModal.value = true
 }
 
 const selectPreset = (key: SpacePreset) => {
@@ -99,7 +101,7 @@ const createSpace = async () => {
       preset: newSpace.value.preset
     } as any)
 
-    createModal.value?.close()
+    showCreateModal.value = false
     toast.success('Space created successfully')
     await fetchSpaces()
   } catch (e: any) {
@@ -127,7 +129,7 @@ onMounted(() => {
     </div>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div v-for="space in spaces" :key="space.id" class="card bg-base-100 shadow-xl">
+      <AppCard v-for="space in spaces" :key="space.id" variant="hover">
         <div class="card-body">
           <div class="flex items-start justify-between">
             <h2 class="card-title">{{ space.title }}</h2>
@@ -146,84 +148,86 @@ onMounted(() => {
             </router-link>
           </div>
         </div>
-      </div>
+      </AppCard>
 
-      <div v-if="spaces.length === 0" class="col-span-full text-center py-10 opacity-50">
-        No spaces yet.
+      <div v-if="spaces.length === 0" class="col-span-full text-center py-16 bg-base-100 rounded-box shadow-sm">
+        <div class="w-16 h-16 mx-auto rounded-full bg-base-200 flex items-center justify-center mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6A1.125 1.125 0 0 1 2.25 10.875v-3.75ZM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 0 1-1.125-1.125v-8.25ZM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 0 1-1.125-1.125v-2.25Z" />
+          </svg>
+        </div>
+        <h3 class="font-bold text-lg mb-2">No Spaces Yet</h3>
+        <p class="text-base-content/60 mb-4 max-w-md mx-auto">Create your first space to start collaborating with AI agents.</p>
+        <button class="btn btn-primary" @click="openCreateModal">Create Your First Space</button>
       </div>
     </div>
 
     <!-- Create Space Modal -->
-    <dialog ref="createModal" class="modal">
-      <div class="modal-box max-w-2xl">
-        <h3 class="font-bold text-lg">Create New Space</h3>
-        <p class="py-2 text-sm opacity-70">Choose a preset and enter your space details.</p>
+    <AppModal v-model="showCreateModal" title="Create New Space" size="lg">
+      <p class="py-2 text-sm opacity-70">Choose a preset and enter your space details.</p>
 
-        <!-- Preset Selector -->
-        <div class="grid grid-cols-2 gap-3 my-4">
-          <div
-            v-for="preset in presets"
-            :key="preset.key"
-            @click="selectPreset(preset.key)"
-            class="card border-2 cursor-pointer transition-all hover:shadow-md p-4"
-            :class="
-              newSpace.preset === preset.key ? 'border-primary bg-primary/5' : 'border-base-300'
-            "
-          >
-            <div class="flex items-center gap-3 mb-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-6 w-6"
-                :class="newSpace.preset === preset.key ? 'text-primary' : 'text-base-content/60'"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" :d="preset.icon" />
-              </svg>
-              <span class="font-semibold text-sm">{{ preset.label }}</span>
-            </div>
-            <p class="text-xs opacity-60 leading-relaxed">{{ preset.description }}</p>
+      <!-- Preset Selector -->
+      <div class="grid grid-cols-2 gap-3 my-4">
+        <div
+          v-for="preset in presets"
+          :key="preset.key"
+          @click="selectPreset(preset.key)"
+          class="card border-2 cursor-pointer transition-all hover:shadow-md p-4"
+          :class="
+            newSpace.preset === preset.key ? 'border-primary bg-primary/5' : 'border-base-300'
+          "
+        >
+          <div class="flex items-center gap-3 mb-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              :class="newSpace.preset === preset.key ? 'text-primary' : 'text-base-content/60'"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" :d="preset.icon" />
+            </svg>
+            <span class="font-semibold text-sm">{{ preset.label }}</span>
           </div>
-        </div>
-
-        <div class="form-control w-full mb-4">
-          <label class="label"><span class="label-text">Space Title</span></label>
-          <input
-            type="text"
-            v-model="newSpace.title"
-            placeholder="e.g. CS 101 Study Group"
-            class="input input-bordered w-full"
-            :class="{
-              'input-error': spaceValidation.touched.title && spaceValidation.errors.title
-            }"
-            @blur="spaceValidation.touchField('title', newSpace.title)"
-          />
-          <label v-if="spaceValidation.touched.title && spaceValidation.errors.title" class="label">
-            <span class="label-text-alt text-error">{{ spaceValidation.errors.title }}</span>
-          </label>
-        </div>
-
-        <div class="form-control w-full mb-4">
-          <label class="label"><span class="label-text">Description</span></label>
-          <textarea
-            v-model="newSpace.description"
-            class="textarea textarea-bordered h-24"
-            placeholder="Space description..."
-          ></textarea>
-        </div>
-
-        <div class="modal-action">
-          <form method="dialog">
-            <button class="btn btn-ghost mr-2">Cancel</button>
-          </form>
-          <button @click="createSpace" class="btn btn-primary" :disabled="newSpace.loading">
-            <span v-if="newSpace.loading" class="loading loading-spinner loading-xs"></span>
-            Create
-          </button>
+          <p class="text-xs opacity-60 leading-relaxed">{{ preset.description }}</p>
         </div>
       </div>
-    </dialog>
+
+      <div class="form-control w-full mb-4">
+        <label class="label"><span class="label-text">Space Title</span></label>
+        <input
+          type="text"
+          v-model="newSpace.title"
+          placeholder="e.g. CS 101 Study Group"
+          class="input input-bordered w-full"
+          :class="{
+            'input-error': spaceValidation.touched.title && spaceValidation.errors.title
+          }"
+          @blur="spaceValidation.touchField('title', newSpace.title)"
+        />
+        <label v-if="spaceValidation.touched.title && spaceValidation.errors.title" class="label">
+          <span class="label-text-alt text-error">{{ spaceValidation.errors.title }}</span>
+        </label>
+      </div>
+
+      <div class="form-control w-full mb-4">
+        <label class="label"><span class="label-text">Description</span></label>
+        <textarea
+          v-model="newSpace.description"
+          class="textarea textarea-bordered h-24"
+          placeholder="Space description..."
+        ></textarea>
+      </div>
+
+      <template #actions>
+        <button class="btn btn-ghost mr-2" @click="showCreateModal = false">Cancel</button>
+        <button @click="createSpace" class="btn btn-primary" :disabled="newSpace.loading">
+          <span v-if="newSpace.loading" class="loading loading-spinner loading-xs"></span>
+          Create
+        </button>
+      </template>
+    </AppModal>
   </div>
 </template>

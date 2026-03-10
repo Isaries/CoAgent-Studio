@@ -6,6 +6,7 @@ import { ref, watch } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import KanbanColumn from './KanbanColumn.vue'
 import type { TaskContent } from '@/types/artifact'
+import AppModal from '@/components/common/AppModal.vue'
 
 const props = defineProps<{
   roomId: string
@@ -119,9 +120,8 @@ async function handleDeleteTask(taskId: string) {
     </div>
 
     <!-- Add Task Modal -->
-    <dialog :class="{ 'modal modal-open': showAddModal, modal: !showAddModal }">
-      <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">新增任務</h3>
+    <AppModal v-model="showAddModal" title="新增任務" size="md">
+      <div class="mt-4">
         <input
           v-model="newTaskTitle"
           type="text"
@@ -129,27 +129,23 @@ async function handleDeleteTask(taskId: string) {
           class="input input-bordered w-full"
           @keyup.enter="handleAddTask"
         />
-        <div class="modal-action">
-          <button class="btn btn-ghost" @click="showAddModal = false">取消</button>
-          <button
-            class="btn btn-primary"
-            :disabled="!newTaskTitle.trim() || addingTask"
-            @click="handleAddTask"
-          >
-            <span v-if="addingTask" class="loading loading-spinner loading-sm"></span>
-            新增
-          </button>
-        </div>
       </div>
-      <form method="dialog" class="modal-backdrop" @click="showAddModal = false">
-        <button>close</button>
-      </form>
-    </dialog>
+      <template #actions>
+        <button class="btn btn-ghost" @click="showAddModal = false">取消</button>
+        <button
+          class="btn btn-primary"
+          :disabled="!newTaskTitle.trim() || addingTask"
+          @click="handleAddTask"
+        >
+          <span v-if="addingTask" class="loading loading-spinner loading-sm"></span>
+          新增
+        </button>
+      </template>
+    </AppModal>
 
     <!-- Edit Task Modal -->
-    <dialog :class="{ 'modal modal-open': showEditModal, modal: !showEditModal }">
-      <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">編輯任務</h3>
+    <AppModal v-model="showEditModal" title="編輯任務" size="md">
+      <div class="mt-4">
         <input
           v-model="editingTitle"
           type="text"
@@ -157,16 +153,13 @@ async function handleDeleteTask(taskId: string) {
           class="input input-bordered w-full"
           @keyup.enter="handleEditTask"
         />
-        <div class="modal-action">
-          <button class="btn btn-ghost" @click="showEditModal = false">取消</button>
-          <button class="btn btn-primary" :disabled="!editingTitle.trim()" @click="handleEditTask">
-            儲存
-          </button>
-        </div>
       </div>
-      <form method="dialog" class="modal-backdrop" @click="showEditModal = false">
-        <button>close</button>
-      </form>
-    </dialog>
+      <template #actions>
+        <button class="btn btn-ghost" @click="showEditModal = false">取消</button>
+        <button class="btn btn-primary" :disabled="!editingTitle.trim()" @click="handleEditTask">
+          儲存
+        </button>
+      </template>
+    </AppModal>
   </div>
 </template>

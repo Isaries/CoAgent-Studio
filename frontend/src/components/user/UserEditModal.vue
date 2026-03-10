@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useUsers } from '../../composables/useUsers'
 import { usePermissions } from '../../composables/usePermissions'
 import type { User, UpdateUserPayload } from '../../types/user'
+import AppModal from '../common/AppModal.vue'
 
 import { useToastStore } from '../../stores/toast'
 
@@ -54,7 +55,6 @@ const submit = async () => {
     close()
     toast.success('User updated successfully')
   } catch (e) {
-    // Error handled in composable
     if (!error.value) toast.error('Failed to update user')
   }
 }
@@ -63,9 +63,8 @@ defineExpose({ open, close })
 </script>
 
 <template>
-  <dialog :class="{ 'modal-open': show }" class="modal">
-    <div v-if="show" class="modal-box">
-      <h3 class="font-bold text-lg">Edit User</h3>
+  <AppModal v-model="show" title="Edit User" size="md">
+    <template v-if="show">
       <div v-if="error" class="alert alert-error my-2 text-sm">{{ error }}</div>
 
       <div class="py-4 flex flex-col gap-3">
@@ -108,13 +107,13 @@ defineExpose({ open, close })
           />
         </div>
       </div>
-      <div class="modal-action">
-        <button class="btn btn-ghost" @click="close" :disabled="loading">Cancel</button>
-        <button class="btn btn-primary" @click="submit" :disabled="loading">
-          <span v-if="loading" class="loading loading-spinner loading-xs"></span>
-          Update
-        </button>
-      </div>
-    </div>
-  </dialog>
+    </template>
+    <template #actions>
+      <button class="btn btn-ghost" @click="close" :disabled="loading">Cancel</button>
+      <button class="btn btn-primary" @click="submit" :disabled="loading">
+        <span v-if="loading" class="loading loading-spinner loading-xs"></span>
+        Update
+      </button>
+    </template>
+  </AppModal>
 </template>

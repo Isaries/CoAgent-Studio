@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import AppModal from './AppModal.vue'
 
 const { t } = useI18n()
 
@@ -31,9 +32,13 @@ const shortcuts = [
 </script>
 
 <template>
-  <dialog class="modal" :class="{ 'modal-open': modelValue }">
-    <div class="modal-box max-w-md">
-      <h3 class="font-bold text-lg mb-4">{{ t('shortcuts.title') }}</h3>
+  <AppModal
+    :model-value="modelValue"
+    :title="t('shortcuts.title')"
+    size="sm"
+    @update:model-value="emit('update:modelValue', $event)"
+  >
+    <div class="mt-4">
       <div v-for="group in shortcuts" :key="group.scope" class="mb-4">
         <h4 class="text-sm font-semibold text-base-content/60 uppercase tracking-wider mb-2">
           {{ t(`shortcuts.${group.scope}`) }}
@@ -53,14 +58,11 @@ const shortcuts = [
           </div>
         </div>
       </div>
-      <div class="modal-action">
-        <button class="btn btn-ghost btn-sm" @click="emit('update:modelValue', false)">
-          {{ t('common.close') }}
-        </button>
-      </div>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button @click="emit('update:modelValue', false)">close</button>
-    </form>
-  </dialog>
+    <template #actions>
+      <button class="btn btn-ghost btn-sm" @click="emit('update:modelValue', false)">
+        {{ t('common.close') }}
+      </button>
+    </template>
+  </AppModal>
 </template>

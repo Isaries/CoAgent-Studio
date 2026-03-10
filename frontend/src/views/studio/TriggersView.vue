@@ -7,6 +7,7 @@ import { workflowService } from '../../services/workflowService'
 import type { TriggerPolicy, Workflow } from '../../services/workflowService'
 import { useToastStore } from '../../stores/toast'
 import { useConfirm } from '../../composables/useConfirm'
+import AppModal from '../../components/common/AppModal.vue'
 
 const toast = useToastStore()
 const { confirm: confirmDialog } = useConfirm()
@@ -178,69 +179,65 @@ onMounted(fetchData)
     </div>
 
     <!-- Create Modal -->
-    <dialog :class="{ 'modal-open': showCreateModal }" class="modal">
-      <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">Create Trigger Policy</h3>
-
-        <div class="form-control mb-3">
-          <label class="label"><span class="label-text">Name</span></label>
-          <input
-            v-model="newTrigger.name"
-            class="input input-bordered"
-            placeholder="e.g. Silence Alert"
-          />
-        </div>
-
-        <div class="form-control mb-3">
-          <label class="label"><span class="label-text">Event Type</span></label>
-          <select v-model="newTrigger.event_type" class="select select-bordered">
-            <option value="user_message">User Message</option>
-            <option value="silence">Silence Timeout</option>
-            <option value="timer">Timer / Cron</option>
-            <option value="webhook">Webhook</option>
-            <option value="manual">Manual</option>
-          </select>
-        </div>
-
-        <div class="form-control mb-3">
-          <label class="label"><span class="label-text">Conditions (JSON)</span></label>
-          <textarea
-            v-model="newTrigger.conditions"
-            class="textarea textarea-bordered h-20"
-            placeholder='{"threshold_mins": 5}'
-          />
-        </div>
-
-        <div class="form-control mb-3">
-          <label class="label"><span class="label-text">Target Workflow</span></label>
-          <select v-model="newTrigger.target_workflow_id" class="select select-bordered">
-            <option value="" disabled>Select a workflow…</option>
-            <option v-for="wf in workflows" :key="wf.id" :value="wf.id">{{ wf.name }}</option>
-          </select>
-        </div>
-
-        <div class="form-control mb-3">
-          <label class="label"
-            ><span class="label-text">Scope (Session/Room ID, optional)</span></label
-          >
-          <input
-            v-model="newTrigger.scope_session_id"
-            class="input input-bordered"
-            placeholder="Leave empty for global"
-          />
-        </div>
-
-        <div class="modal-action">
-          <button class="btn btn-ghost" @click="showCreateModal = false">Cancel</button>
-          <button
-            class="btn btn-primary"
-            @click="createTrigger"
-            :disabled="!newTrigger.target_workflow_id"
-          >
-            Create
-          </button>
-        </div>
+    <AppModal v-model="showCreateModal" title="Create Trigger Policy" size="md">
+      <div class="form-control mb-3 mt-4">
+        <label class="label"><span class="label-text">Name</span></label>
+        <input
+          v-model="newTrigger.name"
+          class="input input-bordered"
+          placeholder="e.g. Silence Alert"
+        />
       </div>
-    </dialog>
+
+      <div class="form-control mb-3">
+        <label class="label"><span class="label-text">Event Type</span></label>
+        <select v-model="newTrigger.event_type" class="select select-bordered">
+          <option value="user_message">User Message</option>
+          <option value="silence">Silence Timeout</option>
+          <option value="timer">Timer / Cron</option>
+          <option value="webhook">Webhook</option>
+          <option value="manual">Manual</option>
+        </select>
+      </div>
+
+      <div class="form-control mb-3">
+        <label class="label"><span class="label-text">Conditions (JSON)</span></label>
+        <textarea
+          v-model="newTrigger.conditions"
+          class="textarea textarea-bordered h-20"
+          placeholder='{"threshold_mins": 5}'
+        />
+      </div>
+
+      <div class="form-control mb-3">
+        <label class="label"><span class="label-text">Target Workflow</span></label>
+        <select v-model="newTrigger.target_workflow_id" class="select select-bordered">
+          <option value="" disabled>Select a workflow…</option>
+          <option v-for="wf in workflows" :key="wf.id" :value="wf.id">{{ wf.name }}</option>
+        </select>
+      </div>
+
+      <div class="form-control mb-3">
+        <label class="label"
+          ><span class="label-text">Scope (Session/Room ID, optional)</span></label
+        >
+        <input
+          v-model="newTrigger.scope_session_id"
+          class="input input-bordered"
+          placeholder="Leave empty for global"
+        />
+      </div>
+
+      <template #actions>
+        <button class="btn btn-ghost" @click="showCreateModal = false">Cancel</button>
+        <button
+          class="btn btn-primary"
+          @click="createTrigger"
+          :disabled="!newTrigger.target_workflow_id"
+        >
+          Create
+        </button>
+      </template>
+    </AppModal>
   </div>
 </template>

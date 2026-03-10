@@ -5,6 +5,8 @@ import { workspaceService } from '../services/workspaceService'
 import { agentService } from '../services/agentService'
 import type { Organization, Project } from '../types/workspace'
 import type { AgentConfig } from '../types/agent'
+import AppModal from '../components/common/AppModal.vue'
+import AppCard from '../components/common/AppCard.vue'
 
 const router = useRouter()
 
@@ -309,10 +311,11 @@ onMounted(() => {
       </div>
 
       <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        <div
+        <AppCard
           v-for="agent in agents"
           :key="agent.id"
-          class="card bg-base-100 shadow-sm border border-base-300 cursor-pointer hover:border-primary hover:shadow-md transition-all group"
+          variant="bordered"
+          class="cursor-pointer group"
           @click="goToAgentDesign(agent.id)"
         >
           <div class="card-body p-6">
@@ -373,67 +376,61 @@ onMounted(() => {
               </div>
             </div>
           </div>
-        </div>
+        </AppCard>
       </div>
     </div>
 
     <!-- Modals -->
-    <dialog class="modal" :class="{ 'modal-open': showCreateOrgModal }">
-      <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">Create Organization</h3>
-        <div class="form-control mb-4">
-          <label class="label"><span class="label-text">Name</span></label>
-          <input
-            type="text"
-            v-model="newOrgName"
-            class="input input-bordered"
-            placeholder="Acme Corp"
-          />
-        </div>
-        <div class="form-control mb-6">
-          <label class="label"><span class="label-text">Description (Optional)</span></label>
-          <input type="text" v-model="newOrgDescription" class="input input-bordered" />
-        </div>
-        <div class="modal-action">
-          <button class="btn btn-ghost" @click="showCreateOrgModal = false">Cancel</button>
-          <button
-            class="btn btn-primary"
-            @click="createOrganization"
-            :disabled="!newOrgName || isLoading"
-          >
-            Create
-          </button>
-        </div>
+    <AppModal v-model="showCreateOrgModal" title="Create Organization" size="md">
+      <div class="form-control mb-4 mt-4">
+        <label class="label"><span class="label-text">Name</span></label>
+        <input
+          type="text"
+          v-model="newOrgName"
+          class="input input-bordered"
+          placeholder="Acme Corp"
+        />
       </div>
-    </dialog>
+      <div class="form-control mb-6">
+        <label class="label"><span class="label-text">Description (Optional)</span></label>
+        <input type="text" v-model="newOrgDescription" class="input input-bordered" />
+      </div>
+      <template #actions>
+        <button class="btn btn-ghost" @click="showCreateOrgModal = false">Cancel</button>
+        <button
+          class="btn btn-primary"
+          @click="createOrganization"
+          :disabled="!newOrgName || isLoading"
+        >
+          Create
+        </button>
+      </template>
+    </AppModal>
 
-    <dialog class="modal" :class="{ 'modal-open': showCreateProjectModal }">
-      <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">Create Project</h3>
-        <div class="form-control mb-4">
-          <label class="label"><span class="label-text">Name</span></label>
-          <input
-            type="text"
-            v-model="newProjectName"
-            class="input input-bordered"
-            placeholder="Project Phoenix"
-          />
-        </div>
-        <div class="form-control mb-6">
-          <label class="label"><span class="label-text">Description (Optional)</span></label>
-          <input type="text" v-model="newProjectDescription" class="input input-bordered" />
-        </div>
-        <div class="modal-action">
-          <button class="btn btn-ghost" @click="showCreateProjectModal = false">Cancel</button>
-          <button
-            class="btn btn-primary"
-            @click="createProject"
-            :disabled="!newProjectName || isLoading"
-          >
-            Create
-          </button>
-        </div>
+    <AppModal v-model="showCreateProjectModal" title="Create Project" size="md">
+      <div class="form-control mb-4 mt-4">
+        <label class="label"><span class="label-text">Name</span></label>
+        <input
+          type="text"
+          v-model="newProjectName"
+          class="input input-bordered"
+          placeholder="Project Phoenix"
+        />
       </div>
-    </dialog>
+      <div class="form-control mb-6">
+        <label class="label"><span class="label-text">Description (Optional)</span></label>
+        <input type="text" v-model="newProjectDescription" class="input input-bordered" />
+      </div>
+      <template #actions>
+        <button class="btn btn-ghost" @click="showCreateProjectModal = false">Cancel</button>
+        <button
+          class="btn btn-primary"
+          @click="createProject"
+          :disabled="!newProjectName || isLoading"
+        >
+          Create
+        </button>
+      </template>
+    </AppModal>
   </div>
 </template>

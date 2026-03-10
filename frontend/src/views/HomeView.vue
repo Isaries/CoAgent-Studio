@@ -7,6 +7,7 @@ import { dashboardService, type DashboardStats } from '../services/dashboardServ
 import SkeletonCard from '../components/common/SkeletonCard.vue'
 import type { Space } from '../types/space'
 import { useI18n } from 'vue-i18n'
+import AppCard from '../components/common/AppCard.vue'
 
 const { t } = useI18n()
 const router = useRouter()

@@ -5,6 +5,8 @@ import { useToastStore } from '../stores/toast'
 import { useConfirm } from '../composables/useConfirm'
 import type { AgentConfig, AgentConfigCreate } from '../types/agent'
 import api from '../api'
+import AppModal from '../components/common/AppModal.vue'
+import AppCard from '../components/common/AppCard.vue'
 
 const toast = useToastStore()
 const { confirm: confirmDialog } = useConfirm()
@@ -185,7 +187,7 @@ onMounted(() => {
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="agents.length === 0" class="card bg-base-100 shadow-xl">
+    <div v-else-if="agents.length === 0" class="card bg-base-100 shadow-sm">
       <div class="card-body items-center text-center py-12">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -211,10 +213,10 @@ onMounted(() => {
 
     <!-- Agent Cards -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div
+      <AppCard
         v-for="agent in agents"
         :key="agent.id"
-        class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow"
+        variant="hover"
       >
         <div class="card-body">
           <div class="flex justify-between items-start">
@@ -241,155 +243,98 @@ onMounted(() => {
             </button>
           </div>
         </div>
-      </div>
+      </AppCard>
     </div>
 
     <!-- Create Modal -->
-    <dialog :class="{ 'modal-open': showCreateModal }" class="modal">
-      <div class="modal-box max-w-2xl">
-        <h3 class="font-bold text-lg mb-4">Create New Agent</h3>
+    <AppModal v-model="showCreateModal" title="Create New Agent" size="lg">
+      <div class="form-control w-full mb-4 mt-4">
+        <label class="label"><span class="label-text">Agent Type</span></label>
+        <select v-model="formData.type" class="select select-bordered w-full">
+          <option :value="AgentType.TEACHER">Teacher</option>
+          <option :value="AgentType.STUDENT">Student</option>
+        </select>
+      </div>
 
-        <div class="form-control w-full mb-4">
-          <label class="label"><span class="label-text">Agent Type</span></label>
-          <select v-model="formData.type" class="select select-bordered w-full">
-            <option :value="AgentType.TEACHER">Teacher</option>
-            <option :value="AgentType.STUDENT">Student</option>
+      <div class="form-control w-full mb-4">
+        <label class="label"><span class="label-text">Name</span></label>
+        <input type="text" v-model="formData.name" placeholder="My Teacher Agent" class="input input-bordered w-full" />
+      </div>
+
+      <div class="form-control w-full mb-4">
+        <label class="label"><span class="label-text">System Prompt</span></label>
+        <textarea v-model="formData.system_prompt" class="textarea textarea-bordered h-32" placeholder="You are a helpful teaching assistant..."></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="form-control w-full">
+          <label class="label"><span class="label-text">Provider</span></label>
+          <select v-model="formData.model_provider" class="select select-bordered w-full">
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
           </select>
         </div>
-
-        <div class="form-control w-full mb-4">
-          <label class="label"><span class="label-text">Name</span></label>
-          <input
-            type="text"
-            v-model="formData.name"
-            placeholder="My Teacher Agent"
-            class="input input-bordered w-full"
-          />
-        </div>
-
-        <div class="form-control w-full mb-4">
-          <label class="label"><span class="label-text">System Prompt</span></label>
-          <textarea
-            v-model="formData.system_prompt"
-            class="textarea textarea-bordered h-32"
-            placeholder="You are a helpful teaching assistant..."
-          ></textarea>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 mb-4">
-          <div class="form-control w-full">
-            <label class="label"><span class="label-text">Provider</span></label>
-            <select v-model="formData.model_provider" class="select select-bordered w-full">
-              <option value="gemini">Gemini</option>
-              <option value="openai">OpenAI</option>
-            </select>
-          </div>
-          <div class="form-control w-full">
-            <label class="label"><span class="label-text">Model</span></label>
-            <input type="text" v-model="formData.model" class="input input-bordered w-full" />
-          </div>
-        </div>
-
-        <div class="form-control w-full mb-4">
-          <label class="label"><span class="label-text">API Key (Optional)</span></label>
-          <input
-            type="password"
-            v-model="formData.api_key"
-            placeholder="sk-..."
-            class="input input-bordered w-full"
-          />
-          <label class="label"
-            ><span class="label-text-alt">Enter your API key for this agent</span></label
-          >
-        </div>
-
-        <div class="modal-action">
-          <button
-            class="btn btn-ghost"
-            @click="
-              showCreateModal = false
-              resetForm()
-            "
-          >
-            Cancel
-          </button>
-          <button class="btn btn-primary" @click="createAgent">Create</button>
+        <div class="form-control w-full">
+          <label class="label"><span class="label-text">Model</span></label>
+          <input type="text" v-model="formData.model" class="input input-bordered w-full" />
         </div>
       </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="showCreateModal = false">close</button>
-      </form>
-    </dialog>
+
+      <div class="form-control w-full mb-4">
+        <label class="label"><span class="label-text">API Key (Optional)</span></label>
+        <input type="password" v-model="formData.api_key" placeholder="sk-..." class="input input-bordered w-full" />
+        <label class="label"><span class="label-text-alt">Enter your API key for this agent</span></label>
+      </div>
+
+      <template #actions>
+        <button class="btn btn-ghost" @click="showCreateModal = false; resetForm()">Cancel</button>
+        <button class="btn btn-primary" @click="createAgent">Create</button>
+      </template>
+    </AppModal>
 
     <!-- Edit Modal -->
-    <dialog :class="{ 'modal-open': showEditModal }" class="modal">
-      <div class="modal-box max-w-2xl">
-        <h3 class="font-bold text-lg mb-4">Edit Agent</h3>
+    <AppModal v-model="showEditModal" title="Edit Agent" size="lg">
+      <div class="form-control w-full mb-4 mt-4">
+        <label class="label"><span class="label-text">Agent Type</span></label>
+        <select v-model="formData.type" class="select select-bordered w-full" disabled>
+          <option :value="AgentType.TEACHER">Teacher</option>
+          <option :value="AgentType.STUDENT">Student</option>
+        </select>
+      </div>
 
-        <div class="form-control w-full mb-4">
-          <label class="label"><span class="label-text">Agent Type</span></label>
-          <select v-model="formData.type" class="select select-bordered w-full" disabled>
-            <option :value="AgentType.TEACHER">Teacher</option>
-            <option :value="AgentType.STUDENT">Student</option>
+      <div class="form-control w-full mb-4">
+        <label class="label"><span class="label-text">Name</span></label>
+        <input type="text" v-model="formData.name" class="input input-bordered w-full" />
+      </div>
+
+      <div class="form-control w-full mb-4">
+        <label class="label"><span class="label-text">System Prompt</span></label>
+        <textarea v-model="formData.system_prompt" class="textarea textarea-bordered h-32"></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="form-control w-full">
+          <label class="label"><span class="label-text">Provider</span></label>
+          <select v-model="formData.model_provider" class="select select-bordered w-full">
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
           </select>
         </div>
-
-        <div class="form-control w-full mb-4">
-          <label class="label"><span class="label-text">Name</span></label>
-          <input type="text" v-model="formData.name" class="input input-bordered w-full" />
-        </div>
-
-        <div class="form-control w-full mb-4">
-          <label class="label"><span class="label-text">System Prompt</span></label>
-          <textarea
-            v-model="formData.system_prompt"
-            class="textarea textarea-bordered h-32"
-          ></textarea>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 mb-4">
-          <div class="form-control w-full">
-            <label class="label"><span class="label-text">Provider</span></label>
-            <select v-model="formData.model_provider" class="select select-bordered w-full">
-              <option value="gemini">Gemini</option>
-              <option value="openai">OpenAI</option>
-            </select>
-          </div>
-          <div class="form-control w-full">
-            <label class="label"><span class="label-text">Model</span></label>
-            <input type="text" v-model="formData.model" class="input input-bordered w-full" />
-          </div>
-        </div>
-
-        <div class="form-control w-full mb-4">
-          <label class="label"
-            ><span class="label-text">API Key (Leave empty to keep existing)</span></label
-          >
-          <input
-            type="password"
-            v-model="formData.api_key"
-            placeholder="Enter new key to update..."
-            class="input input-bordered w-full"
-          />
-        </div>
-
-        <div class="modal-action">
-          <button
-            class="btn btn-ghost"
-            @click="
-              showEditModal = false
-              selectedAgent = null
-              resetForm()
-            "
-          >
-            Cancel
-          </button>
-          <button class="btn btn-primary" @click="updateAgent">Save Changes</button>
+        <div class="form-control w-full">
+          <label class="label"><span class="label-text">Model</span></label>
+          <input type="text" v-model="formData.model" class="input input-bordered w-full" />
         </div>
       </div>
-      <form method="dialog" class="modal-backdrop">
-        <button @click="showEditModal = false">close</button>
-      </form>
-    </dialog>
+
+      <div class="form-control w-full mb-4">
+        <label class="label"><span class="label-text">API Key (Leave empty to keep existing)</span></label>
+        <input type="password" v-model="formData.api_key" placeholder="Enter new key to update..." class="input input-bordered w-full" />
+      </div>
+
+      <template #actions>
+        <button class="btn btn-ghost" @click="showEditModal = false; selectedAgent = null; resetForm()">Cancel</button>
+        <button class="btn btn-primary" @click="updateAgent">Save Changes</button>
+      </template>
+    </AppModal>
   </div>
 </template>
